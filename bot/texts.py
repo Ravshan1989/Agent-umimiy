@@ -1,0 +1,17 @@
+START = (
+    "Salom! Men media yordamchi botman.\n\n"
+    "🎬 Rasm yuboring — qaysi kino ekanini topaman\n"
+    "🎵 Qo'shiq nomi yoki matnidan parcha yozing — qo'shiqni topaman\n"
+    "📥 Instagram, TikTok, YouTube va boshqa havolani yuboring — videoni yuklab beraman"
+)
+DOWNLOADING = "⏳ Video yuklanmoqda, biroz kuting..."
+DOWNLOAD_FAILED = "😔 Videoni yuklab bo'lmadi. Havola ochiq (yopiq emas) ekanini tekshiring."
+TOO_BIG = "😔 Video juda katta (50 MB dan oshadi), Telegram orqali yuborib bo'lmaydi."
+SONG_SEARCHING = "🔎 Qo'shiq qidirilmoqda..."
+SONG_NOT_FOUND = "😔 Hech narsa topilmadi. Qo'shiq nomi yoki matnidan boshqa parcha yozib ko'ring."
+SONG_PICK = "Topilganlar. Kerakli qo'shiqni tanlang:"
+SONG_DOWNLOADING = "⏳ Qo'shiq yuklanmoqda..."
+SONG_FAILED = "😔 Qo'shiqni yuklab bo'lmadi, boshqasini tanlab ko'ring."
+MOVIE_SEARCHING = "🔎 Rasm tahlil qilinmoqda..."
+MOVIE_NOT_FOUND = "😔 Bu rasm bo'yicha kino yoki serialni aniqlay olmadim. Aniqroq kadr (yozuv, sarlavha, afisha) yuborib ko'ring."
+MOVIE_FAILED = "😔 Rasmni tekshirishda xatolik bo'ldi, keyinroq qayta urinib ko'ring."
