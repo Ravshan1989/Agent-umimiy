@@ -42,6 +42,43 @@ def freellmapi(base: str = "http://localhost:3001") -> list[dict]:
              "description": "FreeLLMAPI (lokal shlyuz) — API kalitni Sozlamalarda kiriting"}]
 
 
+INSTALL_HINT = {
+    "claude": "PowerShell'da: npm install -g @anthropic-ai/claude-code --force  (yoki rasmiy o'rnatuvchi: irm https://claude.ai/install.ps1 | iex), "
+              "so'ng `claude --version` bilan tekshiring.",
+}
+
+
+def cli_health(exe: str) -> tuple[bool, str]:
+    """Dasturni ishga tushirmasdan tekshiradi: npm o'rnatishi tugallanmagan bo'lsa, `claude.exe` o'rnida matnli
+    o'rindosh fayl qoladi va Windows «16-bitli dastur» xatosini beradi (va oynada qotib qoladi)."""
+    import os
+    import re
+    try:
+        low = exe.lower()
+        if low.endswith(".exe"):
+            targets = [exe]
+        elif low.endswith((".cmd", ".bat")):
+            text = open(exe, encoding="utf-8", errors="replace").read(20000)
+            base = os.path.dirname(os.path.abspath(exe))
+            targets = []
+            for m in re.finditer(r'"(?:%~?dp0%?)[\\/]*([^"%]+?\.exe)"', text, re.I):
+                targets.append(os.path.normpath(os.path.join(base, m.group(1).replace("\\", os.sep))))
+        else:
+            return True, ""
+        for t in targets:
+            if not os.path.isfile(t):
+                continue
+            with open(t, "rb") as fh:
+                head = fh.read(2)
+            if head != b"MZ":
+                name = os.path.basename(exe).rsplit(".", 1)[0]
+                hint = INSTALL_HINT.get(name.lower(), "Dasturni qayta o'rnating.")
+                return False, (f"«{name}» o'rnatilishi buzilgan: {t} haqiqiy dastur emas (o'rnatish tugallanmagan). {hint}")
+    except OSError:
+        pass
+    return True, ""
+
+
 def local_servers() -> list[dict]:
     """Ollama va LM Studio ishlayotgan bo'lsa, ulardagi modellarni agent sifatida qaytaradi."""
     found = []
@@ -62,8 +99,12 @@ def local_servers() -> list[dict]:
 
 
 def cli_agents() -> list[dict]:
-    return [{"name": key, "type": "cli", "command": cmd, "description": title}
-            for key, (title, cmd) in CLI_TOOLS.items() if shutil.which(key)]
+    out = []
+    for key, (title, cmd) in CLI_TOOLS.items():
+        exe = shutil.which(key)
+        if exe and cli_health(exe)[0]:  # buzilgan o'rnatish agent sifatida taklif qilinmaydi
+            out.append({"name": key, "type": "cli", "command": cmd, "description": title})
+    return out
 
 
 def discover() -> list[dict]:

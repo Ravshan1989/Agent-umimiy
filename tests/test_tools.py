@@ -204,3 +204,47 @@ class GitTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CliHealthTests(unittest.TestCase):
+    """npm claude.cmd -> bin\\claude.exe: o'rnatish buzilgan bo'lsa, Windows 16-bit xatosi o'rniga tushunarli xabar."""
+
+    def _npm(self, exe_bytes):
+        d = Path(tempfile.mkdtemp())
+        bindir = d / "node_modules" / "@anthropic-ai" / "claude-code" / "bin"
+        bindir.mkdir(parents=True)
+        (bindir / "claude.exe").write_bytes(exe_bytes)
+        (d / "claude.cmd").write_text(
+            '@ECHO off\r\nSETLOCAL\r\nSET dp0=%~dp0\r\n"%dp0%\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe"   %*\r\n')
+        return d
+
+    def test_stub_exe_is_detected(self):
+        from agent_umimiy.detect import cli_health
+        d = self._npm(b"#!/usr/bin/env node\nconsole.log('stub')\n")
+        ok, msg = cli_health(str(d / "claude.cmd"))
+        self.assertFalse(ok)
+        self.assertIn("buzilgan", msg)
+        self.assertIn("npm install -g @anthropic-ai/claude-code", msg)
+        self.assertIn("claude.exe", msg)
+
+    def test_real_exe_and_unknown_cases_pass(self):
+        from agent_umimiy.detect import cli_health
+        d = self._npm(b"MZ" + b"\x00" * 100)
+        self.assertEqual(cli_health(str(d / "claude.cmd")), (True, ""))
+        self.assertEqual(cli_health(str(d / "node_modules" / "@anthropic-ai" / "claude-code" / "bin" / "claude.exe")), (True, ""))
+        self.assertEqual(cli_health("/bin/ls"), (True, ""))                 # PE bo'lmagan oddiy dastur
+        self.assertEqual(cli_health(str(d / "yoq.cmd")), (True, ""))        # o'qib bo'lmasa — to'sqinlik qilmaymiz
+
+    def test_agent_reports_instead_of_running(self):
+        import os
+        d = self._npm(b"stub matn")
+        (d / "claude.cmd").rename(d / "fakeagent.cmd")  # mashinada haqiqiy `claude` bo'lishi mumkin
+        (d / "fakeagent.cmd").chmod(0o755)  # Linux'da which() faqat bajariladigan fayllarni topadi
+        old = os.environ["PATH"]
+        os.environ["PATH"] = f"{d}{os.pathsep}{old}"
+        try:
+            r = build_agent({"name": "claude", "type": "cli", "command": "fakeagent.cmd -p {prompt}"}).ask("salom")
+        finally:
+            os.environ["PATH"] = old
+        self.assertFalse(r.ok)
+        self.assertIn("o'rnatilishi buzilgan", r.error)

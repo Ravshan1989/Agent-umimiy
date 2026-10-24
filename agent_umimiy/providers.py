@@ -7,6 +7,7 @@ import subprocess
 import sys
 
 from . import agentic, proc
+from .detect import cli_health
 from . import attachments as att
 from .base import Agent, AgentError, http_json
 
@@ -124,6 +125,9 @@ class CLIAgent(Agent):
         if not exe:
             raise AgentError(f"«{parts[0]}» dasturi topilmadi: u o'rnatilmagan yoki PATH da yo'q. "
                              "Sozlamalardan bu agentni o'chiring yoki buyruqqa dasturning to'liq yo'lini yozing.")
+        healthy, why = cli_health(exe)
+        if not healthy:
+            raise AgentError(why)
         ctx = getattr(self, "ctx", None)
         if self._files:
             prompt += "\n\nBiriktirilgan fayllar (to'liq yo'li):\n" + "\n".join(a.path for a in self._files)
