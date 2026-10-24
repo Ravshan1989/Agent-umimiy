@@ -1,0 +1,16 @@
+{
+  "judge": "claude",
+  "routes": {
+    "codex": ["kod", "code", "bug", "funksiya", "script"],
+    "gemini": ["rasm", "tarjima", "translate", "qidir"],
+    "ollama": ["maxfiy", "offline", "private"]
+  },
+  "agents": [
+    {"name": "claude", "type": "anthropic", "model": "claude-sonnet-5-5"},
+    {"name": "gpt", "type": "openai", "model": "gpt-4o"},
+    {"name": "gemini", "type": "gemini", "model": "gemini-2.0-flash"},
+    {"name": "ollama", "type": "ollama", "model": "llama3"},
+    {"name": "codex", "type": "cli", "command": "codex exec {prompt}"},
+    {"name": "claude-code", "type": "cli", "command": "claude -p {prompt}"}
+  ]
+}

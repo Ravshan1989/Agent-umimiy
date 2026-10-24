@@ -1,0 +1,9 @@
+[project]
+name = "agent-umimiy"
+version = "0.1.0"
+description = "Barcha AI agentlarni birlashtiruvchi desktop ilova"
+requires-python = ">=3.9"
+dependencies = ["pypdf", "qrcode"]
+
+[project.scripts]
+agent-umimiy = "agent_umimiy.__main__:main"
