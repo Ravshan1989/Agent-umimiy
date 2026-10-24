@@ -13,9 +13,33 @@ CLI_TOOLS = {
 }
 
 
-def _get(url: str, timeout: float = 1.5):
-    with urllib.request.urlopen(url, timeout=timeout) as r:
+def _get(url: str, timeout: float = 1.5, key: str = ""):
+    req = urllib.request.Request(url, headers={"Authorization": "Bearer " + key} if key else {})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read())
+
+
+def list_models(base_url: str, key: str = "", timeout: float = 8) -> list[str]:
+    """OpenAI-mos shlyuzdan (FreeLLMAPI, LM Studio, OpenRouter...) model nomlari ro'yxatini oladi."""
+    data = _get(base_url.rstrip("/") + "/models", timeout, key)
+    return [m["id"] for m in data.get("data", []) if "id" in m]
+
+
+def freellmapi(base: str = "http://localhost:3001") -> list[dict]:
+    """FreeLLMAPI lokal shlyuzi ishlayotgan bo'lsa, agent sifatida taklif qiladi (kalitni foydalanuvchi kiritadi)."""
+    import urllib.error
+    url = base.rstrip("/") + "/v1"
+    model = "auto"
+    try:
+        ids = list_models(url, timeout=1.5)
+        model = ids[0] if ids else model
+    except urllib.error.HTTPError as exc:
+        if exc.code not in (401, 403):  # kalit so'raydi — demak shlyuz bor
+            return []
+    except Exception:
+        return []
+    return [{"name": "freellmapi", "type": "openai", "base_url": url, "model": model,
+             "description": "FreeLLMAPI (lokal shlyuz) — API kalitni Sozlamalarda kiriting"}]
 
 
 def local_servers() -> list[dict]:
@@ -43,4 +67,4 @@ def cli_agents() -> list[dict]:
 
 
 def discover() -> list[dict]:
-    return local_servers() + cli_agents()
+    return local_servers() + freellmapi() + cli_agents()

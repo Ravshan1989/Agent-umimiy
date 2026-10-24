@@ -50,7 +50,7 @@ class Agent(ABC):
                     text = self._ask_tools(prompt, history, Toolbox(ctx, self.name))
                 except AgentError as exc:
                     # model asboblarni qo'llamasa (masalan, kichik lokal model) — oddiy chatga qaytamiz
-                    if "HTTP 400" not in str(exc) or "tool" not in str(exc).lower():
+                    if not str(exc).startswith(("HTTP 400", "HTTP 404", "HTTP 422")):
                         raise
                     text = self._ask(prompt, history)
             else:

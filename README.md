@@ -48,6 +48,15 @@ Suhbatlar dastur yopilganda saqlanmaydi.
 | Ketma-ket | har bir agent oldingisining javobini yaxshilaydi |
 | Kengash | hammasi javob beradi, hakam agent yagona xulosa chiqaradi |
 
+## FreeLLMAPI (lokal shlyuz) ulash
+
+Kompyuteringizda FreeLLMAPI (`localhost:3001`) ishlab tursa:
+1. **Sozlamalar → ＋ Qo'shish → Turi: «FreeLLMAPI — lokal shlyuz»** (manzil o'zi to'ldiriladi). Yoki «Avto-topish» uni o'zi topadi.
+2. FreeLLMAPI sahifasidagi (**Agentlar** bo'limi) **API KEY** ni «API kalit» maydoniga qo'ying.
+3. **Ro'yxat** tugmasi shlyuzdagi modellarni oladi — birini tanlang, **Sinab ko'rish** → **Saqlash**.
+
+Kalit faqat sizning kompyuteringizdagi sozlama faylida saqlanadi. Model fayl asboblarini (tools) qo'llamasa, dastur oddiy chatga o'tadi.
+
 ## Lokal agentlar
 
 - **Ollama** (`localhost:11434`) va **LM Studio** (`localhost:1234`) ishlab turgan bo'lsa, «Avto-topish» ularning modellarini qo'shadi.

@@ -22,7 +22,9 @@ MODES = {
     "pipeline": ("⇢", "Ketma-ket", "Har bir agent oldingisining javobini yaxshilaydi"),
     "consensus": ("⚖", "Kengash", "Hammasi javob beradi, hakam yagona xulosa chiqaradi"),
 }
+FREELLM_URL = "http://localhost:3001/v1"
 TYPE_LABELS = {
+    "freellm": "FreeLLMAPI — lokal shlyuz (localhost:3001)",
     "anthropic": "Claude (API kalit kerak)",
     "openai": "ChatGPT / OpenAI-mos (API kalit)",
     "gemini": "Google Gemini (API kalit)",
@@ -33,6 +35,7 @@ SHORT_TYPE = {"anthropic": "Claude", "openai": "OpenAI-mos", "gemini": "Gemini",
               "cli": "Dastur (CLI)", "echo": "Demo"}
 DEFAULT_MODEL = {"anthropic": "claude-sonnet-5-5", "openai": "gpt-4o", "gemini": "gemini-2.0-flash", "ollama": "llama3"}
 LABEL_TO_TYPE = {v: k for k, v in TYPE_LABELS.items()}
+REAL_TYPE = {"freellm": "openai"}  # shablon -> haqiqiy agent turi
 PROJECT_SUGGESTIONS = ["Bu loyiha nima haqida? Qisqa tushuntirib ber", "Kodda xatolarni top va tuzat",
                        "README.md faylini yoz yoki yangila", "Testlarni ishga tushir, xato bo'lsa tuzat"]
 KIND_ICON = {"read": "◧", "write": "✎", "run": "▶", "info": "•"}
@@ -91,7 +94,12 @@ class AgentDialog(tk.Toplevel):
             if k == "type":
                 v.set(TYPE_LABELS.get(spec.get("type", "anthropic"), TYPE_LABELS["anthropic"]))
                 w = ttk.Combobox(f, textvariable=v, values=list(TYPE_LABELS.values()), state="readonly", width=38)
-                w.bind("<<ComboboxSelected>>", lambda e: self._hint())
+                w.bind("<<ComboboxSelected>>", lambda e: self._type_changed())
+            elif k == "model":
+                w = ttk.Combobox(f, textvariable=v, values=[], width=38)
+                self.model_box = w
+                Pill(f, "Ro'yxat", self._load_models, width=70, height=30, size=9, outline=P["line"],
+                     bg=P["bg"]).grid(row=i, column=2, padx=(8, 0))
             else:
                 w = ttk.Entry(f, textvariable=v, width=40, show="•" if k == "api_key" else "")
             w.grid(row=i, column=1, pady=5, padx=(12, 0))
@@ -109,8 +117,35 @@ class AgentDialog(tk.Toplevel):
     def _type(self):
         return LABEL_TO_TYPE.get(self.vars["type"].get(), "anthropic")
 
+    def _type_changed(self):
+        if self._type() == "freellm":
+            self.vars["base_url"].set(FREELLM_URL)
+            if not self.vars["name"].get():
+                self.vars["name"].set("freellmapi")
+        self._hint()
+
+    def _load_models(self):
+        t = REAL_TYPE.get(self._type(), self._type())
+        url = self.vars["base_url"].get().strip() or ("https://api.openai.com/v1" if t == "openai" else "")
+        if t != "openai" or not url:
+            return messagebox.showinfo("Modellar ro'yxati", "Ro'yxat OpenAI-mos shlyuzlar (FreeLLMAPI, LM Studio, "
+                                       "OpenRouter...) uchun ishlaydi. Boshqalarda model nomini o'zingiz yozing.", parent=self)
+        self.config(cursor="watch")
+        self.update()
+        try:
+            ids = detect.list_models(url, self.vars["api_key"].get().strip())
+        except Exception as exc:
+            self.config(cursor="")
+            return messagebox.showerror("Ro'yxat olinmadi", f"{exc}\n\nShlyuz ishlayotganini va API kalit to'g'riligini tekshiring.", parent=self)
+        self.config(cursor="")
+        self.model_box["values"] = ids
+        if ids and not self.vars["model"].get():
+            self.vars["model"].set(ids[0])
+        messagebox.showinfo("Modellar ro'yxati", f"{len(ids)} ta model topildi. Ro'yxatdan tanlang.", parent=self)
+
     def _hint(self):
         self.hint.config(text={
+            "freellm": "Brauzerda localhost:3001 → «Agentlar» bo'limidagi API KEY ni «API kalit» maydoniga qo'ying, so'ng «Ro'yxat» tugmasi bilan modelni tanlang.",
             "anthropic": "Kalitni console.anthropic.com dan oling. Model bo'sh qolsa, standarti ishlatiladi.",
             "openai": "OpenAI, OpenRouter, Groq yoki LM Studio. Lokal bo'lsa manzilni yozing: http://localhost:1234/v1",
             "gemini": "Kalitni aistudio.google.com dan oling.",
@@ -119,13 +154,13 @@ class AgentDialog(tk.Toplevel):
         }[self._type()])
 
     def _spec(self):
-        t = self._type()
+        t = REAL_TYPE.get(self._type(), self._type())
         s = {"name": self.vars["name"].get().strip(), "type": t}
         for k in ("model", "api_key", "base_url", "command"):
             val = self.vars[k].get().strip()
             if val:
                 s[k] = val
-        if "model" not in s and t in DEFAULT_MODEL:
+        if "model" not in s and t in DEFAULT_MODEL and self._type() != "freellm":
             s["model"] = DEFAULT_MODEL[t]
         return s
 
@@ -133,6 +168,8 @@ class AgentDialog(tk.Toplevel):
         s = self._spec()
         if not s["name"]:
             return messagebox.showwarning("Diqqat", "Nomini yozing", parent=self)
+        if self._type() == "freellm" and not self.vars["model"].get().strip():
+            return messagebox.showwarning("Diqqat", "Avval «Ro'yxat» tugmasi bilan modelni tanlang.", parent=self)
         self.config(cursor="watch")
         self.update()
         r = build_agent(s).ask("Salom! Bir so'z bilan javob ber.")
@@ -146,6 +183,8 @@ class AgentDialog(tk.Toplevel):
         s = self._spec()
         if not s["name"]:
             return messagebox.showwarning("Diqqat", "Nomini yozing", parent=self)
+        if self._type() == "freellm" and not self.vars["model"].get().strip():
+            return messagebox.showwarning("Diqqat", "Avval «Ro'yxat» tugmasi bilan modelni tanlang.", parent=self)
         if s["type"] == "cli" and not s.get("command"):
             return messagebox.showwarning("Diqqat", "Buyruqni yozing", parent=self)
         self.result = s
