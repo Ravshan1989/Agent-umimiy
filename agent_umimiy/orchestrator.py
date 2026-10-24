@@ -1,0 +1,86 @@
+from __future__ import annotations
+
+from concurrent.futures import ThreadPoolExecutor
+
+from .base import Agent, Result
+
+MODES = ("auto", "single", "broadcast", "pipeline", "consensus")
+
+
+class Orchestrator:
+    """Barcha agentlarni boshqaradi.
+
+    Rejimlar:
+      single    — bitta tanlangan agent
+      auto      — kalit so'zlar bo'yicha eng mos agentni tanlaydi
+      broadcast — hamma agentga bir vaqtda so'rov yuboradi
+      pipeline  — agentlar ketma-ket: oldingisining javobi keyingisiga beriladi
+      consensus — hamma javob beradi, so'ng "hakam" agent yagona javob tuzadi
+    """
+
+    def __init__(self, agents: list[Agent], judge: str | None = None, routes: dict | None = None):
+        if not agents:
+            raise ValueError("Kamida bitta agent kerak")
+        self.agents = {a.name: a for a in agents}
+        self.judge = judge or agents[0].name
+        self.routes = routes or {}  # {"agent": ["kalit", "so'z"]}
+        self.history: list[dict] = []
+
+    def reset(self):
+        self.history.clear()
+
+    def _get(self, name: str) -> Agent:
+        if name not in self.agents:
+            raise KeyError(f"Agent topilmadi: {name}")
+        return self.agents[name]
+
+    def pick(self, prompt: str) -> Agent:
+        low = prompt.lower()
+        best, score = None, 0
+        for name, words in self.routes.items():
+            s = sum(w.lower() in low for w in words)
+            if s > score and name in self.agents:
+                best, score = name, s
+        return self.agents[best] if best else next(iter(self.agents.values()))
+
+    def run(self, prompt: str, mode: str = "auto", targets: list[str] | None = None) -> list[Result]:
+        if mode not in MODES:
+            raise ValueError(f"Noma'lum rejim: {mode}")
+        agents = [self._get(n) for n in targets] if targets else list(self.agents.values())
+
+        if mode == "auto":
+            results = [self.pick(prompt).ask(prompt, self.history)]
+        elif mode == "single":
+            results = [agents[0].ask(prompt, self.history)]
+        elif mode == "broadcast":
+            results = self._parallel(agents, prompt, self.history)
+        elif mode == "pipeline":
+            results, current = [], prompt
+            for a in agents:
+                r = a.ask(current, self.history)
+                results.append(r)
+                if not r.ok:
+                    break
+                current = f"Asl so'rov: {prompt}\n\nOldingi agent ({r.agent}) javobi:\n{r.text}\n\nUni yaxshilab, davom ettir."
+        else:  # consensus
+            results = self._parallel(agents, prompt, self.history)
+            good = [r for r in results if r.ok]
+            if len(good) > 1:
+                joined = "\n\n".join(f"--- {r.agent} ---\n{r.text}" for r in good)
+                judge = self._get(self.judge)
+                final = judge.ask(
+                    f"Savol: {prompt}\n\nQuyidagi agentlar javob berdi:\n{joined}\n\n"
+                    "Ularni solishtirib, eng to'g'ri va to'liq yagona javob tuz.",
+                )
+                final.agent = f"{judge.name} (yakuniy)"
+                results.append(final)
+
+        final = next((r for r in reversed(results) if r.ok), None)
+        if final:
+            self.history += [{"role": "user", "content": prompt}, {"role": "assistant", "content": final.text}]
+        return results
+
+    @staticmethod
+    def _parallel(agents: list[Agent], prompt: str, history=None) -> list[Result]:
+        with ThreadPoolExecutor(max_workers=len(agents)) as pool:
+            return list(pool.map(lambda a: a.ask(prompt, history), agents))
