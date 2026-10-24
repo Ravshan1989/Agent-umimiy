@@ -33,6 +33,13 @@ Yozish maydonidagi **＋** tugmasi bilan **rasm** (PNG, JPG, GIF, WebP), **PDF**
 Agentlar **internetdan qidirishi** (DuckDuckGo) va **sahifalarni o'qishi** mumkin, kerak bo'lsa sahifani **sizning brauzeringizda ochish**ni (ruxsat bilan) taklif qiladi. Sozlamalarda o'chirib qo'yish mumkin. Xavfsizlik: kompyuter va ichki tarmoq manzillariga (localhost, 192.168.x.x va h.k.) kirish taqiqlangan; sahifadagi matn «buyruq» emas, faqat ma'lumot sifatida qaraladi.
 Eslatma: bu brauzerni *boshqarish* (tugma bosish, forma to'ldirish) emas — faqat qidirish va o'qish.
 
+## Suhbatlarni saqlash, ko'rsatmalar, reja
+
+- **Saqlash:** suhbatlar (tablar, tarix, loyiha) `%APPDATA%\AgentUmimiy\chats.json` da saqlanadi va dastur qayta ochilganda tiklanadi (oxirgi 15 ta suhbat). Sozlamalarda o'chirib qo'yish yoki tarixni tozalash mumkin. Fayl shifrlanmagan: maxfiy ma'lumot yozmang yoki saqlashni o'chiring.
+- **Loyiha ko'rsatmalari:** loyiha papkasida `CLAUDE.md`, `AGENTS.md` yoki `AGENT.md` bo'lsa, agent uni avtomatik o'qiydi va qoidalarga amal qiladi.
+- **Reja kartasi:** ko'p bosqichli ishda agent «Reja» ro'yxatini ko'rsatadi va bosqichlarni belgilab boradi.
+- **Markdown:** javoblarda sarlavha, ro'yxat, jadval, `kod`, havola va kod bloklari chiroyli ko'rinadi.
+
 ## Bir nechta suhbat
 
 Tepada brauzerdagi kabi **tablar**: har bir suhbatning o'z tarixi va o'z loyiha papkasi bor, bir vaqtda ishlayveradi (fon suhbat tugasa tabda yashil nuqta chiqadi). `＋` — yangi suhbat, `×` — yopish.

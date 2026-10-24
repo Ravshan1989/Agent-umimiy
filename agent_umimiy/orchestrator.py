@@ -87,6 +87,7 @@ class Orchestrator:
         final = next((r for r in reversed(results) if r.ok), None)
         if final:
             self.history += [{"role": "user", "content": prompt + attachments.note(files)}, {"role": "assistant", "content": final.text}]
+            self.history = self.history[-40:]  # kontekst cheksiz o'smasligi uchun
         return results
 
     @staticmethod

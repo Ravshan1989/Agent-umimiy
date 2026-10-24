@@ -142,7 +142,7 @@ class WebTests(unittest.TestCase):
 
     def test_tool_lists(self):
         names = lambda ctx: {t.name for t in Toolbox(ctx, "t").tools()}
-        self.assertEqual(names(Context()), {"web_search", "web_fetch", "open_url"})
+        self.assertEqual(names(Context()), {"web_search", "web_fetch", "open_url", "todo_write"})
         self.assertIn("write_file", names(Context(root=tempfile.mkdtemp())))
         self.assertNotIn("web_fetch", names(Context(root=tempfile.mkdtemp(), web=False)))
         tb = Toolbox(Context(), "t")  # loyihasiz fayl asbobi yo'q

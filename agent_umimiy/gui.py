@@ -2,15 +2,17 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import json
 import queue
 import re
 import threading
 import time
 import tkinter as tk
+import webbrowser
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from . import attachments, config, detect, gitutil, theme
+from . import attachments, chatstore, config, detect, gitutil, markdown, theme
 from .orchestrator import READ_ONLY_MODES
 from .providers import build_agent
 from .theme import P, Avatar, Pill, color_for, font, label, rrect
@@ -197,7 +199,7 @@ class Settings(tk.Toplevel):
         self.title("Sozlamalar")
         self.configure(bg=P["bg"])
         self.cfg, self.on_save = cfg, on_save
-        self.geometry("680x600")
+        self.geometry("700x700")
         self.transient(parent)
         f = tk.Frame(self, bg=P["bg"], padx=22, pady=18)
         f.pack(fill="both", expand=True)
@@ -219,6 +221,12 @@ class Settings(tk.Toplevel):
         self.judge = tk.StringVar(value=cfg.get("judge", ""))
         self.judge_box = ttk.Combobox(jr, textvariable=self.judge, state="readonly", width=24)
         self.judge_box.pack(side="left", padx=10)
+        self.keep = tk.BooleanVar(value=cfg.get("save_chats", True))
+        tk.Checkbutton(f, text="Suhbatlarni shu kompyuterda saqlash (dastur qayta ochilganda tiklanadi)", variable=self.keep,
+                       bg=P["bg"], fg=P["text"], selectcolor=P["card"], activebackground=P["bg"],
+                       activeforeground=P["text"], highlightthickness=0, bd=0, font=font(10)).pack(anchor="w", pady=(12, 0))
+        Pill(f, "Suhbatlar tarixini o'chirish", self._wipe, width=210, height=32, size=9, fg=P["err"],
+             outline=P["line"], bg=P["bg"]).pack(anchor="w", pady=(8, 0))
         self.web = tk.BooleanVar(value=cfg.get("web", True))
         tk.Checkbutton(f, text="Agentlar internetdan qidira va sahifalarni o'qiy olsin", variable=self.web, bg=P["bg"],
                        fg=P["text"], selectcolor=P["card"], activebackground=P["bg"], activeforeground=P["text"],
@@ -226,6 +234,10 @@ class Settings(tk.Toplevel):
         Pill(f, "Saqlash va yopish", self.save, width=170, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(
             anchor="e", pady=(14, 0))
         self.refresh()
+
+    def _wipe(self):
+        if messagebox.askyesno("Tarixni o'chirish", "Barcha saqlangan suhbatlar o'chirilsinmi?", parent=self):
+            self.master.clear_history()
 
     def refresh(self):
         self.tree.delete(*self.tree.get_children())
@@ -281,6 +293,7 @@ class Settings(tk.Toplevel):
     def save(self):
         self.cfg["judge"] = self.judge.get()
         self.cfg["web"] = bool(self.web.get())
+        self.cfg["save_chats"] = bool(self.keep.get())
         self.on_save(self.cfg)
         self.destroy()
 
@@ -485,6 +498,9 @@ class Chat:
         self.busy = self.cancelled = self.unread = False
         self.typing = self.empty = self.dots = self.who = None
         self.pending: list = []
+        self.records: list[dict] = []  # ko'rinadigan xabarlar (saqlash va tiklash uchun)
+        self.replayed = True
+        self.todo = None  # vazifalar kartasi
 
 
 class TabButton(tk.Canvas):
@@ -549,7 +565,9 @@ class App(tk.Tk):
         self.ph_on = False
         self._build_sidebar()
         self._build_main()
+        self._restore_chats()
         self.rebuild()
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
         if first_run:
             self.after(400, self.first_run)
 
@@ -768,7 +786,7 @@ class App(tk.Tk):
         self._count()
 
     # ---------- suhbatlar (tablar) ----------
-    def new_chat(self):
+    def new_chat(self, show=True):
         proj = self.cfg.get("project") or ""
         inner = tk.Frame(self.canvas, bg=P["bg"])
         win = self.canvas.create_window((0, 0), window=inner, anchor="nw", width=max(1, self.canvas.winfo_width()))
@@ -778,11 +796,71 @@ class App(tk.Tk):
         self.chats.append(chat)
         with self._as(chat):
             self._show_empty()
-        self.switch(chat)
+        if show:
+            self.switch(chat)
+            self._save_soon()
+
+    # ---------- saqlash va tiklash ----------
+    def _on_close(self):
+        self._save_chats()
+        self.destroy()
+
+    def _save_soon(self):
+        if getattr(self, "_save_job", None) is None and self.cfg.get("save_chats", True):
+            self._save_job = self.after(800, self._save_chats)
+
+    def _save_chats(self):
+        self._save_job = None
+        if not self.cfg.get("save_chats", True) or not self.chats:
+            return
+        data = [{"title": c.title, "project": c.project, "history": c.orch.history, "records": c.records}
+                for c in self.chats]
+        chatstore.save(data, self.chats.index(self.cur) if self.cur in self.chats else 0)
+
+    def _restore_chats(self):
+        if not self.cfg.get("save_chats", True):
+            return
+        data = chatstore.load()
+        for saved in data["chats"]:
+            self.new_chat(show=False)
+            c = self.chats[-1]
+            c.title = saved.get("title") or "Suhbat"
+            proj = saved.get("project") or ""
+            c.project = proj if proj and Path(proj).is_dir() else ""
+            c.orch.ctx.root = c.project or None
+            c.orch.history = list(saved.get("history", []))
+            c.records, c.replayed = list(saved.get("records", [])), False
+            if c.empty is not None:
+                c.empty.destroy()
+                c.empty = None
+        if self.chats:
+            self.switch(self.chats[min(data.get("active", 0), len(self.chats) - 1)])
+
+    def _replay(self, chat):
+        chat.replayed = True
+        self._replaying = True
+        try:
+            with self._as(chat):
+                for r in chat.records:
+                    if r["k"] == "user":
+                        self.add_user(r["text"], r.get("files", []))
+                    elif r["k"] == "agent":
+                        self.add_agent(r["name"], r["text"], r.get("meta", ""), r.get("err", False))
+                    elif r["k"] == "act":
+                        self.add_activity(r["agent"], r["kind"], r["text"])
+        finally:
+            self._replaying = False
+
+    def clear_history(self):
+        chatstore.clear()
+        for c in list(self.chats):
+            self.close_chat(c)
 
     def switch(self, chat):
         self.cur = chat
         chat.unread = False
+        if not chat.replayed:
+            self._replay(chat)
         for c in self.chats:
             self.canvas.itemconfigure(c.win, state="normal" if c is chat else "hidden")
         self.update_idletasks()
@@ -808,6 +886,7 @@ class App(tk.Tk):
             self.switch(self.chats[min(idx, len(self.chats) - 1)])
         else:
             self._render_tabs()
+        self._save_soon()
 
     def _render_tabs(self):
         for w in self.tabbar.winfo_children():
@@ -956,20 +1035,22 @@ class App(tk.Tk):
         t = tk.Text(c, wrap="word", bg=bg, fg=fg, relief="flat", bd=0, highlightthickness=0, font=f,
                     padx=0, pady=0, spacing1=1, spacing3=3, cursor="xterm", selectbackground=P["accent"])
         t.tag_configure("b", font=font(11, "bold"))
+        t.tag_configure("ic", font=font(10, mono=True), background=P["code"], foreground="#c9d1ff")
         t.tag_configure("code", font=font(10, mono=True), background=P["code"], foreground="#c9d1ff",
                         lmargin1=8, lmargin2=8, rmargin=8, spacing1=2, spacing3=2)
-        plain = []
-        for i, part in enumerate(re.split(r"```[\w+-]*\n?(.*?)```", text, flags=re.S)):
-            if i % 2:
-                t.insert("end", part.strip("\n"), "code")
-                plain.append(part.strip("\n"))
-                t.insert("end", "\n")
-            else:
-                for j, seg in enumerate(re.split(r"\*\*(.+?)\*\*", part)):
-                    t.insert("end", seg, "b" if j % 2 else "")
-                    plain.append(seg)
-        if t.get("end-2c", "end-1c") == "\n":
-            t.delete("end-2c", "end-1c")
+        t.tag_configure("table", font=font(10, mono=True), foreground="#c9d1ff", wrap="none")
+        for n, sz in (("h1", 16), ("h2", 14), ("h3", 12)):
+            t.tag_configure(n, font=font(sz, "bold"), spacing1=6)
+        segs = markdown.parse(text)
+        for seg, tags in segs:
+            t.insert("end", seg, tags)
+            for tg in tags:
+                if tg.startswith("link:") and not t.tag_cget(tg, "underline"):
+                    t.tag_configure(tg, foreground=P["accent_hi"], underline=True)
+                    t.tag_bind(tg, "<Button-1>", lambda e, u=tg[5:]: webbrowser.open(u))
+                    t.tag_bind(tg, "<Enter>", lambda e: t.config(cursor="hand2"))
+                    t.tag_bind(tg, "<Leave>", lambda e: t.config(cursor="xterm"))
+        plain = [markdown.plain(segs)]
         t.config(state="disabled")
         lines = "".join(plain).split("\n")
         w = max(60, min(self._max_w(), max((f.measure(x) for x in lines), default=0) + 16))
@@ -1009,19 +1090,26 @@ class App(tk.Tk):
             self.empty.destroy()
             self.empty = None
 
+    def _record(self, **rec):
+        if not getattr(self, "_replaying", False):
+            self._a.records.append(rec)
+            self._save_soon()
+
     def add_user(self, text, files=()):
+        self._record(k="user", text=text, files=[getattr(a, "name", a) for a in files])
         self._clear_empty()
         row = tk.Frame(self.inner, bg=P["bg"])
         row.pack(fill="x", padx=28, pady=8)
         col = tk.Frame(row, bg=P["bg"])
         col.pack(side="right")
         if files:
-            label(col, "   ".join(("▣ " if a.kind == "image" else "▤ ") + a.name for a in files), fg=P["muted"],
+            label(col, "   ".join(("▣ " if getattr(a, "kind", "") == "image" else "▤ ") + getattr(a, "name", a) for a in files), fg=P["muted"],
                   size=9).pack(anchor="e", pady=(0, 4))
         self._bubble(col, text, P["user"], "white").pack(anchor="e")
         self._scroll()
 
     def add_agent(self, name, text, meta="", err=False):
+        self._record(k="agent", name=name, text=text, meta=meta, err=err)
         self._clear_empty()
         row = tk.Frame(self.inner, bg=P["bg"])
         row.pack(fill="x", padx=28, pady=8)
@@ -1041,7 +1129,36 @@ class App(tk.Tk):
             cp.bind("<Button-1>", lambda e, t=text, w=cp: (self._copy(t), w.config(text="Nusxalandi ✓", fg=P["ok"])))
         self._scroll()
 
+    def _todo_card(self, text):
+        chat = self._a
+        try:
+            items = json.loads(text)
+        except ValueError:
+            return
+        if chat.todo is not None and chat.todo.winfo_exists():
+            chat.todo.destroy()
+        card = tk.Frame(self.inner, bg=P["card"], padx=14, pady=10, highlightthickness=1, highlightbackground=P["line"])
+        card.pack(anchor="w", padx=(74, 28), pady=6)
+        done = sum(1 for i in items if i.get("status") == "completed")
+        label(card, f"Reja  ·  {done}/{len(items)}", fg=P["muted"], size=9, weight="bold").pack(anchor="w", pady=(0, 4))
+        for i in items:
+            st = i.get("status")
+            mark, col = ("☑", P["ok"]) if st == "completed" else ("◐", P["accent_hi"]) if st == "in_progress" else ("☐", P["muted"])
+            row = tk.Frame(card, bg=P["card"])
+            row.pack(anchor="w")
+            label(row, mark + "  ", fg=col, size=11).pack(side="left")
+            label(row, i.get("content", ""), fg=P["muted"] if st == "completed" else P["text"], size=10,
+                  wraplength=560, justify="left").pack(side="left")
+        chat.todo = card
+        if chat.typing is not None:
+            chat.typing.pack_forget()
+            chat.typing.pack(fill="x", padx=28, pady=8)
+        self._scroll()
+
     def add_activity(self, agent, kind, text):
+        self._record(k="act", agent=agent, kind=kind, text=text)
+        if kind == "todo":
+            return self._todo_card(text)
         self._clear_empty()
         row = tk.Frame(self.inner, bg=P["bg"])
         row.pack(fill="x", padx=28, pady=1)
@@ -1096,6 +1213,7 @@ class App(tk.Tk):
         self._grow()
         if chat.title == "Yangi suhbat":
             chat.title = prompt.replace("\n", " ")[:22]
+        self._save_soon()
         self.add_user(prompt, files)
         chat.pending = []
         self._render_chips()
