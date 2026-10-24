@@ -40,6 +40,14 @@ Eslatma: bu brauzerni *boshqarish* (tugma bosish, forma to'ldirish) emas — faq
 - **Reja kartasi:** ko'p bosqichli ishda agent «Reja» ro'yxatini ko'rsatadi va bosqichlarni belgilab boradi.
 - **Markdown:** javoblarda sarlavha, ro'yxat, jadval, `kod`, havola va kod bloklari chiroyli ko'rinadi.
 
+## Telefondan boshqarish
+
+**Sozlamalar → «Telefondan boshqarish» → Yoqish.** Dastur QR-kod ko'rsatadi: telefon kamerasi bilan skanerlang (telefon va kompyuter bir Wi-Fi'da bo'lsin) va chat telefon brauzerida ochiladi. U yerdan yozasiz, fayl/rasm yuborasiz, ishni to'xtatasiz, suhbatlar orasida o'tasiz va **ruxsat so'rovlariga («Fayl o'zgartiriladi», «Buyruq ishga tushadi»...) telefondan javob berasiz**: kompyuterdagi oyna o'zi yopiladi.
+- Kompyuter yoqilgan va dastur ochiq bo'lishi kerak. Sozlamalar, agent va plagin qo'shish faqat kompyuterda.
+- Kirish uzun maxfiy kalit (QR-dagi `t=...`) bilan: noto'g'ri urinishlar bloklanadi. **Kalit parol kabi**: kimgadir ko'rinib qolsa, «Yangi kalit» ni bosing.
+- Ulanish **shifrlanmagan (HTTP)**: faqat ishonchli uy Wi-Fi'ida ishlating (kafe/ommaviy tarmoqda emas). Uydan tashqarida ishlatish uchun Tailscale kabi shifrlangan tunnel o'rnating.
+- Windows xavfsizlik devori birinchi marta so'rasa, «Shaxsiy tarmoqlar» uchun ruxsat bering. Sukut bo'yicha o'chiq.
+
 ## Plaginlar (MCP) va ko'nikmalar (skills)
 
 **Plaginlar.** Chap paneldagi **Plaginlar** tugmasi: «Qo'shish» → tayyor shablonni tanlang (Fayllar, Xotira, Hujjatlar/Context7, Notion, Playwright, GitHub...) yoki istalgan MCP serverni o'zingiz kiriting (buyruq yoki URL, kerak bo'lsa kalit). Dastur serverni ishga tushiradi va uning asboblarini barcha agentlarga beradi.

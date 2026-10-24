@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import itertools
 import json
 import queue
 import re
@@ -14,6 +15,7 @@ from tkinter import filedialog, messagebox, ttk
 
 from . import attachments, chatstore, config, detect, gitutil, markdown, theme
 from . import mcp as mcplib
+from . import remote as remotelib
 from . import skills as skilllib
 from .orchestrator import READ_ONLY_MODES
 from .providers import build_agent
@@ -234,6 +236,8 @@ class Settings(tk.Toplevel):
         tk.Checkbutton(f, text="Agentlar brauzerni boshqara olsin (sayt ochish, bosish, yozish — har safar ruxsat so'raydi)",
                        variable=self.brow, bg=P["bg"], fg=P["text"], selectcolor=P["card"], activebackground=P["bg"],
                        activeforeground=P["text"], highlightthickness=0, bd=0, font=font(10)).pack(anchor="w", pady=(12, 0))
+        Pill(f, "Telefondan boshqarish (mobil kirish)…", lambda: self.master.open_remote(), width=300, height=32, size=9,
+             outline=P["line"], bg=P["bg"]).pack(anchor="w", pady=(8, 0))
         self.web = tk.BooleanVar(value=cfg.get("web", True))
         tk.Checkbutton(f, text="Agentlar internetdan qidira va sahifalarni o'qiy olsin", variable=self.web, bg=P["bg"],
                        fg=P["text"], selectcolor=P["card"], activebackground=P["bg"], activeforeground=P["text"],
@@ -442,6 +446,89 @@ class GitDialog(tk.Toplevel):
         self.config(cursor="")
         self.refresh()
         self._show(("✓ Bajarildi\n\n" if ok else "Xato:\n") + out)
+
+
+class RemoteDialog(tk.Toplevel):
+    """Telefondan boshqarish: QR-kod, manzil, yoqish/o'chirish."""
+
+    def __init__(self, app):
+        super().__init__(app)
+        self.app = app
+        self.title("Telefondan boshqarish")
+        self.configure(bg=P["bg"])
+        self.geometry("560x720")
+        self.transient(app)
+        f = tk.Frame(self, bg=P["bg"], padx=24, pady=18)
+        f.pack(fill="both", expand=True)
+        label(f, "Telefondan boshqarish", size=15, weight="bold").pack(anchor="w")
+        label(f, "Telefon va kompyuter bir Wi-Fi tarmog'ida bo'lsin. QR-kodni telefon kamerasi bilan skanerlang: chat telefon brauzerida ochiladi, "
+                 "ruxsat so'rovlari ham telefonda chiqadi.", fg=P["muted"], size=9, wraplength=500, justify="left").pack(anchor="w", pady=(2, 10))
+        self.status = label(f, "", size=11, weight="bold")
+        self.status.pack(anchor="w")
+        self.qr = tk.Canvas(f, width=300, height=300, bg="white", highlightthickness=0)
+        self.qr.pack(pady=10)
+        self.url_var = tk.StringVar()
+        ttk.Entry(f, textvariable=self.url_var, state="readonly").pack(fill="x")
+        row = tk.Frame(f, bg=P["bg"])
+        row.pack(fill="x", pady=10)
+        self.toggle = Pill(row, "", self._toggle, width=130, height=34, size=9, bg=P["accent"], hover=P["accent_hi"], fg="white")
+        self.toggle.pack(side="left", padx=(0, 6))
+        Pill(row, "Manzilni nusxalash", self._copy, width=150, height=34, size=9).pack(side="left", padx=(0, 6))
+        Pill(row, "Yangi kalit", self._renew, width=100, height=34, size=9).pack(side="left")
+        label(f, "Xavfsizlik: manzildagi kalit (t=...) parol vazifasini bajaradi: uni hech kimga bermang. Ulanish shifrlanmagan (HTTP), "
+                 "shuning uchun faqat ishonchli uy Wi-Fi'ida ishlating. Boshqa joydan ulanish uchun Tailscale kabi shifrlangan tunnel "
+                 "o'rnating va shu manzildagi IP o'rniga kompyuterning Tailscale IP sini yozing. Kalit boshqaga ko'rinib qolsa, «Yangi kalit» ni bosing. "
+                 "Windows xavfsizlik devori so'rasa, «Ruxsat berish» (shaxsiy tarmoq) ni tanlang.",
+              fg=P["muted"], size=9, wraplength=500, justify="left").pack(anchor="w", pady=(4, 0))
+        self.refresh()
+
+    def refresh(self):
+        app = self.app
+        on = app.remote is not None
+        self.toggle.set_text("O'chirish" if on else "Yoqish")
+        self.qr.delete("all")
+        if not on:
+            self.status.config(text="○ O'chiq", fg=P["muted"])
+            self.url_var.set("")
+            self.qr.create_text(150, 150, text="Yoqilmagan", fill="#999", font=font(12))
+            return
+        url = app.remote.url()
+        self.status.config(text="● Yoqilgan", fg=P["ok"])
+        self.url_var.set(url)
+        try:
+            import qrcode
+            qr = qrcode.QRCode(border=4, box_size=1)
+            qr.add_data(url)
+            qr.make(fit=True)
+            m = qr.get_matrix()
+            cell = 300 // len(m)
+            off = (300 - cell * len(m)) // 2
+            for y, row in enumerate(m):
+                for x, v in enumerate(row):
+                    if v:
+                        self.qr.create_rectangle(off + x * cell, off + y * cell, off + (x + 1) * cell, off + (y + 1) * cell,
+                                                 fill="black", outline="black")
+        except Exception:
+            self.qr.create_text(150, 150, text="QR-kod yaratib bo'lmadi.\nManzilni qo'lda yozing.", fill="#555", font=font(11))
+
+    def _toggle(self):
+        if self.app.remote:
+            self.app.stop_remote()
+            self.app.cfg["remote"] = False
+            config.write(self.app.cfg, self.app.cfg_path)
+        else:
+            self.app.start_remote()
+        self.refresh()
+
+    def _copy(self):
+        if self.url_var.get():
+            self.clipboard_clear()
+            self.clipboard_append(self.url_var.get())
+
+    def _renew(self):
+        if messagebox.askyesno("Yangi kalit", "Eski manzil ishlamay qoladi, telefonda QR-kodni qayta skanerlash kerak. Davom etilsinmi?", parent=self):
+            self.app.new_remote_token()
+            self.refresh()
 
 
 class McpDialog(tk.Toplevel):
@@ -739,10 +826,14 @@ class AgentRow(tk.Canvas):
         self.create_oval(w - 22, h / 2 - 5, w - 12, h / 2 + 5, fill=P["ok"] if self.on else "", outline=P["ok"] if self.on else P["muted"], width=1)
 
 
+_chat_ids = itertools.count(1)
+
+
 class Chat:
     """Bitta suhbat: o'z tarixi, loyihasi, holati va ko'rinishi bor."""
 
     def __init__(self, inner, win, project):
+        self.id = next(_chat_ids)
         self.inner, self.win, self.project = inner, win, project
         self.orch = None
         self.title = "Yangi suhbat"
@@ -817,9 +908,16 @@ class App(tk.Tk):
         self._build_sidebar()
         self._build_main()
         self.mcp = mcplib.Manager(self.cfg.get("mcp", []))
+        self.asks: dict[int, dict] = {}  # ruxsat so'rovlari (telefon ham javob bera oladi)
+        self._ask_ids = itertools.count(1)
+        self.remote = None
+        self.remote_cmds: queue.Queue = queue.Queue()
         self._restore_chats()
         self.rebuild()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.after(120, self._remote_poll)
+        if self.cfg.get("remote"):
+            self.after(500, self.start_remote)
         if first_run:
             self.after(400, self.first_run)
 
@@ -1062,6 +1160,7 @@ class App(tk.Tk):
         from . import browser
         browser.shutdown()
         self.mcp.shutdown()
+        self.stop_remote()
         self._save_chats()
         self.destroy()
 
@@ -1250,6 +1349,139 @@ class App(tk.Tk):
         messagebox.showinfo("Xush kelibsiz!", "Boshlash uchun «Sozlamalar» da agent qo'shing "
                             "(Claude, ChatGPT, Gemini yoki lokal model).", parent=self)
         self.open_settings()
+
+    # ---------- telefondan boshqarish ----------
+    def start_remote(self):
+        if self.remote:
+            return
+        if not self.cfg.get("remote_token"):
+            self.cfg["remote_token"] = remotelib.new_token()
+        self.cfg["remote"] = True
+        config.write(self.cfg, self.cfg_path)
+        self.remote = remotelib.RemoteServer(self._remote_call, self.cfg["remote_token"], int(self.cfg.get("remote_port", 8765)))
+        try:
+            self.remote.start()
+        except OSError as exc:
+            self.remote = None
+            messagebox.showerror("Mobil kirish", f"Server ochilmadi: {exc}", parent=self)
+
+    def stop_remote(self):
+        if self.remote:
+            self.remote.stop()
+            self.remote = None
+
+    def new_remote_token(self):
+        self.cfg["remote_token"] = remotelib.new_token()
+        config.write(self.cfg, self.cfg_path)
+        if self.remote:
+            self.remote.token = self.cfg["remote_token"]
+
+    def open_remote(self):
+        RemoteDialog(self)
+
+    def _remote_call(self, action, payload):
+        """Server oqimidan chaqiriladi: amalni asosiy (Tk) oqimda bajartirib, natijani kutadi."""
+        q: queue.Queue = queue.Queue()
+        self.remote_cmds.put((action, payload, q))
+        try:
+            kind, val = q.get(timeout=25)
+        except queue.Empty:
+            raise RuntimeError("Dastur band, javob bermadi. Qayta urining.")
+        if kind == "err":
+            raise ValueError(val)
+        return val
+
+    def _remote_poll(self):
+        while True:
+            try:
+                action, payload, q = self.remote_cmds.get_nowait()
+            except queue.Empty:
+                break
+            try:
+                q.put(("ok", self._remote_exec(action, payload)))
+            except Exception as exc:
+                q.put(("err", str(exc)))
+        self.after(120, self._remote_poll)
+
+    def _chat_by_id(self, cid):
+        return next((c for c in self.chats if c.id == cid), None)
+
+    def _remote_exec(self, action, p):
+        if action == "state":
+            chat = self._chat_by_id(p.get("chat")) or self.cur
+            since = p.get("since", 0)
+            reset = since > len(chat.records) or chat is not self._chat_by_id(p.get("chat"))
+            recs = chat.records if reset else chat.records[since:]
+            chat.unread = False if chat is not self.cur else chat.unread
+            targets = [n for n in chat.orch.agents if n in self.selected]
+            return {"chats": [{"id": c.id, "title": c.title, "busy": c.busy, "unread": c.unread, "project": c.project}
+                              for c in self.chats],
+                    "chat": chat.id, "records": recs, "total": len(chat.records), "reset": reset, "busy": chat.busy,
+                    "typing": targets[:1] if self.mode.get() == "single" else targets,
+                    "asks": [{k: v for k, v in a.items() if k != "dialog"} for a in self.asks.values()],
+                    "mode": self.mode.get(), "modes": {k: v[1] for k, v in MODES.items()},
+                    "agents": [{"name": n, "on": n in self.selected} for n in chat.orch.agents]}
+        if action == "new":
+            self.new_chat(show=False)
+            self._render_tabs()
+            return {"id": self.chats[-1].id}
+        if action == "mode":
+            if p.get("mode") not in MODES:
+                raise ValueError("Noma'lum rejim")
+            self.pick_mode(p["mode"])
+            return {"ok": True}
+        if action == "approve":
+            a = self.asks.get(int(p.get("id", 0)))
+            if not a:
+                raise ValueError("Bu so'rov allaqachon yopilgan")
+            if p.get("answer") not in ("yes", "always", "no"):
+                raise ValueError("Noto'g'ri javob")
+            a["dialog"]._done(p["answer"])
+            return {"ok": True}
+        chat = self._chat_by_id(p.get("chat"))
+        if chat is None:
+            raise ValueError("Suhbat topilmadi")
+        if action == "stop":
+            chat.cancelled = True
+            chat.orch.ctx.cancel.set()
+            if chat.typing is not None and chat.who is not None:
+                chat.who.config(text="  To'xtatilmoqda…")
+            return {"ok": True}
+        if action == "close":
+            self.close_chat(chat)
+            return {"ok": True}
+        if action == "send":
+            if chat.busy:
+                raise ValueError("Agent hozir band. To'xtatib, qayta urining.")
+            text = (p.get("text") or "").strip()
+            atts = []
+            for f in (p.get("files") or [])[:6]:
+                atts.append(self._remote_attachment(f))
+            if not text and not atts:
+                raise ValueError("Xabar bo'sh")
+            self._dispatch(chat, text, atts)
+            return {"ok": True}
+        raise ValueError("Noma'lum amal")
+
+    def _remote_attachment(self, f):
+        import base64
+        import re
+        import time
+        name = re.sub(r"[^\w.\- ]", "_", str(f.get("name", "fayl")))[-80:] or "fayl"
+        d = config.user_dir() / "uploads"
+        d.mkdir(parents=True, exist_ok=True)
+        for old in d.glob("*"):  # 7 kundan eski yuklamalarni tozalash
+            try:
+                if time.time() - old.stat().st_mtime > 7 * 86400:
+                    old.unlink()
+            except OSError:
+                pass
+        path = d / f"{int(time.time() * 1000)}_{name}"
+        path.write_bytes(base64.b64decode(f.get("data", "")))
+        try:
+            return attachments.load(str(path))
+        except attachments.AttachError as exc:
+            raise ValueError(str(exc))
 
     def open_plugins(self):
         PluginsDialog(self, self.cfg, self.mcp, self._save_plugins)
@@ -1476,22 +1708,30 @@ class App(tk.Tk):
         prompt, files = self._text(), list(chat.pending)
         if not prompt and not files:
             return
-        prompt = prompt or "Biriktirilgan fayl(lar)ni ko'rib chiq va qisqacha tushuntir."
         self.entry.delete("1.0", "end")
         self._grow()
-        if chat.title == "Yangi suhbat":
-            chat.title = prompt.replace("\n", " ")[:22]
-        self._save_soon()
-        self.add_user(prompt, files)
         chat.pending = []
         self._render_chips()
-        mode = self.mode.get()
-        targets = [n for n in self.orch.agents if n in self.selected]
-        shown = targets[:1] if mode == "single" else targets
-        self.busy, self.cancelled = True, False
-        self._send_draw(False)
+        self._dispatch(chat, prompt, files)
+
+    def _dispatch(self, chat, prompt, files):
+        """Xabarni agentlarga yuboradi (oynadan ham, telefondan ham shu yo'l)."""
+        prompt = prompt or "Biriktirilgan fayl(lar)ni ko'rib chiq va qisqacha tushuntir."
+        if not chat.replayed:
+            self._replay(chat)
+        with self._as(chat):
+            if chat.title == "Yangi suhbat":
+                chat.title = prompt.replace("\n", " ")[:22]
+            self._save_soon()
+            self.add_user(prompt, files)
+            mode = self.mode.get()
+            targets = [n for n in self.orch.agents if n in self.selected]
+            shown = targets[:1] if mode == "single" else targets
+            chat.busy, chat.cancelled = True, False
+            self._typing_on(shown)
         self._render_tabs()
-        self._typing_on(shown)
+        if chat is self.cur:
+            self._send_draw(False)
         if not self._polling:
             self._polling = True
             self.after(100, self._poll)
@@ -1525,7 +1765,11 @@ class App(tk.Tk):
                         box[0] = "no"
                     else:
                         d = ApproveDialog(self, f"{agent} · {chat.title}", kind, title, detail)
+                        aid = next(self._ask_ids)
+                        self.asks[aid] = {"id": aid, "chat": chat.id, "agent": f"{agent} · {chat.title}", "kind": kind,
+                                          "title": title, "detail": detail, "dialog": d}
                         self.wait_window(d)
+                        self.asks.pop(aid, None)
                         box[0] = d.result
                     evt.set()
                 else:

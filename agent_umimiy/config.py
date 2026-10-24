@@ -8,7 +8,7 @@ from pathlib import Path
 from .orchestrator import Orchestrator
 from .providers import build_agent
 
-DEFAULT = {"judge": "", "routes": {}, "agents": [], "project": "", "mcp": []}
+DEFAULT = {"judge": "", "routes": {}, "agents": [], "project": "", "mcp": [], "remote": False}
 
 
 def user_dir() -> Path:
