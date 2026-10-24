@@ -40,8 +40,9 @@ LABEL_TO_TYPE = {v: k for k, v in TYPE_LABELS.items()}
 REAL_TYPE = {"freellm": "openai"}  # shablon -> haqiqiy agent turi
 PROJECT_SUGGESTIONS = ["Bu loyiha nima haqida? Qisqa tushuntirib ber", "Kodda xatolarni top va tuzat",
                        "README.md faylini yoz yoki yangila", "Testlarni ishga tushir, xato bo'lsa tuzat"]
-KIND_ICON = {"read": "◧", "write": "✎", "run": "▶", "info": "•", "agent": "⇄"}
-KIND_COLOR = {"read": P["muted"], "write": P["warn"], "run": P["accent_hi"], "info": P["err"], "agent": P["ok"]}
+KIND_ICON = {"read": "◧", "write": "✎", "run": "▶", "info": "•", "agent": "⇄", "browser": "◎"}
+KIND_COLOR = {"read": P["muted"], "write": P["warn"], "run": P["accent_hi"], "info": P["err"], "agent": P["ok"],
+              "browser": P["accent_hi"]}
 SUGGESTIONS = ["Bu kodni tushuntirib ber", "Menga qisqa xat yozib ber", "Ingliz tiliga tarjima qil",
                "Internetdan bugungi yangiliklarni top"]
 
@@ -199,7 +200,7 @@ class Settings(tk.Toplevel):
         self.title("Sozlamalar")
         self.configure(bg=P["bg"])
         self.cfg, self.on_save = cfg, on_save
-        self.geometry("700x700")
+        self.geometry("720x760")
         self.transient(parent)
         f = tk.Frame(self, bg=P["bg"], padx=22, pady=18)
         f.pack(fill="both", expand=True)
@@ -227,6 +228,10 @@ class Settings(tk.Toplevel):
                        activeforeground=P["text"], highlightthickness=0, bd=0, font=font(10)).pack(anchor="w", pady=(12, 0))
         Pill(f, "Suhbatlar tarixini o'chirish", self._wipe, width=210, height=32, size=9, fg=P["err"],
              outline=P["line"], bg=P["bg"]).pack(anchor="w", pady=(8, 0))
+        self.brow = tk.BooleanVar(value=cfg.get("browser", True))
+        tk.Checkbutton(f, text="Agentlar brauzerni boshqara olsin (sayt ochish, bosish, yozish — har safar ruxsat so'raydi)",
+                       variable=self.brow, bg=P["bg"], fg=P["text"], selectcolor=P["card"], activebackground=P["bg"],
+                       activeforeground=P["text"], highlightthickness=0, bd=0, font=font(10)).pack(anchor="w", pady=(12, 0))
         self.web = tk.BooleanVar(value=cfg.get("web", True))
         tk.Checkbutton(f, text="Agentlar internetdan qidira va sahifalarni o'qiy olsin", variable=self.web, bg=P["bg"],
                        fg=P["text"], selectcolor=P["card"], activebackground=P["bg"], activeforeground=P["text"],
@@ -293,6 +298,7 @@ class Settings(tk.Toplevel):
     def save(self):
         self.cfg["judge"] = self.judge.get()
         self.cfg["web"] = bool(self.web.get())
+        self.cfg["browser"] = bool(self.brow.get())
         self.cfg["save_chats"] = bool(self.keep.get())
         self.on_save(self.cfg)
         self.destroy()
@@ -312,7 +318,7 @@ class ApproveDialog(tk.Toplevel):
         label(f, f"{agent} ruxsat so'ramoqda", fg=P["warn"], size=9, weight="bold").pack(anchor="w")
         label(f, title, size=13, weight="bold", wraplength=560, justify="left").pack(anchor="w", pady=(2, 10))
         box = tk.Text(f, width=76, height=14, bg=P["code"], fg="#c9d1ff", relief="flat", bd=0, font=font(10, mono=True),
-                      padx=10, pady=8, wrap="none", highlightthickness=0)
+                      padx=10, pady=8, wrap="none" if kind == "write" else "word", highlightthickness=0)
         box.insert("1.0", detail)
         for i, line in enumerate(detail.split("\n"), 1):
             if line.startswith("+") and not line.startswith("+++"):
@@ -325,7 +331,8 @@ class ApproveDialog(tk.Toplevel):
         box.pack(fill="both", expand=True)
         row = tk.Frame(f, bg=P["bg"])
         row.pack(fill="x", pady=(14, 0))
-        always = "Shu suhbatda doim ruxsat" if kind == "write" else "Buyruqlarga doim ruxsat"
+        always = ("Shu suhbatda doim ruxsat" if kind == "write" else
+                  "Brauzerda doim ruxsat" if kind.startswith("browser") else "Buyruqlarga doim ruxsat")
         Pill(row, "Rad etish", lambda: self._done("no"), width=110, fg=P["err"]).pack(side="left")
         Pill(row, "Ruxsat berish", lambda: self._done("yes"), width=140, bg=P["accent"], hover=P["accent_hi"],
              fg="white").pack(side="right")
@@ -763,6 +770,7 @@ class App(tk.Tk):
         o.ctx.emit = lambda agent, kind, text, c=chat: self.inbox.put(("event", c, agent, kind, text))
         o.ctx.root = chat.project or None
         o.ctx.web = bool(self.cfg.get("web", True))
+        o.ctx.browser = bool(self.cfg.get("browser", True))
         return o
 
     def rebuild(self):
@@ -802,6 +810,8 @@ class App(tk.Tk):
 
     # ---------- saqlash va tiklash ----------
     def _on_close(self):
+        from . import browser
+        browser.shutdown()
         self._save_chats()
         self.destroy()
 

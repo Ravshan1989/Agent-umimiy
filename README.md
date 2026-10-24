@@ -40,6 +40,14 @@ Eslatma: bu brauzerni *boshqarish* (tugma bosish, forma to'ldirish) emas — faq
 - **Reja kartasi:** ko'p bosqichli ishda agent «Reja» ro'yxatini ko'rsatadi va bosqichlarni belgilab boradi.
 - **Markdown:** javoblarda sarlavha, ro'yxat, jadval, `kod`, havola va kod bloklari chiroyli ko'rinadi.
 
+## Agent brauzerda ishlaydi
+
+Agent **haqiqiy brauzer oynasida** sayt ochadi, o'qiydi, tugmalarni bosadi va formalarni to'ldiradi (siz oynada nima bo'layotganini ko'rib turasiz). Windows'da **Edge** (yoki Chrome) ishlatiladi, hech narsa o'rnatish shart emas.
+- Brauzer **alohida profilda** ochiladi (`%APPDATA%\AgentUmimiy\browser-profile`): asosiy brauzeringizdagi parollar va sessiyalarga tegmaydi. Biror saytga bir marta o'zingiz kirsangiz, keyingi safar ham kirgan holda qoladi.
+- **Har bir yangi sayt** va **har bir yozish** ruxsat so'raydi. **Parol maydoniga yozmaydi**: parolni o'zingiz oynada kiriting.
+- «Hammasi birga» va «Kengash» rejimlarida brauzer o'chiq. Sozlamalarda umuman o'chirib qo'yish mumkin.
+- Sahifa matni agent uchun faqat ma'lumot: u yerdagi «buyruqlarga» amal qilinmaydi.
+
 ## Agentlar bir-birini biladi
 
 Har bir agent ilovadagi **barcha agentlar ro'yxatini** biladi («qaysi agentlar bor?» deb so'rasangiz hammasini sanab beradi) va kerak bo'lsa boshqa agentdan yordam so'raydi (`ask_agent`): masalan «gemini dan so'rab ko'r». Yordamga chaqirilgan agent faqat o'qiy oladi va o'zi boshqasini chaqira olmaydi. Chatda `⇄` qatori kimdan kimga so'ralganini ko'rsatadi.
