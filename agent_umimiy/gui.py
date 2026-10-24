@@ -40,8 +40,8 @@ LABEL_TO_TYPE = {v: k for k, v in TYPE_LABELS.items()}
 REAL_TYPE = {"freellm": "openai"}  # shablon -> haqiqiy agent turi
 PROJECT_SUGGESTIONS = ["Bu loyiha nima haqida? Qisqa tushuntirib ber", "Kodda xatolarni top va tuzat",
                        "README.md faylini yoz yoki yangila", "Testlarni ishga tushir, xato bo'lsa tuzat"]
-KIND_ICON = {"read": "◧", "write": "✎", "run": "▶", "info": "•"}
-KIND_COLOR = {"read": P["muted"], "write": P["warn"], "run": P["accent_hi"], "info": P["err"]}
+KIND_ICON = {"read": "◧", "write": "✎", "run": "▶", "info": "•", "agent": "⇄"}
+KIND_COLOR = {"read": P["muted"], "write": P["warn"], "run": P["accent_hi"], "info": P["err"], "agent": P["ok"]}
 SUGGESTIONS = ["Bu kodni tushuntirib ber", "Menga qisqa xat yozib ber", "Ingliz tiliga tarjima qil",
                "Internetdan bugungi yangiliklarni top"]
 

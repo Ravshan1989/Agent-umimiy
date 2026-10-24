@@ -40,6 +40,10 @@ Eslatma: bu brauzerni *boshqarish* (tugma bosish, forma to'ldirish) emas — faq
 - **Reja kartasi:** ko'p bosqichli ishda agent «Reja» ro'yxatini ko'rsatadi va bosqichlarni belgilab boradi.
 - **Markdown:** javoblarda sarlavha, ro'yxat, jadval, `kod`, havola va kod bloklari chiroyli ko'rinadi.
 
+## Agentlar bir-birini biladi
+
+Har bir agent ilovadagi **barcha agentlar ro'yxatini** biladi («qaysi agentlar bor?» deb so'rasangiz hammasini sanab beradi) va kerak bo'lsa boshqa agentdan yordam so'raydi (`ask_agent`): masalan «gemini dan so'rab ko'r». Yordamga chaqirilgan agent faqat o'qiy oladi va o'zi boshqasini chaqira olmaydi. Chatda `⇄` qatori kimdan kimga so'ralganini ko'rsatadi.
+
 ## Bir nechta suhbat
 
 Tepada brauzerdagi kabi **tablar**: har bir suhbatning o'z tarixi va o'z loyiha papkasi bor, bir vaqtda ishlayveradi (fon suhbat tugasa tabda yashil nuqta chiqadi). `＋` — yangi suhbat, `×` — yopish.

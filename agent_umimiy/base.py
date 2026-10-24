@@ -7,7 +7,7 @@ import urllib.request
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
-from .tools import Cancelled, Context, Toolbox
+from .tools import Cancelled, Context, Toolbox, describe_agent
 
 
 @dataclass
@@ -44,6 +44,11 @@ class Agent(ABC):
         start = time.monotonic()
         self.ctx, self._files = ctx, list(files or [])
         history = list(history or [])
+        plain = prompt
+        if ctx and ctx.roster and self.kind != "echo":  # asbobsiz yo'lda agent o'z muhitini shu orqali biladi
+            plain = (f"[Context: you are the agent '{self.name}' inside the desktop app Agent Umimiy, which combines these "
+                     "agents:\n" + "\n".join(describe_agent(a) for a in ctx.roster) +
+                     "\nIf asked which agents exist, list all of them, not only yourself.]\n\n" + prompt)
         try:
             if ctx and ctx.active and self.supports_tools and self.options.get("tools", True):
                 try:
@@ -52,9 +57,9 @@ class Agent(ABC):
                     # model asboblarni qo'llamasa (masalan, kichik lokal model) — oddiy chatga qaytamiz
                     if not str(exc).startswith(("HTTP 400", "HTTP 404", "HTTP 422")):
                         raise
-                    text = self._ask(prompt, history)
+                    text = self._ask(plain, history)
             else:
-                text = self._ask(prompt, history)
+                text = self._ask(plain, history)
             return Result(self.name, text, True, time.monotonic() - start)
         except Cancelled:
             return Result(self.name, "", False, time.monotonic() - start, "To'xtatildi")

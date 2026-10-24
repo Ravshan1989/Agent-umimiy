@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+import dataclasses
 from concurrent.futures import ThreadPoolExecutor
 
 from . import attachments
@@ -28,7 +30,15 @@ class Orchestrator:
         self.judge = judge or agents[0].name
         self.routes = routes or {}  # {"agent": ["kalit", "so'z"]}
         self.history: list[dict] = []
-        self.ctx = Context()
+        self.ctx = Context(roster=[{"name": a.name, "kind": a.kind, "model": a.options.get("model", ""),
+                                    "description": a.description} for a in agents],
+                           delegate=self._delegate)
+
+    def _delegate(self, name: str, prompt: str, frm: str) -> str:
+        """Bir agent boshqasidan yordam so'raydi: o'qiy oladi, o'zgartira olmaydi, o'zi yana so'ray olmaydi."""
+        child = dataclasses.replace(self.ctx, readonly=True, delegate=None, always=set())
+        r = copy.copy(self._get(name)).ask(f"[{frm} agent sizdan so'rayapti]\n{prompt}", [], child, None)
+        return r.text if r.ok else f"[{name} javob bera olmadi: {r.error}]"
 
     def reset(self):
         self.history.clear()

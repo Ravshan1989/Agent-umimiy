@@ -27,7 +27,7 @@ def anthropic(o: dict, key: str, prompt: str, history: list, tb: Toolbox, files=
         data = http_json(
             o.get("base_url", "https://api.anthropic.com") + "/v1/messages",
             {"model": o.get("model", "claude-sonnet-5-5"), "max_tokens": o.get("max_tokens", 4096),
-             "system": system_prompt(tb.ctx), "tools": tools, "messages": messages},
+             "system": system_prompt(tb.ctx, tb.agent), "tools": tools, "messages": messages},
             {"x-api-key": key, "anthropic-version": "2023-06-01"},
         )
         content = data.get("content", [])
@@ -46,7 +46,7 @@ def anthropic(o: dict, key: str, prompt: str, history: list, tb: Toolbox, files=
 def openai(o: dict, key: str, prompt: str, history: list, tb: Toolbox, files=()) -> str:
     tools = [{"type": "function", "function": {"name": t.name, "description": t.description,
                                                "parameters": t.parameters}} for t in tb.tools()]
-    messages = [{"role": "system", "content": system_prompt(tb.ctx)}] + history + [
+    messages = [{"role": "system", "content": system_prompt(tb.ctx, tb.agent)}] + history + [
         {"role": "user", "content": att.openai_content(prompt, list(files))}]
     for _ in range(MAX_STEPS):
         _check(tb)
@@ -73,7 +73,7 @@ def openai(o: dict, key: str, prompt: str, history: list, tb: Toolbox, files=())
 def ollama(o: dict, prompt: str, history: list, tb: Toolbox, files=()) -> str:
     tools = [{"type": "function", "function": {"name": t.name, "description": t.description,
                                                "parameters": t.parameters}} for t in tb.tools()]
-    messages = [{"role": "system", "content": system_prompt(tb.ctx)}] + history + [att.ollama_message(prompt, list(files))]
+    messages = [{"role": "system", "content": system_prompt(tb.ctx, tb.agent)}] + history + [att.ollama_message(prompt, list(files))]
     for _ in range(MAX_STEPS):
         _check(tb)
         data = http_json(o.get("base_url", "http://localhost:11434") + "/api/chat",
