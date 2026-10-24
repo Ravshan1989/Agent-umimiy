@@ -12,3 +12,6 @@ SONG_NOT_FOUND = "😔 Hech narsa topilmadi. Qo'shiq nomi yoki matnidan boshqa p
 SONG_PICK = "Topilganlar. Kerakli qo'shiqni tanlang:"
 SONG_DOWNLOADING = "⏳ Qo'shiq yuklanmoqda..."
 SONG_FAILED = "😔 Qo'shiqni yuklab bo'lmadi, boshqasini tanlab ko'ring."
+MOVIE_SEARCHING = "🔎 Rasm tahlil qilinmoqda..."
+MOVIE_NOT_FOUND = "😔 Bu rasm bo'yicha kino yoki serialni aniqlay olmadim. Aniqroq kadr (yozuv, sarlavha, afisha) yuborib ko'ring."
+MOVIE_FAILED = "😔 Rasmni tekshirishda xatolik bo'ldi, keyinroq qayta urinib ko'ring."
