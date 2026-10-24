@@ -39,7 +39,8 @@ class AttachTests(unittest.TestCase):
         (self.d / "d.pdf").write_bytes(make_pdf("Salom PDF dunyo"))
         (self.d / "n.txt").write_text("matn fayl")
         with zipfile.ZipFile(self.d / "w.docx", "w") as z:
-            z.writestr("word/document.xml", "<w:p><w:t>Word matni</w:t></w:p>")
+            z.writestr("word/document.xml", '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'
+                       '<w:p><w:r><w:t>Word matni</w:t></w:r></w:p></w:body></w:document>')
 
     def test_kinds_and_errors(self):
         self.assertEqual(att.load(str(self.d / "a.png")).kind, "image")

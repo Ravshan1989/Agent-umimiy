@@ -45,7 +45,7 @@ textarea{flex:1;resize:none;background:var(--card);color:var(--fg);border:1px so
 <header><select id="chat" aria-label="Suhbat"></select><button id="new" title="Yangi suhbat">＋</button><button id="close" title="Suhbatni yopish">✕</button></header>
 <div id="sub"><span id="proj"></span><select id="mode" style="background:transparent;color:var(--mut);border:0;font-size:12px"></select></div>
 <div id="msgs"></div><div id="asks"></div><div id="chips"></div>
-<form id="f"><input type="file" id="file" multiple hidden accept="image/*,.pdf,.docx,.txt,.md,.csv,.json,.py,.js,.html,.log">
+<form id="f"><input type="file" id="file" multiple hidden accept="image/*,.pdf,.docx,.xlsx,.pptx,.csv,.tsv,.txt,.md,.json,.py,.js,.html,.log">
 <button type="button" class="rb" id="att" title="Fayl biriktirish">＋</button>
 <textarea id="t" rows="1" placeholder="Xabar yozing…"></textarea>
 <button type="submit" class="rb send" id="go" title="Yuborish">↑</button></form>

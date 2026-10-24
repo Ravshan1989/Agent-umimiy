@@ -2,14 +2,15 @@
 from __future__ import annotations
 
 import base64
-import re
-import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import docs
+
 IMAGES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp"}
 MAX_IMAGE, MAX_PDF, MAX_TEXT = 5 * 1024 * 1024, 20 * 1024 * 1024, 300_000
-FILETYPES = [("Rasm, PDF, Word va matn", "*.png *.jpg *.jpeg *.gif *.webp *.pdf *.docx *.txt *.md *.csv *.json *.py *.js *.html *.log"),
+FILETYPES = [("Rasm, PDF, Word, Excel, PowerPoint va matn",
+              "*.png *.jpg *.jpeg *.gif *.webp *.pdf *.docx *.xlsx *.pptx *.csv *.tsv *.txt *.md *.json *.py *.js *.html *.log"),
              ("Hamma fayllar", "*.*")]
 
 
@@ -48,17 +49,8 @@ def pdf_text(data_or_path, limit: int = MAX_TEXT) -> str:
     except Exception as exc:
         raise AttachError(f"PDF o'qilmadi: {exc}")
     text = "\n\n".join(out).strip()
-    return text[:limit] or "(PDF ichida matn topilmadi — skaner qilingan rasm bo'lishi mumkin)"
-
-
-def _docx_text(path: Path) -> str:
-    try:
-        with zipfile.ZipFile(path) as z:
-            xml = z.read("word/document.xml").decode("utf-8", errors="replace")
-    except Exception as exc:
-        raise AttachError(f"Word fayli o'qilmadi: {exc}")
-    xml = re.sub(r"</w:p>", "\n", xml)
-    return re.sub(r"<[^>]+>", "", xml).strip()[:MAX_TEXT]
+    return text[:limit] or ("(PDF ichida matn topilmadi: bu skaner qilingan rasm bo'lishi mumkin. Sahifalarni rasm sifatida yuboring — "
+                            "ko'ra oladigan model (Claude, GPT-4, Gemini) matnni o'zi o'qiydi)")
 
 
 def load(path: str) -> Attachment:
@@ -74,8 +66,13 @@ def load(path: str) -> Attachment:
         if size > MAX_PDF:
             raise AttachError(f"{p.name}: PDF 20 MB dan katta.")
         return Attachment(p.name, str(p), "pdf", "application/pdf", data=p.read_bytes())
-    if ext == ".docx":
-        return Attachment(p.name, str(p), "text", "text/plain", text=_docx_text(p))
+    if ext in docs.OLD_FORMATS:
+        raise AttachError(f"{p.name}: eski {ext} format. Faylni {docs.OLD_FORMATS[ext]} sifatida saqlab qayta yuboring.")
+    if ext in (".docx", ".xlsx", ".pptx", ".csv", ".tsv"):
+        try:
+            return Attachment(p.name, str(p), "text", "text/plain", text=docs.extract_text(p, MAX_TEXT))
+        except docs.DocError as exc:
+            raise AttachError(f"{p.name}: {exc}")
     raw = p.read_bytes()[:MAX_TEXT * 2]
     if b"\x00" in raw[:4096]:
         raise AttachError(f"{p.name}: bu fayl turini o'qib bo'lmaydi (rasm, PDF, Word yoki matn fayl tanlang).")

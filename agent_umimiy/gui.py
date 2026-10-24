@@ -1479,9 +1479,11 @@ class App(tk.Tk):
         path = d / f"{int(time.time() * 1000)}_{name}"
         path.write_bytes(base64.b64decode(f.get("data", "")))
         try:
-            return attachments.load(str(path))
+            att = attachments.load(str(path))
         except attachments.AttachError as exc:
             raise ValueError(str(exc))
+        att.name = name  # vaqt belgisisiz asl nom ko'rinsin
+        return att
 
     def open_plugins(self):
         PluginsDialog(self, self.cfg, self.mcp, self._save_plugins)

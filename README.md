@@ -24,6 +24,20 @@ Xavfsizlik: agent faqat tanlangan papka ichida ishlaydi (tashqariga chiqolmaydi,
 
 **Git** tugmasi: nima o'zgargani (oddiy tilda), o'zgarishlarni ko'rish, **Saqlash (commit)**, **Yuborish (push)**, **Olish (pull)**. Git kompyuteringizda o'rnatilgan bo'lishi kerak (git-scm.com); parollar sizning Git sozlamangizdan olinadi.
 
+## Fayllarni o'qish va tahlil qilish
+
+| Fayl | Nima o'qiladi |
+|---|---|
+| **Excel (.xlsx)** | barcha varaqlar, sanalar (2024-03-15), sonlar, mantiqiy qiymatlar; formulalarning hisoblangan natijasi |
+| **PowerPoint (.pptx)** | slayd sarlavhalari, matn, jadvallar, spiker izohlari |
+| **Word (.docx)** | sarlavhalar (#), ro'yxatlar (•), jadvallar |
+| **CSV/TSV** | `,` `;` Tab ajratgichlari va UTF-8/Windows-1251 kodirovkalari avtomatik aniqlanadi |
+| **PDF** | matni; skaner PDF uchun sahifani rasm qilib yuboring (Claude/GPT-4/Gemini o'zi o'qiydi) |
+| **Rasm** | ko'ra oladigan modellar |
+
+Loyiha papkasidagi katta jadvallar uchun agent maxsus asboblardan foydalanadi: **`analyze_data`** (ustunlar, turlari, bo'sh joylar, min/maks/o'rtacha/median/jami, eng ko'p uchraydigan qiymatlar) va **`read_table`** (qatorlarni raqamlari bilan o'qish yoki matn bo'yicha topish). Katta matn fayllari (3 MB+) bo'laklab o'qiladi. Biriktirilgan juda katta jadval o'rniga tahlil va birinchi qatorlar beriladi.
+**Cheklovlar:** eski `.xls/.doc/.ppt` formatlari qo'llanmaydi (yangi formatda saqlab yuboring); rasm ichidagi matnni o'qish (OCR) modelga bog'liq; tahlil sifati tanlangan model kuchiga bog'liq.
+
 ## Rasm, PDF va fayllar
 
 Yozish maydonidagi **＋** tugmasi bilan **rasm** (PNG, JPG, GIF, WebP), **PDF**, **Word (.docx)** yoki **matn fayl** biriktiring — agent ularni ko'rib javob beradi. Rasmlarni Claude, ChatGPT-mos modellar, Gemini va ko'rish qobiliyatli Ollama modellari ko'ra oladi. PDF matni boshqa modellarga ham yuboriladi. Cheklov: rasm ≤ 5 MB, PDF ≤ 20 MB.

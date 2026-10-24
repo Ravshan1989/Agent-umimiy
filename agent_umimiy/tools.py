@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-from . import proc
+from . import docs, proc
 
 MAX_READ = 200_000
 MAX_OUT = 8000
@@ -76,8 +76,15 @@ S = {"type": "string"}
 TOOLS = [
     Tool("list_dir", "List files and folders in a directory of the project (relative path, empty = project root).",
          _obj({"path": S}), "read"),
-    Tool("read_file", "Read a text file. Optional 1-based line offset and limit for large files.",
+    Tool("read_file", "Read a text file, PDF, Word (.docx), Excel (.xlsx) or PowerPoint (.pptx). For large text files use "
+         "1-based line offset and limit to read in parts.",
          _obj({"path": S, "offset": {"type": "integer"}, "limit": {"type": "integer"}}, ["path"]), "read"),
+    Tool("analyze_data", "Summarize a CSV/TSV/XLSX table: columns, types, filled counts, min/max/mean/median/sum for numbers, "
+         "most frequent values for text, first rows. Use it FIRST for any big table. Optional sheet name (xlsx).",
+         _obj({"path": S, "sheet": S}, ["path"]), "read"),
+    Tool("read_table", "Read rows of a CSV/TSV/XLSX table with row numbers. offset = first row (1-based, header is row 1), "
+         "limit = rows (max 500), contains = case-insensitive text to find matching rows. Optional sheet name (xlsx).",
+         _obj({"path": S, "sheet": S, "offset": {"type": "integer"}, "limit": {"type": "integer"}, "contains": S}, ["path"]), "read"),
     Tool("search_files", "Search file contents with a regular expression. Optional path (subfolder) and glob (e.g. *.py).",
          _obj({"pattern": S, "path": S, "glob": S}, ["pattern"]), "read"),
     Tool("write_file", "Create a file or overwrite it completely with the given content. Asks the user for permission.",
@@ -307,12 +314,68 @@ class Toolbox:
                 raise ToolError(str(exc))
         if f.suffix.lower() in (".png", ".jpg", ".jpeg", ".gif", ".webp"):
             raise ToolError("Bu rasm fayli. Rasmni ko'rish uchun foydalanuvchi uni chatga biriktirishi kerak.")
+        if f.suffix.lower() in (".docx", ".xlsx", ".pptx") or f.suffix.lower() in docs.OLD_FORMATS:
+            try:
+                return _clip(docs.extract_text(f, MAX_READ), MAX_READ)
+            except docs.DocError as exc:
+                raise ToolError(str(exc))
+        if f.is_file() and f.stat().st_size > 3_000_000:
+            return self._read_big(f, offset, limit)
         text = self._read(f).replace("\r\n", "\n")
         lines = text.split("\n")
         start = max(1, offset or 1)
         sel = lines[start - 1:(start - 1 + limit) if limit else None]
         out = "\n".join(f"{start + i:>5}  {ln}" for i, ln in enumerate(sel))
         return _clip(out, MAX_READ)
+
+    def _read_big(self, f: Path, offset: int, limit: int) -> str:
+        """Katta matn faylini butunlay xotiraga olmasdan, qatorlar oralig'ini o'qiydi."""
+        with open(f, "rb") as fh:
+            if b"\x00" in fh.read(2048):
+                raise ToolError("Bu ikkilik (binary) fayl, matn sifatida o'qib bo'lmaydi.")
+        start, out, chars, total = max(1, offset or 1), [], 0, 0
+        with open(f, "rb") as fh:
+            for total, raw in enumerate(fh, 1):
+                if total < start or (limit and total >= start + limit) or chars > MAX_READ:
+                    continue
+                line = raw.decode("utf-8", errors="replace").rstrip("\r\n")[:2000]
+                out.append(f"{total:>5}  {line}")
+                chars += len(line) + 8
+        last = start + len(out) - 1
+        more = f" Davomi uchun offset={last + 1} bering." if last < total else ""
+        return f"[Katta fayl: {total} qator; {start}–{last}-qatorlar ko'rsatildi.{more}]\n" + "\n".join(out)
+
+    def _table(self, path: str, sheet: str):
+        f = self._path(path)
+        if not f.is_file():
+            raise ToolError(f"Fayl topilmadi: {self._rel(f)}")
+        try:
+            return f, *docs.table_rows(f, sheet)
+        except docs.DocError as exc:
+            raise ToolError(str(exc))
+
+    def t_analyze_data(self, path: str, sheet: str = "") -> str:
+        f, name, rows, sheets = self._table(path, sheet)
+        self._say("read", f"Jadvalni tahlil qildi: {self._rel(f)}")
+        title = f"Varaq: {name} (barcha varaqlar: {', '.join(sheets)})\n" if name else ""
+        return _clip(docs.analyze(rows, title), 12000)
+
+    def t_read_table(self, path: str, sheet: str = "", offset: int = 1, limit: int = 100, contains: str = "") -> str:
+        f, name, rows, sheets = self._table(path, sheet)
+        self._say("read", f"Jadval qatorlarini o'qidi: {self._rel(f)}")
+        limit = min(max(int(limit or 100), 1), 500)
+        start = max(1, int(offset or 1))
+        if contains:
+            hits = [(i, r) for i, r in enumerate(rows, 1) if contains.lower() in "\t".join(r).lower()]
+            sel = hits[start - 1:start - 1 + limit]
+            body = "\n".join(f"{i:>6}  " + "\t".join(r) for i, r in sel)
+            head = f"[{len(hits)} ta qator «{contains}» ni o'z ichiga oladi; {len(sel)} tasi ko'rsatildi (jami {len(rows)} qator)]"
+        else:
+            sel = rows[start - 1:start - 1 + limit]
+            body = docs.rows_text(sel, start)
+            head = f"[Jami {len(rows)} qator; {start}–{start + len(sel) - 1}-qatorlar ko'rsatildi]"
+        sheet_note = f" Varaq: {name}." if name else ""
+        return _clip(head + sheet_note + "\n" + body, 14000)
 
     def t_search_files(self, pattern: str, path: str = "", glob: str = "") -> str:
         try:
