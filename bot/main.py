@@ -7,7 +7,7 @@ from aiogram.types import Message
 
 from bot import texts
 from bot.config import load_config
-from bot.handlers import video
+from bot.handlers import song, video
 
 
 async def main() -> None:
@@ -21,6 +21,7 @@ async def main() -> None:
         await message.answer(texts.START)
 
     dp.include_router(video.build_router(config))
+    dp.include_router(song.build_router(config))
     await dp.start_polling(bot)
 
 
