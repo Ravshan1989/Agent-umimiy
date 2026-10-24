@@ -1,3 +1,6 @@
 __pycache__/
 agents.json
 *.pyc
+dist/
+build/
+*.spec

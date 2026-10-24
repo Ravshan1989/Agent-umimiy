@@ -1,35 +1,42 @@
 # Agent Umimiy
 
-Barcha AI agentlarni (Claude, GPT, Gemini, Ollama va kompyuteringizdagi istalgan CLI agent) bitta **desktop oynada** birlashtiradi. Faqat Python standart kutubxonasi kerak.
+Barcha AI agentlarni (Claude, ChatGPT, Gemini, lokal modellar — Ollama/LM Studio, va kompyuterdagi CLI agentlar) **bitta chat oynasida** birlashtiradi.
 
-## Ishga tushirish
+## Oddiy foydalanuvchi uchun (Windows)
 
-```bash
-cp agents.example.json agents.json     # keraklilarini qoldiring
-export ANTHROPIC_API_KEY=... OPENAI_API_KEY=... GEMINI_API_KEY=...
-python -m agent_umimiy                 # desktop oyna (Tkinter)
-python -m agent_umimiy --cli -m broadcast "salom"   # terminalda
-```
+1. `AgentUmimiy-Setup.exe` ni yuklab oling (Releases yoki Actions → Artifacts).
+2. O'rnating (Keyingi → Keyingi) va ishga tushiring.
+3. Birinchi ishga tushishda dastur kompyuterdagi agentlarni o'zi topadi. Qolganini **⚙ Sozlamalar → ➕ Qo'shish** orqali qo'shing: turini tanlang, API kalitni qo'ying, **Sinab ko'rish** ni bosing.
+4. Chatga yozing. Yuqoridan rejimni tanlang.
 
-Linux'da Tkinter bo'lmasa: `sudo apt install python3-tk`.
+Sozlamalar `%APPDATA%\AgentUmimiy\agents.json` da saqlanadi (faqat sizning kompyuteringizda).
 
 ## Rejimlar
 
 | Rejim | Ishlashi |
 |---|---|
-| `auto` | `routes` dagi kalit so'zlar bo'yicha eng mos agentni tanlaydi |
-| `single` | bitta agent |
-| `broadcast` | hamma agentga parallel yuboradi |
-| `pipeline` | agentlar ketma-ket: har biri oldingisining javobini yaxshilaydi |
-| `consensus` | hamma javob beradi, "hakam" (`judge`) agent yagona javob tuzadi |
+| Avtomatik | `routes` dagi kalit so'zlar bo'yicha agentni tanlaydi |
+| Bitta agent | birinchi tanlangan agent |
+| Hammasi bir vaqtda | barcha agentlar parallel javob beradi |
+| Ketma-ket | har bir agent oldingisining javobini yaxshilaydi |
+| Kengash | hammasi javob beradi, hakam agent yagona xulosa chiqaradi |
 
-## Agent turlari (`agents.json`)
+## Lokal agentlar
 
-`anthropic`, `openai` (OpenAI-mos API'lar uchun `base_url`), `gemini`, `ollama` (lokal), `cli` (`"command": "codex exec {prompt}"`), `echo` (demo).
-Yangi agent qo'shish: `providers.py` da `Agent` ni meros qilib `_ask` ni yozing va `KINDS` ga qo'shing.
+- **Ollama** (`localhost:11434`) va **LM Studio** (`localhost:1234`) ishlab turgan bo'lsa, «Avto-topish» ularning modellarini qo'shadi.
+- `claude`, `codex`, `gemini`, `aider` dasturlari o'rnatilgan bo'lsa, ular ham avtomatik topiladi.
+- Boshqa istalgan dastur: tur «Kompyuterdagi dastur», buyruq `mening-agent {prompt}`.
 
-## Testlar
+## .exe ni yig'ish
+
+- **GitHub Actions:** Actions → "Windows .exe" → Run workflow. Natija: `AgentUmimiy-Setup.exe`.
+- **Qo'lda (Windows):** `packaging\build_windows.bat` (Python va ixtiyoriy ravishda Inno Setup kerak).
+
+## Dasturchilar uchun
 
 ```bash
+python app.py                          # oyna
+python app.py --cli -m broadcast "salom"   # terminal
 python -m unittest discover -s tests -t .
 ```
+Yangi agent turi: `providers.py` da `Agent` ni meros qilib, `KINDS` ga qo'shing.

@@ -14,12 +14,13 @@ def main():
     ap.add_argument("--cli", action="store_true", help="oynasiz, terminalda ishlash")
     ap.add_argument("prompt", nargs="*", help="bir martalik so'rov (--cli bilan)")
     args = ap.parse_args()
-    orch = config.load(args.config)
 
     if not args.cli and not args.prompt:
         from . import gui
 
-        return gui.run(orch)
+        return gui.run(args.config)
+
+    orch = config.load(args.config)
 
     def ask(text):
         for r in orch.run(text, args.mode, args.agents):
