@@ -526,7 +526,7 @@ class RemoteDialog(tk.Toplevel):
         fw = tk.Frame(f, bg=P["bg"])
         fw.pack(fill="x", pady=(0, 6))
         Pill(fw, "Windows devoriga ruxsat berish", self._firewall, width=230, height=34, size=9, outline=P["line"], bg=P["bg"]).pack(side="left")
-        self.fw_lbl = label(fw, "", size=9, fg=P["muted"], wraplength=240, justify="left")
+        self.fw_lbl = label(fw, "To'suvchi qoidalarni ham o'chiradi", size=9, fg=P["muted"], wraplength=240, justify="left")
         self.fw_lbl.pack(side="left", padx=10)
         label(f, "Ulanmasa, tekshiring:\n1) Telefonda mobil internet o'chiq, Wi-Fi yoqilgan va kompyuter bilan BIR XIL tarmoqda (mehmon/guest Wi-Fi emas).\n"
                  "2) Yuqoridagi «Kompyuter manzili» ni boshqasiga almashtirib ko'ring (Docker/VPN bo'lsa, birinchisi noto'g'ri bo'lishi mumkin).\n"
@@ -556,8 +556,10 @@ class RemoteDialog(tk.Toplevel):
         self.ip_box["values"] = choices
         if self.ip_var.get() not in choices:
             self.ip_var.set(choices[0])
-        url = app.remote.url(self.ip_var.get().split()[0])
-        self.status.config(text="● Yoqilgan", fg=P["ok"])
+        ip = self.ip_var.get().split()[0]
+        url = app.remote.url(ip)
+        ok, msg = app.remote.selftest(ip)
+        self.status.config(text=("● Yoqilgan. " + ("Server kompyuterda ishlayapti." if ok else "Lekin server javob bermayapti!")), fg=P["ok"] if ok else P["err"])
         self.url_var.set(url)
         try:
             import qrcode

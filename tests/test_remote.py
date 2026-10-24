@@ -135,3 +135,43 @@ class NetworkHelpersTests(unittest.TestCase):
         ok, msg = remote.open_firewall(8765)  # Linux'da: xavfsiz rad etiladi
         self.assertFalse(ok)
         self.assertFalse(remote.firewall_rule_exists())
+
+
+class FirewallScriptTests(unittest.TestCase):
+    EXE = r"C:\Users\User\Downloads\AgentUmimiy-Windows\AgentUmimiy.exe"
+
+    def test_script_removes_blocks_then_allows(self):
+        lines = remote.firewall_script(8765, self.EXE).splitlines()
+        self.assertEqual(lines[0], "@echo off")
+        self.assertEqual(lines[-1], "exit /b 0")
+        body = [l for l in lines if l.startswith("netsh")]
+        self.assertEqual(len(body), 3)
+        self.assertIn('delete rule name="Agent Umimiy"', body[0])
+        self.assertIn(f'delete rule name=all program="{self.EXE}"', body[1])  # Windows'ning o'zi yaratgan to'suvchi qoidalar
+        self.assertTrue(body[2].startswith("netsh advfirewall firewall add rule"))
+        self.assertNotIn("firewall firewall firewall", remote.firewall_script(8765, self.EXE))
+        self.assertIn("\r\n", remote.firewall_script(8765, self.EXE))
+        # delete add dan oldin bo'lishi shart
+        self.assertLess(remote.firewall_script(8765, self.EXE).index("delete rule name=all"),
+                        remote.firewall_script(8765, self.EXE).index("add rule"))
+
+    def test_script_without_exe_has_no_program_rules(self):
+        s = remote.firewall_script(9000)
+        self.assertNotIn("program=", s)
+        self.assertIn("localport=9000", s)
+
+
+class ServerStartTests(unittest.TestCase):
+    def test_start_does_not_call_getfqdn_and_selftest_works(self):
+        import socket
+        from unittest import mock
+        with mock.patch.object(socket, "getfqdn", side_effect=AssertionError("getfqdn chaqirildi")):
+            srv = remote.RemoteServer(lambda a, p: {}, "sir", port=0, host="127.0.0.1")
+            srv.start()
+        self.addCleanup(srv.stop)
+        ok, msg = srv.selftest("127.0.0.1")
+        self.assertTrue(ok, msg)
+        srv.stop()
+        ok, msg = srv.selftest("127.0.0.1", timeout=0.5)
+        self.assertFalse(ok)
+        self.assertIn("javob bermadi", msg)

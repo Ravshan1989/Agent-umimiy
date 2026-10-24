@@ -9,6 +9,7 @@ import hmac
 import json
 import secrets
 import socket
+import socketserver
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -71,6 +72,17 @@ def lan_ip() -> str:
 FIREWALL_RULE = "Agent Umimiy"
 
 
+def firewall_script(port: int, exe: str | None = None) -> str:
+    """Administrator sifatida bajariladigan .bat: avval shu dastur uchun Windows o'zi yaratgan to'suvchi qoidalar
+    (ruxsat oynasida «Bekor» bosilganda paydo bo'ladi, ular ruxsat qoidasidan ustun!) o'chiriladi, so'ng ruxsat qo'shiladi."""
+    lines = ["@echo off", f'netsh advfirewall firewall delete rule name="{FIREWALL_RULE}" >nul 2>&1']
+    if exe:
+        lines.append(f'netsh advfirewall firewall delete rule name=all program="{exe}" >nul 2>&1')
+    lines.append("netsh " + firewall_args(port, exe))
+    lines.append("exit /b 0")
+    return "\r\n".join(lines) + "\r\n"
+
+
 def firewall_args(port: int, exe: str | None = None) -> str:
     """Windows xavfsizlik devori uchun kiruvchi ulanish qoidasi (netsh argumentlari)."""
     args = f'advfirewall firewall add rule name="{FIREWALL_RULE}" dir=in action=allow protocol=TCP localport={port} profile=any enable=yes'
@@ -95,8 +107,13 @@ def open_firewall(port: int) -> tuple[bool, str]:
     if sys.platform != "win32":
         return False, "Bu tugma faqat Windows uchun."
     import ctypes
+    import os
+    import tempfile
     exe = sys.executable if getattr(sys, "frozen", False) else None
-    r = ctypes.windll.shell32.ShellExecuteW(None, "runas", "netsh", firewall_args(port, exe), None, 0)
+    bat = os.path.join(tempfile.gettempdir(), "agent_umimiy_firewall.bat")
+    with open(bat, "w", encoding="utf-8", newline="") as fh:
+        fh.write(firewall_script(port, exe))
+    r = ctypes.windll.shell32.ShellExecuteW(None, "runas", bat, None, None, 0)
     if r <= 32:
         return False, "Administrator ruxsati berilmadi. Qoida qo'shilmadi."
     return True, "Administrator so'rovida «Ha» ni bosing, so'ng bir necha soniya kuting."
@@ -188,9 +205,14 @@ class RemoteServer:
                 except Exception as exc:
                     self._json(400, {"error": str(exc)})
 
+        class Server(ThreadingHTTPServer):
+            def server_bind(self):  # standart usul socket.getfqdn() ni chaqiradi: Windows'da soniyalab qotib qolishi mumkin
+                socketserver.TCPServer.server_bind(self)
+                self.server_name, self.server_port = self.server_address[0], self.server_address[1]
+
         for port in (self.port, 0):
             try:
-                self.httpd = ThreadingHTTPServer((self.host, port), H)
+                self.httpd = Server((self.host, port), H)
                 break
             except OSError:
                 continue
@@ -217,6 +239,16 @@ class RemoteServer:
         with self.lock:
             now = time.time()
             return len([t for t in self.fails.get(ip, []) if now - t < 600]) >= 20
+
+    def selftest(self, ip: str, timeout: float = 2.0) -> tuple[bool, str]:
+        """Kompyuterning o'zidan shu manzilga ulanib ko'radi: server haqiqatan eshityaptimi? (Devorni tekshirmaydi:
+        o'z manziliga ulanish devordan o'tmaydi.)"""
+        import urllib.request
+        try:
+            with urllib.request.urlopen(f"http://{ip}:{self.port}/", timeout=timeout) as r:
+                return r.status == 200, f"Server {ip}:{self.port} da javob beryapti."
+        except Exception as exc:
+            return False, f"Server {ip}:{self.port} da javob bermadi ({exc})."
 
     def url(self, host: str | None = None) -> str:
         return f"http://{host or lan_ip()}:{self.port}/?t={self.token}"
