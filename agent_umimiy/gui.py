@@ -13,6 +13,8 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from . import attachments, chatstore, config, detect, gitutil, markdown, theme
+from . import mcp as mcplib
+from . import skills as skilllib
 from .orchestrator import READ_ONLY_MODES
 from .providers import build_agent
 from .theme import P, Avatar, Pill, color_for, font, label, rrect
@@ -40,9 +42,9 @@ LABEL_TO_TYPE = {v: k for k, v in TYPE_LABELS.items()}
 REAL_TYPE = {"freellm": "openai"}  # shablon -> haqiqiy agent turi
 PROJECT_SUGGESTIONS = ["Bu loyiha nima haqida? Qisqa tushuntirib ber", "Kodda xatolarni top va tuzat",
                        "README.md faylini yoz yoki yangila", "Testlarni ishga tushir, xato bo'lsa tuzat"]
-KIND_ICON = {"read": "◧", "write": "✎", "run": "▶", "info": "•", "agent": "⇄", "browser": "◎"}
+KIND_ICON = {"read": "◧", "write": "✎", "run": "▶", "info": "•", "agent": "⇄", "browser": "◎", "mcp": "⬡", "skill": "✧"}
 KIND_COLOR = {"read": P["muted"], "write": P["warn"], "run": P["accent_hi"], "info": P["err"], "agent": P["ok"],
-              "browser": P["accent_hi"]}
+              "browser": P["accent_hi"], "mcp": P["accent_hi"], "skill": P["ok"]}
 SUGGESTIONS = ["Bu kodni tushuntirib ber", "Menga qisqa xat yozib ber", "Ingliz tiliga tarjima qil",
                "Internetdan bugungi yangiliklarni top"]
 
@@ -332,7 +334,8 @@ class ApproveDialog(tk.Toplevel):
         row = tk.Frame(f, bg=P["bg"])
         row.pack(fill="x", pady=(14, 0))
         always = ("Shu suhbatda doim ruxsat" if kind == "write" else
-                  "Brauzerda doim ruxsat" if kind.startswith("browser") else "Buyruqlarga doim ruxsat")
+                  "Brauzerda doim ruxsat" if kind.startswith("browser") else
+                  "Bu plaginga doim ruxsat" if kind.startswith("mcp") else "Buyruqlarga doim ruxsat")
         Pill(row, "Rad etish", lambda: self._done("no"), width=110, fg=P["err"]).pack(side="left")
         Pill(row, "Ruxsat berish", lambda: self._done("yes"), width=140, bg=P["accent"], hover=P["accent_hi"],
              fg="white").pack(side="right")
@@ -439,6 +442,247 @@ class GitDialog(tk.Toplevel):
         self.config(cursor="")
         self.refresh()
         self._show(("✓ Bajarildi\n\n" if ok else "Xato:\n") + out)
+
+
+class McpDialog(tk.Toplevel):
+    """Plagin (MCP server) qo'shish yoki tahrirlash."""
+
+    TRANSPORTS = {"stdio": "Kompyuterdagi dastur (masalan npx ...)", "http": "Masofaviy server (URL)"}
+
+    def __init__(self, parent, spec=None, taken=()):
+        super().__init__(parent)
+        self.title("Plagin sozlamasi")
+        self.configure(bg=P["bg"])
+        self.resizable(False, False)
+        self.transient(parent)
+        self.result, self.taken = None, set(taken)
+        spec = spec or {}
+        f = tk.Frame(self, bg=P["bg"], padx=22, pady=18)
+        f.pack()
+        label(f, "Plagin sozlamasi", size=14, weight="bold").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+        r = 1
+        if not spec:
+            label(f, "Shablon", fg=P["muted"]).grid(row=r, column=0, sticky="w", pady=5)
+            self.preset = tk.StringVar()
+            cb = ttk.Combobox(f, textvariable=self.preset, values=[p["label"] for p in mcplib.PRESETS], state="readonly", width=44)
+            cb.grid(row=r, column=1, pady=5, padx=(12, 0))
+            cb.bind("<<ComboboxSelected>>", lambda e: self._apply_preset())
+            r += 1
+        self.v = {k: tk.StringVar(value=spec.get(k, "")) for k in ("name", "command", "url")}
+        self.v["transport"] = tk.StringVar(value=self.TRANSPORTS.get(spec.get("transport", "stdio")))
+        for key, text in (("name", "Nomi (lotincha, probelsiz)"), ("transport", "Turi"), ("command", "Buyruq"), ("url", "URL")):
+            label(f, text, fg=P["muted"]).grid(row=r, column=0, sticky="w", pady=5)
+            if key == "transport":
+                w = ttk.Combobox(f, textvariable=self.v[key], values=list(self.TRANSPORTS.values()), state="readonly", width=44)
+            else:
+                w = ttk.Entry(f, textvariable=self.v[key], width=47)
+            w.grid(row=r, column=1, pady=5, padx=(12, 0))
+            r += 1
+        self.texts = {}
+        for key, text in (("env", "Muhit o'zgaruvchilari\n(KALIT=qiymat, har qatorda bittadan)"), ("headers", "Sarlavhalar\n(Authorization: Bearer ..., har qatorda bittadan)")):
+            label(f, text, fg=P["muted"], justify="left").grid(row=r, column=0, sticky="nw", pady=5)
+            t = tk.Text(f, width=47, height=3, bg=P["card"], fg=P["text"], insertbackground=P["text"], relief="flat",
+                        highlightthickness=1, highlightbackground=P["line"], font=font(10, mono=True))
+            t.insert("1.0", spec.get(key, ""))
+            t.grid(row=r, column=1, pady=5, padx=(12, 0))
+            self.texts[key] = t
+            r += 1
+        self.note = label(f, "Kalitlar faqat shu kompyuterdagi sozlama faylida saqlanadi.", fg=P["muted"], size=9, wraplength=480, justify="left")
+        self.note.grid(row=r, column=0, columnspan=2, sticky="w", pady=(6, 12))
+        btns = tk.Frame(f, bg=P["bg"])
+        btns.grid(row=r + 1, column=0, columnspan=2, sticky="e")
+        Pill(btns, "Bekor", self.destroy, width=90).pack(side="left", padx=4)
+        Pill(btns, "Saqlash", self._save, width=110, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(side="left")
+        self.grab_set()
+
+    def _apply_preset(self):
+        p = next(x for x in mcplib.PRESETS if x["label"] == self.preset.get())
+        self.v["name"].set(p["name"])
+        self.v["transport"].set(self.TRANSPORTS[p["transport"]])
+        self.v["command"].set(p.get("command", ""))
+        self.v["url"].set(p.get("url", ""))
+        for k in ("env", "headers"):
+            self.texts[k].delete("1.0", "end")
+            self.texts[k].insert("1.0", p.get(k, ""))
+        self.note.config(text=p["note"])
+
+    def _save(self):
+        import re
+        name = re.sub(r"[^A-Za-z0-9_-]", "_", self.v["name"].get().strip())
+        transport = next(k for k, t in self.TRANSPORTS.items() if t == self.v["transport"].get()) if self.v["transport"].get() else "stdio"
+        if not name:
+            return messagebox.showwarning("Diqqat", "Nomini yozing (lotin harflarida)", parent=self)
+        if name in self.taken:
+            return messagebox.showwarning("Diqqat", "Bu nom band", parent=self)
+        if transport == "stdio" and not self.v["command"].get().strip():
+            return messagebox.showwarning("Diqqat", "Buyruqni yozing", parent=self)
+        if transport == "http" and not self.v["url"].get().strip():
+            return messagebox.showwarning("Diqqat", "URL ni yozing", parent=self)
+        self.result = {"name": name, "transport": transport, "command": self.v["command"].get().strip(),
+                       "url": self.v["url"].get().strip(), "env": self.texts["env"].get("1.0", "end").strip(),
+                       "headers": self.texts["headers"].get("1.0", "end").strip()}
+        self.destroy()
+
+
+class PluginsDialog(tk.Toplevel):
+    """Plaginlar (MCP serverlar) va ko'nikmalar (SKILL.md) boshqaruvi."""
+
+    def __init__(self, parent, cfg, manager, on_save):
+        super().__init__(parent)
+        self.title("Plaginlar")
+        self.configure(bg=P["bg"])
+        self.geometry("820x800")
+        self.transient(parent)
+        self.cfg, self.manager, self.on_save = cfg, manager, on_save
+        self.items: list = [dict(x) for x in cfg.get("mcp", [])]
+        f = tk.Frame(self, bg=P["bg"], padx=22, pady=18)
+        f.pack(fill="both", expand=True)
+        label(f, "Plaginlar", size=15, weight="bold").pack(anchor="w")
+        label(f, "Tayyor xizmatlarni ulang: fayllar, Notion, GitHub, hujjatlar va boshqalar. Agentlar ularning asboblaridan foydalanadi.",
+              fg=P["muted"], size=9, wraplength=760, justify="left").pack(anchor="w", pady=(0, 10))
+        self.tree = ttk.Treeview(f, columns=("kind", "status", "tools"), show="tree headings", height=5)
+        self.tree.heading("#0", text="Plagin")
+        self.tree.heading("kind", text="Turi")
+        self.tree.heading("status", text="Holati")
+        self.tree.heading("tools", text="Asboblar")
+        self.tree.column("#0", width=230)
+        self.tree.column("kind", width=90)
+        self.tree.column("status", width=280)
+        self.tree.column("tools", width=80)
+        self.tree.pack(fill="x")
+        self.tree.bind("<<TreeviewSelect>>", lambda e: self._detail())
+        row = tk.Frame(f, bg=P["bg"])
+        row.pack(fill="x", pady=10)
+        for text, cmd, w in (("+ Qo'shish", self.add, 100), ("Tahrirlash", self.edit, 100), ("O'chirish", self.remove, 90),
+                             ("Yoq / o'chir", self.toggle, 110), ("Qayta ulash", self.reconnect, 110)):
+            Pill(row, text, cmd, width=w, height=34, size=9).pack(side="left", padx=(0, 6))
+        self.detail = tk.Text(f, height=5, bg=P["code"], fg="#c9d1ff", relief="flat", bd=0, font=font(9, mono=True),
+                              padx=10, pady=6, wrap="word", highlightthickness=0, state="disabled")
+        self.detail.pack(fill="x")
+
+        label(f, "Ko'nikmalar (skills)", size=13, weight="bold").pack(anchor="w", pady=(18, 0))
+        label(f, "Papkaga SKILL.md joylashtiring. Claude ko'nikmalari (~/.claude/skills) va loyihadagi .claude/skills avtomatik topiladi.",
+              fg=P["muted"], size=9, wraplength=760, justify="left").pack(anchor="w", pady=(0, 8))
+        self.skills = ttk.Treeview(f, columns=("src", "desc"), show="tree headings", height=5)
+        self.skills.heading("#0", text="Ko'nikma")
+        self.skills.heading("src", text="Manba")
+        self.skills.heading("desc", text="Tavsif")
+        self.skills.column("#0", width=190)
+        self.skills.column("src", width=110)
+        self.skills.column("desc", width=420)
+        self.skills.pack(fill="both", expand=True)
+        row2 = tk.Frame(f, bg=P["bg"])
+        row2.pack(fill="x", pady=(10, 0))
+        Pill(row2, "Ko'nikmalar papkasini ochish", self.open_skills_dir, width=220, height=34, size=9).pack(side="left", padx=(0, 6))
+        Pill(row2, "Yangilash", self._refresh_skills, width=100, height=34, size=9).pack(side="left")
+        Pill(row2, "Yopish", self.destroy, width=90, height=34, size=9, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(side="right")
+        self._refresh_skills()
+        self._tick()
+
+    # -- MCP --
+    def _status(self, item):
+        if not item.get("enabled", True):
+            return "o'chiq", 0, ""
+        s = self.manager.servers.get(item["name"])
+        if not s:
+            return "kutilmoqda", 0, ""
+        return s.status, len(s.tools), s.error
+
+    def _tick(self):
+        if not self.winfo_exists():
+            return
+        sel = self.tree.selection()
+        self.tree.delete(*self.tree.get_children())
+        for i, it in enumerate(self.items):
+            st, n, _ = self._status(it)
+            dot = {"tayyor": "● ", "xato": "✕ ", "ulanmoqda": "… "}.get(st, "○ ")
+            self.tree.insert("", "end", iid=str(i), text=it["name"], values=(
+                "HTTP" if it.get("transport") == "http" else "dastur", dot + st, n if st == "tayyor" else ""))
+        if sel and sel[0] in self.tree.get_children():
+            self.tree.selection_set(sel[0])
+        self._detail()
+        self.after(1000, self._tick)
+
+    def _sel(self):
+        s = self.tree.selection()
+        return int(s[0]) if s else None
+
+    def _detail(self):
+        i = self._sel()
+        text = ""
+        if i is not None and i < len(self.items):
+            st, n, err = self._status(self.items[i])
+            s = self.manager.servers.get(self.items[i]["name"])
+            if err:
+                text = "Xato: " + err
+            elif s and s.tools:
+                text = "Asboblar: " + ", ".join(t.get("name", "") for t in s.tools)
+            elif st == "ulanmoqda":
+                text = "Ulanmoqda… (birinchi marta npx paketni yuklab oladi, 1-2 daqiqa ketishi mumkin)"
+        self.detail.config(state="normal")
+        self.detail.delete("1.0", "end")
+        self.detail.insert("1.0", text)
+        self.detail.config(state="disabled")
+
+    def _commit(self):
+        self.on_save([dict(x) for x in self.items])
+
+    def add(self):
+        d = McpDialog(self, taken=[x["name"] for x in self.items])
+        self.wait_window(d)
+        if d.result:
+            self.items.append(d.result)
+            self._commit()
+
+    def edit(self):
+        i = self._sel()
+        if i is None:
+            return
+        d = McpDialog(self, self.items[i], taken=[x["name"] for j, x in enumerate(self.items) if j != i])
+        self.wait_window(d)
+        if d.result:
+            d.result["enabled"] = self.items[i].get("enabled", True)
+            self.items[i] = d.result
+            self._commit()
+
+    def remove(self):
+        i = self._sel()
+        if i is not None and messagebox.askyesno("O'chirish", "Bu plagin o'chirilsinmi?", parent=self):
+            del self.items[i]
+            self._commit()
+
+    def toggle(self):
+        i = self._sel()
+        if i is not None:
+            self.items[i]["enabled"] = not self.items[i].get("enabled", True)
+            self._commit()
+
+    def reconnect(self):
+        i = self._sel()
+        if i is not None:
+            self.manager.reconnect(self.items[i]["name"])
+
+    # -- ko'nikmalar --
+    def _refresh_skills(self):
+        skilllib._cache.clear()
+        self.skills.delete(*self.skills.get_children())
+        proj = getattr(self.master, "project", None) or None
+        for s in skilllib.discover(proj, ttl=0):
+            self.skills.insert("", "end", text=s.name, values=(s.source, s.description))
+
+    def open_skills_dir(self):
+        import os
+        import subprocess
+        import sys
+        d = config.user_dir() / "skills"
+        d.mkdir(parents=True, exist_ok=True)
+        try:
+            if sys.platform == "win32":
+                os.startfile(str(d))
+            else:
+                subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(d)])
+        except OSError:
+            messagebox.showinfo("Papka", str(d), parent=self)
 
 
 class ModeRow(tk.Canvas):
@@ -572,6 +816,7 @@ class App(tk.Tk):
         self.ph_on = False
         self._build_sidebar()
         self._build_main()
+        self.mcp = mcplib.Manager(self.cfg.get("mcp", []))
         self._restore_chats()
         self.rebuild()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -608,6 +853,8 @@ class App(tk.Tk):
         bottom = tk.Frame(inner, bg=P["side"])
         bottom.pack(side="bottom", fill="x")
         Pill(bottom, "＋  Yangi suhbat", lambda: self.new_chat(), bg=P["accent"], hover=P["accent_hi"], fg="white",
+             height=42, radius=14).pack(fill="x", pady=(0, 8))
+        Pill(bottom, "⬡   Plaginlar", self.open_plugins, bg=P["card"], hover=P["card_hi"],
              height=42, radius=14).pack(fill="x", pady=(0, 8))
         Pill(bottom, "⚙   Sozlamalar", self.open_settings, bg=P["card"], hover=P["card_hi"],
              height=42, radius=14).pack(fill="x")
@@ -771,6 +1018,8 @@ class App(tk.Tk):
         o.ctx.root = chat.project or None
         o.ctx.web = bool(self.cfg.get("web", True))
         o.ctx.browser = bool(self.cfg.get("browser", True))
+        o.ctx.mcp = self.mcp
+        o.ctx.skills = bool(self.cfg.get("skills", True))
         return o
 
     def rebuild(self):
@@ -812,6 +1061,7 @@ class App(tk.Tk):
     def _on_close(self):
         from . import browser
         browser.shutdown()
+        self.mcp.shutdown()
         self._save_chats()
         self.destroy()
 
@@ -1000,6 +1250,14 @@ class App(tk.Tk):
         messagebox.showinfo("Xush kelibsiz!", "Boshlash uchun «Sozlamalar» da agent qo'shing "
                             "(Claude, ChatGPT, Gemini yoki lokal model).", parent=self)
         self.open_settings()
+
+    def open_plugins(self):
+        PluginsDialog(self, self.cfg, self.mcp, self._save_plugins)
+
+    def _save_plugins(self, mcp_cfg):
+        self.cfg["mcp"] = mcp_cfg
+        config.write(self.cfg, self.cfg_path)
+        self.mcp.configure(mcp_cfg)
 
     def open_settings(self):
         Settings(self, copy.deepcopy(self.cfg), self.save_settings)

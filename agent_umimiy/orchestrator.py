@@ -65,6 +65,8 @@ class Orchestrator:
             raise ValueError(f"Noma'lum rejim: {mode}")
         agents = [self._get(n) for n in targets] if targets else list(self.agents.values())
         self.ctx.cancel.clear()
+        if self.ctx.mcp:
+            self.ctx.mcp.wait_ready(8)  # plaginlar hali ulanayotgan bo'lsa, biroz kutamiz
         self.ctx.readonly = mode in READ_ONLY_MODES  # bir nechta agent bir vaqtda fayl o'zgartirmasligi uchun
 
         if mode == "auto":

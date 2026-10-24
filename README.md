@@ -40,6 +40,16 @@ Eslatma: bu brauzerni *boshqarish* (tugma bosish, forma to'ldirish) emas — faq
 - **Reja kartasi:** ko'p bosqichli ishda agent «Reja» ro'yxatini ko'rsatadi va bosqichlarni belgilab boradi.
 - **Markdown:** javoblarda sarlavha, ro'yxat, jadval, `kod`, havola va kod bloklari chiroyli ko'rinadi.
 
+## Plaginlar (MCP) va ko'nikmalar (skills)
+
+**Plaginlar.** Chap paneldagi **Plaginlar** tugmasi: «Qo'shish» → tayyor shablonni tanlang (Fayllar, Xotira, Hujjatlar/Context7, Notion, Playwright, GitHub...) yoki istalgan MCP serverni o'zingiz kiriting (buyruq yoki URL, kerak bo'lsa kalit). Dastur serverni ishga tushiradi va uning asboblarini barcha agentlarga beradi.
+- **O'qiydigan** asboblar ruxsatsiz ishlaydi, **o'zgartiradigan**lari har safar ruxsat so'raydi («Bu plaginga doim ruxsat» tugmasi bor). «Hammasi birga» va «Kengash» rejimlarida faqat o'qiydiganlari ishlaydi.
+- `npx ...` bilan boshlanadigan plaginlar uchun kompyuterda **Node.js** (nodejs.org) kerak; birinchi ishga tushishda paket yuklanadi (1-2 daqiqa).
+- Kalitlar (`NOTION_TOKEN`, GitHub tokeni...) faqat shu kompyuterdagi sozlama faylida saqlanadi.
+- **Cheklov:** claude.ai'dagi tayyor ulanishlar (Gmail, Google Drive, Calendar...) sizning claude.ai hisobingizga bog'liq, ularni bu dasturga ko'chirib bo'lmaydi. Ularning o'rniga shu xizmatlarning o'z MCP serverlarini (o'z kalitingiz bilan) ulaysiz. OAuth (brauzerda «Kirish» tugmasi) talab qiladigan masofaviy serverlar hozircha qo'llanmaydi.
+
+**Ko'nikmalar.** `SKILL.md` fayli bor papka (Claude formatida: `name`, `description`, matn). Quyidagi joylardan avtomatik topiladi: `%APPDATA%\AgentUmimiy\skills\<nom>\SKILL.md`, `~/.claude/skills`, Claude plaginlaridagi ko'nikmalar va loyihadagi `.claude/skills`. Agent tavsifga qarab kerakli ko'nikmani o'zi yuklaydi va unga amal qiladi.
+
 ## Agent brauzerda ishlaydi
 
 Agent **haqiqiy brauzer oynasida** sayt ochadi, o'qiydi, tugmalarni bosadi va formalarni to'ldiradi (siz oynada nima bo'layotganini ko'rib turasiz). Windows'da **Edge** (yoki Chrome) ishlatiladi, hech narsa o'rnatish shart emas.

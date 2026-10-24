@@ -142,11 +142,11 @@ class WebTests(unittest.TestCase):
 
     def test_tool_lists(self):
         names = lambda ctx: {t.name for t in Toolbox(ctx, "t").tools()}
-        self.assertEqual(names(Context()), {"web_search", "web_fetch", "open_url", "todo_write"} | {t for t in names(Context()) if t.startswith("browser_")})
-        self.assertIn("write_file", names(Context(root=tempfile.mkdtemp())))
-        self.assertNotIn("web_fetch", names(Context(root=tempfile.mkdtemp(), web=False)))
-        self.assertEqual(len([n for n in names(Context()) if n.startswith("browser_")]), 7)
-        tb = Toolbox(Context(), "t")  # loyihasiz fayl asbobi yo'q
+        self.assertEqual(names(Context(skills=False)), {"web_search", "web_fetch", "open_url", "todo_write"} | {t for t in names(Context(skills=False)) if t.startswith("browser_")})
+        self.assertIn("write_file", names(Context(root=tempfile.mkdtemp(), skills=False)))
+        self.assertNotIn("web_fetch", names(Context(root=tempfile.mkdtemp(), web=False, skills=False)))
+        self.assertEqual(len([n for n in names(Context(skills=False)) if n.startswith("browser_")]), 7)
+        tb = Toolbox(Context(skills=False), "t")  # loyihasiz fayl asbobi yo'q
         self.assertTrue(tb.run("read_file", {"path": "x"})[1])
 
     def test_search_via_agent_loop(self):
