@@ -14,3 +14,6 @@ Videoni birlashtirish uchun `ffmpeg` o'rnatilgan bo'lishi kerak. Kalitlar faqat 
 ```
 pip install -r requirements-dev.txt && pytest
 ```
+
+## Windows da oson ishga tushirish
+`start.bat` ustiga ikki marta bosing: birinchi marta kutubxonalarni o'rnatadi, keyin token so'raydi (hech qayerga saqlanmaydi).
