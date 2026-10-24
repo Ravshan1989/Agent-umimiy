@@ -68,6 +68,49 @@ def _wrapped_lines(lines, f, px):
     return max(1, total)
 
 
+def fit(win, w: int, h: int, center: bool = True):
+    """Oynani ekran o'lchamiga moslaydi (noutbuk ekrani kichik bo'lsa ham to'liq ko'rinsin) va markazlaydi."""
+    sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
+    w, h = min(w, sw - 40), min(h, sh - 110)  # vazifalar paneli va sarlavha uchun joy
+    x, y = max(0, (sw - w) // 2), max(0, (sh - h) // 2 - 20)
+    win.geometry(f"{w}x{h}+{x}+{y}" if center else f"{w}x{h}")
+    return w, h
+
+
+def center(win):
+    """O'lchami tarkibga qarab belgilanadigan oynani markazlaydi."""
+    win.update_idletasks()
+    sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
+    w, h = min(win.winfo_reqwidth(), sw - 40), min(win.winfo_reqheight(), sh - 110)
+    win.geometry(f"{w}x{h}+{max(0, (sw - w) // 2)}+{max(0, (sh - h) // 2 - 20)}")
+
+
+def scroll_body(win, pad=(22, 18)):
+    """Oyna: tepada aylantiriladigan tarkib, pastda doim ko'rinadigan tugmalar paneli. (panel, tarkib) qaytaradi."""
+    bar = tk.Frame(win, bg=P["bg"], padx=22, pady=10)
+    bar.pack(side="bottom", fill="x")
+    tk.Frame(win, bg=P["line"], height=1).pack(side="bottom", fill="x")
+    wrap = tk.Frame(win, bg=P["bg"])
+    wrap.pack(fill="both", expand=True)
+    canvas = tk.Canvas(wrap, bg=P["bg"], highlightthickness=0)
+    sb = ttk.Scrollbar(wrap, command=canvas.yview)
+    canvas.configure(yscrollcommand=sb.set)
+    sb.pack(side="right", fill="y")
+    canvas.pack(side="left", fill="both", expand=True)
+    inner = tk.Frame(canvas, bg=P["bg"], padx=pad[0], pady=pad[1])
+    wid = canvas.create_window((0, 0), window=inner, anchor="nw")
+    inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+    canvas.bind("<Configure>", lambda e: canvas.itemconfig(wid, width=e.width))
+
+    def wheel(e):
+        if canvas.yview() != (0.0, 1.0):
+            canvas.yview_scroll(-3 if (e.num == 4 or e.delta > 0) else 3, "units")
+
+    for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+        win.bind(seq, wheel)  # Toplevel barcha ichki vidjetlarning bindtags ida bor
+    return bar, inner
+
+
 def dark_top(parent, title, size=None):
     top = tk.Toplevel(parent)
     top.title(title)
@@ -85,12 +128,11 @@ class AgentDialog(tk.Toplevel):
         super().__init__(parent)
         self.title("Agent sozlamasi")
         self.configure(bg=P["bg"])
-        self.resizable(False, False)
+        fit(self, 640, 600)
         self.result = None
         self.transient(parent)
         spec = spec or {}
-        f = tk.Frame(self, bg=P["bg"], padx=22, pady=18)
-        f.pack()
+        bar, f = scroll_body(self)
         label(f, "Agent sozlamasi", size=14, weight="bold").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
         self.vars = {}
         rows = [("name", "Nomi"), ("type", "Turi"), ("model", "Model"), ("api_key", "API kalit"),
@@ -114,8 +156,8 @@ class AgentDialog(tk.Toplevel):
         self.hint = label(f, "", fg=P["muted"], size=9, wraplength=380, justify="left")
         self.hint.grid(row=len(rows) + 1, column=0, columnspan=2, sticky="w", pady=(8, 12))
         self._hint()
-        btns = tk.Frame(f, bg=P["bg"])
-        btns.grid(row=len(rows) + 2, column=0, columnspan=2, sticky="e")
+        btns = tk.Frame(bar, bg=P["bg"])
+        btns.pack(anchor="e")
         Pill(btns, "Bekor", self.destroy, width=90).pack(side="left", padx=4)
         Pill(btns, "Sinab ko'rish", self._test, width=130, outline=P["line"], bg=P["bg"]).pack(side="left", padx=4)
         Pill(btns, "Saqlash", self._save, width=110, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(side="left")
@@ -204,10 +246,9 @@ class Settings(tk.Toplevel):
         self.title("Sozlamalar")
         self.configure(bg=P["bg"])
         self.cfg, self.on_save = cfg, on_save
-        self.geometry("720x760")
+        fit(self, 720, 760)
         self.transient(parent)
-        f = tk.Frame(self, bg=P["bg"], padx=22, pady=18)
-        f.pack(fill="both", expand=True)
+        bar, f = scroll_body(self)
         label(f, "Agentlaringiz", size=15, weight="bold").pack(anchor="w")
         label(f, "Qo'shing, tahrirlang yoki vaqtincha o'chirib qo'ying", fg=P["muted"], size=9).pack(anchor="w", pady=(0, 10))
         self.tree = ttk.Treeview(f, columns=("type", "model", "on"), show="headings", height=8)
@@ -242,8 +283,7 @@ class Settings(tk.Toplevel):
         tk.Checkbutton(f, text="Agentlar internetdan qidira va sahifalarni o'qiy olsin", variable=self.web, bg=P["bg"],
                        fg=P["text"], selectcolor=P["card"], activebackground=P["bg"], activeforeground=P["text"],
                        highlightthickness=0, bd=0, font=font(10)).pack(anchor="w", pady=(12, 0))
-        Pill(f, "Saqlash va yopish", self.save, width=170, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(
-            anchor="e", pady=(14, 0))
+        Pill(bar, "Saqlash va yopish", self.save, width=170, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(anchor="e")
         self.refresh()
 
     def _wipe(self):
@@ -345,6 +385,7 @@ class ApproveDialog(tk.Toplevel):
              fg="white").pack(side="right")
         Pill(row, always, lambda: self._done("always"), width=190, outline=P["line"], bg=P["bg"]).pack(side="right", padx=8)
         self.protocol("WM_DELETE_WINDOW", lambda: self._done("no"))
+        center(self)
         self.grab_set()
         self.focus_force()
 
@@ -361,7 +402,7 @@ class GitDialog(tk.Toplevel):
         self.root_dir = root
         self.title("Git — o'zgarishlar")
         self.configure(bg=P["bg"])
-        self.geometry("760x640")
+        fit(self, 760, 640)
         self.transient(parent)
         f = tk.Frame(self, bg=P["bg"], padx=22, pady=18)
         f.pack(fill="both", expand=True)
@@ -456,10 +497,10 @@ class RemoteDialog(tk.Toplevel):
         self.app = app
         self.title("Telefondan boshqarish")
         self.configure(bg=P["bg"])
-        self.geometry("560x720")
+        fit(self, 580, 740)
         self.transient(app)
-        f = tk.Frame(self, bg=P["bg"], padx=24, pady=18)
-        f.pack(fill="both", expand=True)
+        bar, f = scroll_body(self, (24, 18))
+        Pill(bar, "Yopish", self.destroy, width=100, height=34, size=9, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(anchor="e")
         label(f, "Telefondan boshqarish", size=15, weight="bold").pack(anchor="w")
         label(f, "Telefon va kompyuter bir Wi-Fi tarmog'ida bo'lsin. QR-kodni telefon kamerasi bilan skanerlang: chat telefon brauzerida ochiladi, "
                  "ruxsat so'rovlari ham telefonda chiqadi.", fg=P["muted"], size=9, wraplength=500, justify="left").pack(anchor="w", pady=(2, 10))
@@ -540,12 +581,11 @@ class McpDialog(tk.Toplevel):
         super().__init__(parent)
         self.title("Plagin sozlamasi")
         self.configure(bg=P["bg"])
-        self.resizable(False, False)
+        fit(self, 700, 680)
         self.transient(parent)
         self.result, self.taken = None, set(taken)
         spec = spec or {}
-        f = tk.Frame(self, bg=P["bg"], padx=22, pady=18)
-        f.pack()
+        bar, f = scroll_body(self)
         label(f, "Plagin sozlamasi", size=14, weight="bold").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
         r = 1
         if not spec:
@@ -576,8 +616,8 @@ class McpDialog(tk.Toplevel):
             r += 1
         self.note = label(f, "Kalitlar faqat shu kompyuterdagi sozlama faylida saqlanadi.", fg=P["muted"], size=9, wraplength=480, justify="left")
         self.note.grid(row=r, column=0, columnspan=2, sticky="w", pady=(6, 12))
-        btns = tk.Frame(f, bg=P["bg"])
-        btns.grid(row=r + 1, column=0, columnspan=2, sticky="e")
+        btns = tk.Frame(bar, bg=P["bg"])
+        btns.pack(anchor="e")
         Pill(btns, "Bekor", self.destroy, width=90).pack(side="left", padx=4)
         Pill(btns, "Saqlash", self._save, width=110, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(side="left")
         self.grab_set()
@@ -618,12 +658,12 @@ class PluginsDialog(tk.Toplevel):
         super().__init__(parent)
         self.title("Plaginlar")
         self.configure(bg=P["bg"])
-        self.geometry("820x800")
+        fit(self, 840, 800)
         self.transient(parent)
         self.cfg, self.manager, self.on_save = cfg, manager, on_save
         self.items: list = [dict(x) for x in cfg.get("mcp", [])]
-        f = tk.Frame(self, bg=P["bg"], padx=22, pady=18)
-        f.pack(fill="both", expand=True)
+        bar, f = scroll_body(self)
+        Pill(bar, "Yopish", self.destroy, width=100, height=34, size=9, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(anchor="e")
         label(f, "Plaginlar", size=15, weight="bold").pack(anchor="w")
         label(f, "Tayyor xizmatlarni ulang: fayllar, Notion, GitHub, hujjatlar va boshqalar. Agentlar ularning asboblaridan foydalanadi.",
               fg=P["muted"], size=9, wraplength=760, justify="left").pack(anchor="w", pady=(0, 10))
@@ -662,7 +702,6 @@ class PluginsDialog(tk.Toplevel):
         row2.pack(fill="x", pady=(10, 0))
         Pill(row2, "Ko'nikmalar papkasini ochish", self.open_skills_dir, width=220, height=34, size=9).pack(side="left", padx=(0, 6))
         Pill(row2, "Yangilash", self._refresh_skills, width=100, height=34, size=9).pack(side="left")
-        Pill(row2, "Yopish", self.destroy, width=90, height=34, size=9, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(side="right")
         self._refresh_skills()
         self._tick()
 
@@ -773,8 +812,8 @@ class PluginsDialog(tk.Toplevel):
 
 
 class ModeRow(tk.Canvas):
-    def __init__(self, parent, key, on_pick):
-        super().__init__(parent, height=40, bg=P["side"], highlightthickness=0, cursor="hand2")
+    def __init__(self, parent, key, on_pick, height=40):
+        super().__init__(parent, height=height, bg=P["side"], highlightthickness=0, cursor="hand2")
         self.key, self.on_pick, self.active, self.over = key, on_pick, False, False
         self.bind("<Configure>", lambda e: self.draw())
         self.bind("<Button-1>", lambda e: on_pick(key))
@@ -799,8 +838,8 @@ class ModeRow(tk.Canvas):
 
 
 class AgentRow(tk.Canvas):
-    def __init__(self, parent, agent, on_toggle):
-        super().__init__(parent, height=48, bg=P["side"], highlightthickness=0, cursor="hand2")
+    def __init__(self, parent, agent, on_toggle, height=48):
+        super().__init__(parent, height=height, bg=P["side"], highlightthickness=0, cursor="hand2")
         self.agent, self.on_toggle, self.on, self.over = agent, on_toggle, True, False
         self.bind("<Configure>", lambda e: self.draw())
         self.bind("<Button-1>", lambda e: on_toggle(agent.name))
@@ -896,8 +935,8 @@ class App(tk.Tk):
         self.cfg = config.read(cfg_path)
         first_run = not config.config_path(cfg_path).exists()
         self.title("Agent Umimiy")
-        self.geometry("1180x780")
-        self.minsize(860, 560)
+        w, h = fit(self, 1180, 780)
+        self.minsize(min(860, w), min(560, h))
         self.mode = tk.StringVar(value="auto")
         self.selected: set[str] = set()
         self.chats: list[Chat] = []
@@ -929,8 +968,10 @@ class App(tk.Tk):
         inner = tk.Frame(side, bg=P["side"], padx=16, pady=18)
         inner.pack(fill="both", expand=True)
 
+        self.compact = self.winfo_screenheight() < 820  # noutbuk ekrani: ixchamroq panel
+        c = self.compact
         logo = tk.Frame(inner, bg=P["side"])
-        logo.pack(fill="x", pady=(0, 18))
+        logo.pack(fill="x", pady=(0, 8 if c else 18))
         c = tk.Canvas(logo, width=42, height=42, bg=P["side"], highlightthickness=0)
         rrect(c, 0, 0, 42, 42, 13, fill=P["accent"], outline="")
         c.create_text(21, 21, text="A", fill="white", font=font(17, "bold"))
@@ -940,24 +981,32 @@ class App(tk.Tk):
         label(t, "Agent Umimiy", size=14, weight="bold").pack(anchor="w")
         label(t, "Barcha AI bir joyda", fg=P["muted"], size=9).pack(anchor="w")
 
-        label(inner, "REJIM", fg=P["muted"], size=8, weight="bold").pack(anchor="w", pady=(4, 6))
+        label(inner, "REJIM", fg=P["muted"], size=8, weight="bold").pack(anchor="w", pady=(2 if c else 4, 4 if c else 6))
         self.mode_rows = {}
         for k in MODES:
-            r = ModeRow(inner, k, self.pick_mode)
+            r = ModeRow(inner, k, self.pick_mode, height=32 if c else 40)
             r.pack(fill="x", pady=1)
             self.mode_rows[k] = r
 
-        label(inner, "AGENTLAR", fg=P["muted"], size=8, weight="bold").pack(anchor="w", pady=(18, 6))
+        label(inner, "AGENTLAR", fg=P["muted"], size=8, weight="bold").pack(anchor="w", pady=(8 if c else 18, 4 if c else 6))
         bottom = tk.Frame(inner, bg=P["side"])
         bottom.pack(side="bottom", fill="x")
+        bh, gap = (34, 5) if c else (42, 8)
         Pill(bottom, "＋  Yangi suhbat", lambda: self.new_chat(), bg=P["accent"], hover=P["accent_hi"], fg="white",
-             height=42, radius=14).pack(fill="x", pady=(0, 8))
+             height=bh, radius=14).pack(fill="x", pady=(0, gap))
         Pill(bottom, "⬡   Plaginlar", self.open_plugins, bg=P["card"], hover=P["card_hi"],
-             height=42, radius=14).pack(fill="x", pady=(0, 8))
+             height=bh, radius=14).pack(fill="x", pady=(0, gap))
         Pill(bottom, "⚙   Sozlamalar", self.open_settings, bg=P["card"], hover=P["card_hi"],
-             height=42, radius=14).pack(fill="x")
-        self.agent_box = tk.Frame(inner, bg=P["side"])
-        self.agent_box.pack(fill="both", expand=True)
+             height=bh, radius=14).pack(fill="x")
+        # agentlar ro'yxati: ko'p bo'lsa aylantiriladi
+        holder = tk.Frame(inner, bg=P["side"])
+        holder.pack(fill="both", expand=True)
+        self.agent_canvas = tk.Canvas(holder, bg=P["side"], highlightthickness=0)
+        self.agent_canvas.pack(fill="both", expand=True)
+        self.agent_box = tk.Frame(self.agent_canvas, bg=P["side"])
+        aw = self.agent_canvas.create_window((0, 0), window=self.agent_box, anchor="nw")
+        self.agent_box.bind("<Configure>", lambda e: self.agent_canvas.configure(scrollregion=self.agent_canvas.bbox("all")))
+        self.agent_canvas.bind("<Configure>", lambda e: self.agent_canvas.itemconfig(aw, width=e.width))
 
     def _build_main(self):
         main = tk.Frame(self, bg=P["bg"])
@@ -1016,6 +1065,16 @@ class App(tk.Tk):
         self._ph(True)
 
     def _wheel(self, e):
+        try:
+            top = e.widget.winfo_toplevel()
+        except Exception:
+            top = self
+        if top is not self:  # boshqa oynalar (sozlamalar va h.k.) o'zi aylantiradi
+            return
+        if str(e.widget).startswith(str(self.agent_canvas)):  # chap paneldagi agentlar ro'yxati
+            if self.agent_canvas.yview() != (0.0, 1.0):
+                self.agent_canvas.yview_scroll(-2 if (e.num == 4 or e.delta > 0) else 2, "units")
+            return
         if self.canvas.yview() == (0.0, 1.0):
             return
         step = -1 if (e.num == 4 or e.delta > 0) else 1
@@ -1136,7 +1195,7 @@ class App(tk.Tk):
         for w in self.agent_box.winfo_children():
             w.destroy()
         for a in self.cur.orch.agents.values():
-            AgentRow(self.agent_box, a, self.toggle_agent).pack(fill="x", pady=1)
+            AgentRow(self.agent_box, a, self.toggle_agent, height=40 if self.compact else 48).pack(fill="x", pady=1)
         self.pick_mode(self.mode.get())
         self._count()
 
