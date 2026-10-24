@@ -34,14 +34,16 @@ class Orchestrator:
             raise KeyError(f"Agent topilmadi: {name}")
         return self.agents[name]
 
-    def pick(self, prompt: str) -> Agent:
+    def pick(self, prompt: str, pool: list[Agent] | None = None) -> Agent:
+        pool = pool or list(self.agents.values())
+        allowed = {a.name for a in pool}
         low = prompt.lower()
         best, score = None, 0
         for name, words in self.routes.items():
             s = sum(w.lower() in low for w in words)
-            if s > score and name in self.agents:
+            if s > score and name in allowed:
                 best, score = name, s
-        return self.agents[best] if best else next(iter(self.agents.values()))
+        return self.agents[best] if best else pool[0]
 
     def run(self, prompt: str, mode: str = "auto", targets: list[str] | None = None) -> list[Result]:
         if mode not in MODES:
@@ -49,7 +51,7 @@ class Orchestrator:
         agents = [self._get(n) for n in targets] if targets else list(self.agents.values())
 
         if mode == "auto":
-            results = [self.pick(prompt).ask(prompt, self.history)]
+            results = [self.pick(prompt, agents).ask(prompt, self.history)]
         elif mode == "single":
             results = [agents[0].ask(prompt, self.history)]
         elif mode == "broadcast":
