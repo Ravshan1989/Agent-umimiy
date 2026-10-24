@@ -45,4 +45,5 @@ async def download_video(url: str, out_dir: Path, max_mb: int = 50) -> Path:
 
 
 def make_temp_dir() -> tempfile.TemporaryDirectory:
-    return tempfile.TemporaryDirectory(prefix="dl_")
+    # Windows da fayl hali band bo'lishi mumkin; tozalash xatosi foydalanuvchiga ta'sir qilmasin
+    return tempfile.TemporaryDirectory(prefix="dl_", ignore_cleanup_errors=True)
