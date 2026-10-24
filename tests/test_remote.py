@@ -102,3 +102,36 @@ class PageSafetyTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NetworkHelpersTests(unittest.TestCase):
+    def test_classify_prefers_home_networks(self):
+        score = lambda ip: remote.classify_ip(ip)[0]
+        self.assertLess(score("192.168.1.5"), score("10.0.0.7"))
+        self.assertLess(score("10.0.0.7"), score("172.17.0.1"))      # Docker odatda 172.17.x
+        self.assertLess(score("192.168.1.5"), score("192.168.56.1"))  # VirtualBox
+        self.assertEqual(score("169.254.3.4"), 9)                     # avtomatik manzil ishlamaydi
+        self.assertIn("Tailscale", remote.classify_ip("100.101.5.5")[1])
+
+    def test_local_ips_sorted_and_filtered(self):
+        import socket
+        from unittest import mock
+        fake = [(None, None, None, None, (ip, 0)) for ip in ("172.17.0.1", "192.168.0.23", "127.0.0.1", "169.254.1.1", "10.1.2.3")]
+        with mock.patch.object(socket, "getaddrinfo", return_value=fake), mock.patch.object(socket, "socket", side_effect=OSError):
+            ips = [o["ip"] for o in remote.local_ips()]
+        self.assertEqual(ips, ["192.168.0.23", "10.1.2.3", "172.17.0.1"])
+        with mock.patch.object(remote, "local_ips", return_value=[{"ip": "192.168.0.23"}]):
+            self.assertEqual(remote.lan_ip(), "192.168.0.23")
+        with mock.patch.object(remote, "local_ips", return_value=[]):
+            self.assertEqual(remote.lan_ip(), "127.0.0.1")
+
+    def test_firewall_command(self):
+        a = remote.firewall_args(8765, r"C:\Apps\AgentUmimiy.exe")
+        self.assertIn('name="Agent Umimiy"', a)
+        self.assertIn("dir=in action=allow protocol=TCP localport=8765", a)
+        self.assertIn("profile=any", a)
+        self.assertTrue(a.endswith('program="C:\\Apps\\AgentUmimiy.exe"'))
+        self.assertNotIn("program=", remote.firewall_args(8765))
+        ok, msg = remote.open_firewall(8765)  # Linux'da: xavfsiz rad etiladi
+        self.assertFalse(ok)
+        self.assertFalse(remote.firewall_rule_exists())

@@ -25,13 +25,81 @@ def new_token() -> str:
     return secrets.token_urlsafe(24)
 
 
-def lan_ip() -> str:
+def classify_ip(ip: str) -> tuple[int, str]:
+    """(ustuvorlik, izoh): telefon bilan bir tarmoqda bo'lishi ehtimoli yuqori manzillar oldinda."""
+    a = [int(x) for x in ip.split(".")]
+    if ip.startswith("169.254."):
+        return 9, "avtomatik manzil, ishlamaydi"
+    if a[0] == 192 and a[1] == 168:
+        if a[2] in (56, 99):
+            return 5, "virtual (VirtualBox/Docker)"
+        return 0, "uy Wi-Fi/Ethernet tarmog'i"
+    if a[0] == 10:
+        return 1, "uy yoki ofis tarmog'i"
+    if a[0] == 172 and 16 <= a[1] <= 31:
+        return 3, "ofis yoki virtual (Docker/WSL)"
+    if a[0] == 100 and 64 <= a[1] <= 127:
+        return 4, "Tailscale yoki operator tarmog'i"
+    return 6, "boshqa"
+
+
+def local_ips() -> list[dict]:
+    """Kompyuterning barcha IPv4 manzillari, eng ehtimoliy (uy Wi-Fi'i) birinchi."""
+    found: set[str] = set()
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.connect(("10.255.255.255", 1))  # paket yuborilmaydi, faqat qaysi tarmoq ishlatilishini aniqlaydi
-            return s.getsockname()[0]
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            found.add(info[4][0])
     except OSError:
-        return "127.0.0.1"
+        pass
+    for target in ("8.8.8.8", "192.168.1.1", "192.168.0.1", "10.0.0.1"):  # paket yuborilmaydi: faqat qaysi tarmoq tanlanishini aniqlaydi
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect((target, 1))
+                found.add(s.getsockname()[0])
+        except OSError:
+            pass
+    found = {ip for ip in found if not ip.startswith("127.") and ip != "0.0.0.0"}
+    out = [{"ip": ip, "score": classify_ip(ip)[0], "note": classify_ip(ip)[1]} for ip in found]
+    return sorted((o for o in out if o["score"] < 9), key=lambda o: (o["score"], o["ip"]))
+
+
+def lan_ip() -> str:
+    ips = local_ips()
+    return ips[0]["ip"] if ips else "127.0.0.1"
+
+
+FIREWALL_RULE = "Agent Umimiy"
+
+
+def firewall_args(port: int, exe: str | None = None) -> str:
+    """Windows xavfsizlik devori uchun kiruvchi ulanish qoidasi (netsh argumentlari)."""
+    args = f'advfirewall firewall add rule name="{FIREWALL_RULE}" dir=in action=allow protocol=TCP localport={port} profile=any enable=yes'
+    return args + (f' program="{exe}"' if exe else "")
+
+
+def firewall_rule_exists() -> bool:
+    import sys
+    if sys.platform != "win32":
+        return False
+    from . import proc
+    try:
+        p = proc.run(["netsh", "advfirewall", "firewall", "show", "rule", f"name={FIREWALL_RULE}"], timeout=15)
+        return FIREWALL_RULE in p.stdout
+    except Exception:
+        return False
+
+
+def open_firewall(port: int) -> tuple[bool, str]:
+    """Windows'da administrator ruxsatini (UAC) so'rab, dastur uchun kiruvchi ulanishga ruxsat qoidasini qo'shadi."""
+    import sys
+    if sys.platform != "win32":
+        return False, "Bu tugma faqat Windows uchun."
+    import ctypes
+    exe = sys.executable if getattr(sys, "frozen", False) else None
+    r = ctypes.windll.shell32.ShellExecuteW(None, "runas", "netsh", firewall_args(port, exe), None, 0)
+    if r <= 32:
+        return False, "Administrator ruxsati berilmadi. Qoida qo'shilmadi."
+    return True, "Administrator so'rovida «Ha» ni bosing, so'ng bir necha soniya kuting."
 
 
 class RemoteServer:

@@ -497,7 +497,7 @@ class RemoteDialog(tk.Toplevel):
         self.app = app
         self.title("Telefondan boshqarish")
         self.configure(bg=P["bg"])
-        fit(self, 580, 740)
+        fit(self, 600, 800)
         self.transient(app)
         bar, f = scroll_body(self, (24, 18))
         Pill(bar, "Yopish", self.destroy, width=100, height=34, size=9, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(anchor="e")
@@ -506,9 +506,16 @@ class RemoteDialog(tk.Toplevel):
                  "ruxsat so'rovlari ham telefonda chiqadi.", fg=P["muted"], size=9, wraplength=500, justify="left").pack(anchor="w", pady=(2, 10))
         self.status = label(f, "", size=11, weight="bold")
         self.status.pack(anchor="w")
-        self.qr = tk.Canvas(f, width=300, height=300, bg="white", highlightthickness=0)
-        self.qr.pack(pady=10)
+        self.qr = tk.Canvas(f, width=230, height=230, bg="white", highlightthickness=0)
+        self.qr.pack(pady=6)
         self.url_var = tk.StringVar()
+        ipr = tk.Frame(f, bg=P["bg"])
+        ipr.pack(fill="x", pady=(0, 6))
+        label(ipr, "Kompyuter manzili:", fg=P["muted"], size=9).pack(side="left")
+        self.ip_var = tk.StringVar()
+        self.ip_box = ttk.Combobox(ipr, textvariable=self.ip_var, state="readonly", width=44)
+        self.ip_box.pack(side="left", padx=8)
+        self.ip_box.bind("<<ComboboxSelected>>", lambda e: self.refresh())
         ttk.Entry(f, textvariable=self.url_var, state="readonly").pack(fill="x")
         row = tk.Frame(f, bg=P["bg"])
         row.pack(fill="x", pady=10)
@@ -516,6 +523,17 @@ class RemoteDialog(tk.Toplevel):
         self.toggle.pack(side="left", padx=(0, 6))
         Pill(row, "Manzilni nusxalash", self._copy, width=150, height=34, size=9).pack(side="left", padx=(0, 6))
         Pill(row, "Yangi kalit", self._renew, width=100, height=34, size=9).pack(side="left")
+        fw = tk.Frame(f, bg=P["bg"])
+        fw.pack(fill="x", pady=(0, 6))
+        Pill(fw, "Windows devoriga ruxsat berish", self._firewall, width=230, height=34, size=9, outline=P["line"], bg=P["bg"]).pack(side="left")
+        self.fw_lbl = label(fw, "", size=9, fg=P["muted"], wraplength=240, justify="left")
+        self.fw_lbl.pack(side="left", padx=10)
+        label(f, "Ulanmasa, tekshiring:\n1) Telefonda mobil internet o'chiq, Wi-Fi yoqilgan va kompyuter bilan BIR XIL tarmoqda (mehmon/guest Wi-Fi emas).\n"
+                 "2) Yuqoridagi «Kompyuter manzili» ni boshqasiga almashtirib ko'ring (Docker/VPN bo'lsa, birinchisi noto'g'ri bo'lishi mumkin).\n"
+                 "3) «Windows devoriga ruxsat berish» tugmasini bosing (administrator so'raydi).\n"
+                 "4) Telefon brauzerida faqat manzilni oching (kalitsiz): http://MANZIL:PORT/ — sahifa ochilsa, tarmoq yaxshi.\n"
+                 "5) Kompyuter boshqa joyda (masalan, Chrome Remote Desktop orqali ulangan «SERVER») bo'lsa, telefon u bilan bir Wi-Fi'da bo'lmaydi: Tailscale ishlating.",
+              fg=P["muted"], size=9, wraplength=500, justify="left").pack(anchor="w", pady=(0, 8))
         label(f, "Xavfsizlik: manzildagi kalit (t=...) parol vazifasini bajaradi: uni hech kimga bermang. Ulanish shifrlanmagan (HTTP), "
                  "shuning uchun faqat ishonchli uy Wi-Fi'ida ishlating. Boshqa joydan ulanish uchun Tailscale kabi shifrlangan tunnel "
                  "o'rnating va shu manzildagi IP o'rniga kompyuterning Tailscale IP sini yozing. Kalit boshqaga ko'rinib qolsa, «Yangi kalit» ni bosing. "
@@ -531,9 +549,14 @@ class RemoteDialog(tk.Toplevel):
         if not on:
             self.status.config(text="○ O'chiq", fg=P["muted"])
             self.url_var.set("")
-            self.qr.create_text(150, 150, text="Yoqilmagan", fill="#999", font=font(12))
+            self.qr.create_text(115, 115, text="Yoqilmagan", fill="#999", font=font(12))
             return
-        url = app.remote.url()
+        ips = remotelib.local_ips()
+        choices = [f"{o['ip']}  ({o['note']})" for o in ips] or ["127.0.0.1  (faqat shu kompyuter)"]
+        self.ip_box["values"] = choices
+        if self.ip_var.get() not in choices:
+            self.ip_var.set(choices[0])
+        url = app.remote.url(self.ip_var.get().split()[0])
         self.status.config(text="● Yoqilgan", fg=P["ok"])
         self.url_var.set(url)
         try:
@@ -542,15 +565,31 @@ class RemoteDialog(tk.Toplevel):
             qr.add_data(url)
             qr.make(fit=True)
             m = qr.get_matrix()
-            cell = 300 // len(m)
-            off = (300 - cell * len(m)) // 2
+            cell = 230 // len(m)
+            off = (230 - cell * len(m)) // 2
             for y, row in enumerate(m):
                 for x, v in enumerate(row):
                     if v:
                         self.qr.create_rectangle(off + x * cell, off + y * cell, off + (x + 1) * cell, off + (y + 1) * cell,
                                                  fill="black", outline="black")
         except Exception:
-            self.qr.create_text(150, 150, text="QR-kod yaratib bo'lmadi.\nManzilni qo'lda yozing.", fill="#555", font=font(11))
+            self.qr.create_text(115, 115, text="QR-kod yaratib bo'lmadi.\nManzilni qo'lda yozing.", fill="#555", font=font(11))
+
+    def _firewall(self):
+        if not self.app.remote:
+            return messagebox.showinfo("Devor", "Avval «Yoqish» tugmasini bosing.", parent=self)
+        ok, msg = remotelib.open_firewall(self.app.remote.port)
+        self.fw_lbl.config(text=msg, fg=P["ok"] if ok else P["err"])
+        if ok:
+            self.after(4000, self._fw_check)
+
+    def _fw_check(self):
+        if not self.winfo_exists():
+            return
+        if remotelib.firewall_rule_exists():
+            self.fw_lbl.config(text="✓ Qoida qo'shildi. Endi telefondan qayta urinib ko'ring.", fg=P["ok"])
+        else:
+            self.fw_lbl.config(text="Qoida topilmadi: administrator so'rovi rad etilgan yoki hali tugamagan.", fg=P["err"])
 
     def _toggle(self):
         if self.app.remote:
