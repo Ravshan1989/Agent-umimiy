@@ -4,6 +4,7 @@ import os
 import shlex
 import subprocess
 
+from . import agentic, proc
 from .base import Agent, AgentError, http_json
 
 
@@ -17,6 +18,10 @@ def _key(opts: dict, default_env: str) -> str:
 
 class AnthropicAgent(Agent):
     kind = "anthropic"
+    supports_tools = True
+
+    def _ask_tools(self, prompt, history, tb):
+        return agentic.anthropic(self.options, _key(self.options, "ANTHROPIC_API_KEY"), prompt, history, tb)
 
     def _ask(self, prompt, history):
         o = self.options
@@ -36,6 +41,10 @@ class OpenAIAgent(Agent):
     """OpenAI va unga mos API'lar (OpenRouter, LM Studio, Groq, ...)."""
 
     kind = "openai"
+    supports_tools = True
+
+    def _ask_tools(self, prompt, history, tb):
+        return agentic.openai(self.options, _key(self.options, "OPENAI_API_KEY"), prompt, history, tb)
 
     def _ask(self, prompt, history):
         o = self.options
@@ -72,6 +81,10 @@ class OllamaAgent(Agent):
     """Lokal modellar (kalitsiz, offline)."""
 
     kind = "ollama"
+    supports_tools = True
+
+    def _ask_tools(self, prompt, history, tb):
+        return agentic.ollama(self.options, prompt, history, tb)
 
     def _ask(self, prompt, history):
         o = self.options
@@ -104,22 +117,17 @@ class CLIAgent(Agent):
         parts = shlex.split(template)
         use_stdin = not any("{prompt}" in p for p in parts)
         argv = [p.replace("{prompt}", prompt) for p in parts]
+        ctx = getattr(self, "ctx", None)
         try:
-            proc = subprocess.run(
-                argv,
-                input=prompt if use_stdin else None,
-                capture_output=True,
-                text=True,
-                timeout=o.get("timeout", 300),
-                cwd=o.get("cwd") or None,
-            )
+            p = proc.run(argv, input=prompt if use_stdin else None, timeout=o.get("timeout", 300),
+                         cwd=(ctx.root if ctx and ctx.root else o.get("cwd")) or None)
         except FileNotFoundError as exc:
             raise AgentError(f"Buyruq topilmadi: {argv[0]}") from exc
         except subprocess.TimeoutExpired as exc:
             raise AgentError("Vaqt tugadi") from exc
-        if proc.returncode != 0:
-            raise AgentError(proc.stderr.strip() or f"chiqish kodi {proc.returncode}")
-        return proc.stdout.strip()
+        if p.returncode != 0:
+            raise AgentError(p.stderr.strip() or f"chiqish kodi {p.returncode}")
+        return p.stdout.strip()
 
 
 class EchoAgent(Agent):

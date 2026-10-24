@@ -3,8 +3,10 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 
 from .base import Agent, Result
+from .tools import Context
 
 MODES = ("auto", "single", "broadcast", "pipeline", "consensus")
+READ_ONLY_MODES = ("broadcast", "consensus")
 
 
 class Orchestrator:
@@ -25,6 +27,7 @@ class Orchestrator:
         self.judge = judge or agents[0].name
         self.routes = routes or {}  # {"agent": ["kalit", "so'z"]}
         self.history: list[dict] = []
+        self.ctx = Context()
 
     def reset(self):
         self.history.clear()
@@ -49,23 +52,25 @@ class Orchestrator:
         if mode not in MODES:
             raise ValueError(f"Noma'lum rejim: {mode}")
         agents = [self._get(n) for n in targets] if targets else list(self.agents.values())
+        self.ctx.cancel.clear()
+        self.ctx.readonly = mode in READ_ONLY_MODES  # bir nechta agent bir vaqtda fayl o'zgartirmasligi uchun
 
         if mode == "auto":
-            results = [self.pick(prompt, agents).ask(prompt, self.history)]
+            results = [self.pick(prompt, agents).ask(prompt, self.history, self.ctx)]
         elif mode == "single":
-            results = [agents[0].ask(prompt, self.history)]
+            results = [agents[0].ask(prompt, self.history, self.ctx)]
         elif mode == "broadcast":
-            results = self._parallel(agents, prompt, self.history)
+            results = self._parallel(agents, prompt, self.history, self.ctx)
         elif mode == "pipeline":
             results, current = [], prompt
             for a in agents:
-                r = a.ask(current, self.history)
+                r = a.ask(current, self.history, self.ctx)
                 results.append(r)
                 if not r.ok:
                     break
                 current = f"Asl so'rov: {prompt}\n\nOldingi agent ({r.agent}) javobi:\n{r.text}\n\nUni yaxshilab, davom ettir."
         else:  # consensus
-            results = self._parallel(agents, prompt, self.history)
+            results = self._parallel(agents, prompt, self.history, self.ctx)
             good = [r for r in results if r.ok]
             if len(good) > 1:
                 joined = "\n\n".join(f"--- {r.agent} ---\n{r.text}" for r in good)
@@ -83,6 +88,6 @@ class Orchestrator:
         return results
 
     @staticmethod
-    def _parallel(agents: list[Agent], prompt: str, history=None) -> list[Result]:
+    def _parallel(agents: list[Agent], prompt: str, history=None, ctx=None) -> list[Result]:
         with ThreadPoolExecutor(max_workers=len(agents)) as pool:
-            return list(pool.map(lambda a: a.ask(prompt, history), agents))
+            return list(pool.map(lambda a: a.ask(prompt, history, ctx), agents))

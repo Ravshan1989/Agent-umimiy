@@ -11,6 +11,19 @@ Barcha AI agentlarni (Claude, ChatGPT, Gemini, lokal modellar — Ollama/LM Stud
 
 Sozlamalar `%APPDATA%\AgentUmimiy\agents.json` da saqlanadi (faqat sizning kompyuteringizda).
 
+## Loyiha bilan ishlash (dasturlash yordamchisi)
+
+Yuqoridagi **«Loyiha papkasini tanlash»** tugmasi bilan o'z loyihangiz papkasini tanlang. Shundan so'ng agentlar (Claude, ChatGPT-mos, Ollama) o'zlari:
+
+- papka va fayllarni **o'qiydi**, kod ichidan **qidiradi** (so'rashsiz);
+- fayl **yaratadi / tahrirlaydi** va **buyruq ishga tushiradi** (testlar, o'rnatish...) — **har safar ruxsat so'raydi**, o'zgarish (diff) ko'rsatiladi;
+- «Shu suhbatda doim ruxsat» tugmasi ruxsat so'rashni o'chiradi; **■** tugmasi ishni to'xtatadi.
+
+Xavfsizlik: agent faqat tanlangan papka ichida ishlaydi (tashqariga chiqolmaydi, `.git` ga tegmaydi). «Hammasi birga» va «Kengash» rejimlarida bir nechta agent bir vaqtda ishlagani uchun ular **faqat o'qiydi**.
+`claude`, `codex` kabi CLI agentlar tanlangan papkada ishga tushadi.
+
+**Git** tugmasi: nima o'zgargani (oddiy tilda), o'zgarishlarni ko'rish, **Saqlash (commit)**, **Yuborish (push)**, **Olish (pull)**. Git kompyuteringizda o'rnatilgan bo'lishi kerak (git-scm.com); parollar sizning Git sozlamangizdan olinadi.
+
 ## Rejimlar
 
 | Rejim | Ishlashi |
@@ -39,4 +52,5 @@ python app.py                          # oyna
 python app.py --cli -m broadcast "salom"   # terminal
 python -m unittest discover -s tests -t .
 ```
+Asboblar: `tools.py`, agent sikli: `agentic.py`, git: `gitutil.py`. Gemini hozircha asbobsiz (oddiy chat).
 Yangi agent turi: `providers.py` da `Agent` ni meros qilib, `KINDS` ga qo'shing.

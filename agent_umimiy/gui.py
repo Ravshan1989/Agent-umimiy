@@ -7,9 +7,11 @@ import re
 import threading
 import time
 import tkinter as tk
-from tkinter import messagebox, ttk
+from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
 
-from . import config, detect, theme
+from . import config, detect, gitutil, theme
+from .orchestrator import READ_ONLY_MODES
 from .providers import build_agent
 from .theme import P, Avatar, Pill, color_for, font, label, rrect
 
@@ -31,6 +33,10 @@ SHORT_TYPE = {"anthropic": "Claude", "openai": "OpenAI-mos", "gemini": "Gemini",
               "cli": "Dastur (CLI)", "echo": "Demo"}
 DEFAULT_MODEL = {"anthropic": "claude-sonnet-5-5", "openai": "gpt-4o", "gemini": "gemini-2.0-flash", "ollama": "llama3"}
 LABEL_TO_TYPE = {v: k for k, v in TYPE_LABELS.items()}
+PROJECT_SUGGESTIONS = ["Bu loyiha nima haqida? Qisqa tushuntirib ber", "Kodda xatolarni top va tuzat",
+                       "README.md faylini yoz yoki yangila", "Testlarni ishga tushir, xato bo'lsa tuzat"]
+KIND_ICON = {"read": "◧", "write": "✎", "run": "▶", "info": "•"}
+KIND_COLOR = {"read": P["muted"], "write": P["warn"], "run": P["accent_hi"], "info": P["err"]}
 SUGGESTIONS = ["Bu kodni tushuntirib ber", "Menga qisqa xat yozib ber", "Ingliz tiliga tarjima qil",
                "G'oyalar bo'yicha maslahat ber"]
 
@@ -235,6 +241,142 @@ class Settings(tk.Toplevel):
         self.destroy()
 
 
+class ApproveDialog(tk.Toplevel):
+    """Agent fayl o'zgartirmoqchi yoki buyruq ishga tushirmoqchi bo'lganda ruxsat so'raydi."""
+
+    def __init__(self, parent, agent, kind, title, detail):
+        super().__init__(parent)
+        self.title("Ruxsat kerak")
+        self.configure(bg=P["bg"])
+        self.transient(parent)
+        self.result = "no"
+        f = tk.Frame(self, bg=P["bg"], padx=22, pady=18)
+        f.pack(fill="both", expand=True)
+        label(f, f"{agent} ruxsat so'ramoqda", fg=P["warn"], size=9, weight="bold").pack(anchor="w")
+        label(f, title, size=13, weight="bold", wraplength=560, justify="left").pack(anchor="w", pady=(2, 10))
+        box = tk.Text(f, width=76, height=14, bg=P["code"], fg="#c9d1ff", relief="flat", bd=0, font=font(10, mono=True),
+                      padx=10, pady=8, wrap="none", highlightthickness=0)
+        box.insert("1.0", detail)
+        for i, line in enumerate(detail.split("\n"), 1):
+            if line.startswith("+") and not line.startswith("+++"):
+                box.tag_add("add", f"{i}.0", f"{i}.end")
+            elif line.startswith("-") and not line.startswith("---"):
+                box.tag_add("del", f"{i}.0", f"{i}.end")
+        box.tag_config("add", foreground=P["ok"])
+        box.tag_config("del", foreground=P["err"])
+        box.config(state="disabled")
+        box.pack(fill="both", expand=True)
+        row = tk.Frame(f, bg=P["bg"])
+        row.pack(fill="x", pady=(14, 0))
+        always = "Shu suhbatda doim ruxsat" if kind == "write" else "Buyruqlarga doim ruxsat"
+        Pill(row, "Rad etish", lambda: self._done("no"), width=110, fg=P["err"]).pack(side="left")
+        Pill(row, "Ruxsat berish", lambda: self._done("yes"), width=140, bg=P["accent"], hover=P["accent_hi"],
+             fg="white").pack(side="right")
+        Pill(row, always, lambda: self._done("always"), width=190, outline=P["line"], bg=P["bg"]).pack(side="right", padx=8)
+        self.protocol("WM_DELETE_WINDOW", lambda: self._done("no"))
+        self.grab_set()
+        self.focus_force()
+
+    def _done(self, r):
+        self.result = r
+        self.destroy()
+
+
+class GitDialog(tk.Toplevel):
+    """Git ni oddiy tilda: nima o'zgargan, saqlash (commit), yuborish, olish."""
+
+    def __init__(self, parent, root):
+        super().__init__(parent)
+        self.root_dir = root
+        self.title("Git — o'zgarishlar")
+        self.configure(bg=P["bg"])
+        self.geometry("760x640")
+        self.transient(parent)
+        f = tk.Frame(self, bg=P["bg"], padx=22, pady=18)
+        f.pack(fill="both", expand=True)
+        self.head = label(f, "", size=14, weight="bold")
+        self.head.pack(anchor="w")
+        self.sub = label(f, "", fg=P["muted"], size=9)
+        self.sub.pack(anchor="w", pady=(0, 10))
+        self.tree = ttk.Treeview(f, columns=("what", "file"), show="headings", height=6)
+        self.tree.heading("what", text="Holati")
+        self.tree.heading("file", text="Fayl")
+        self.tree.column("what", width=190)
+        self.tree.column("file", width=480)
+        self.tree.pack(fill="x")
+        self.out = tk.Text(f, height=10, bg=P["code"], fg="#c9d1ff", relief="flat", bd=0, font=font(9, mono=True),
+                           padx=10, pady=8, wrap="none", highlightthickness=0, state="disabled")
+        self.out.tag_config("add", foreground=P["ok"])
+        self.out.tag_config("del", foreground=P["err"])
+        self.out.pack(fill="both", expand=True, pady=10)
+        msg = tk.Frame(f, bg=P["bg"])
+        msg.pack(fill="x")
+        label(msg, "Saqlash izohi:", fg=P["muted"]).pack(side="left")
+        self.msg = tk.StringVar()
+        ttk.Entry(msg, textvariable=self.msg).pack(side="left", fill="x", expand=True, padx=10)
+        self.btns = tk.Frame(f, bg=P["bg"])
+        self.btns.pack(fill="x", pady=(12, 0))
+        self.refresh()
+
+    def _show(self, text):
+        self.out.config(state="normal")
+        self.out.delete("1.0", "end")
+        for line in text.split("\n"):
+            tag = "add" if line.startswith("+") and not line.startswith("+++") else \
+                  "del" if line.startswith("-") and not line.startswith("---") else ""
+            self.out.insert("end", line + "\n", tag)
+        self.out.config(state="disabled")
+
+    def _buttons(self, items):
+        for w in self.btns.winfo_children():
+            w.destroy()
+        for text, cmd, accent in items:
+            Pill(self.btns, text, cmd, width=150, height=36, size=9, bg=P["accent"] if accent else None,
+                 hover=P["accent_hi"] if accent else None, fg="white" if accent else None).pack(side="left", padx=(0, 8))
+
+    def refresh(self):
+        self.tree.delete(*self.tree.get_children())
+        if not gitutil.have_git():
+            self.head.config(text="Git o'rnatilmagan")
+            self.sub.config(text="git-scm.com saytidan Git ni o'rnating, so'ng bu oynani qayta oching.")
+            return self._buttons([])
+        if not gitutil.is_repo(self.root_dir):
+            self.head.config(text="Bu papka hali Git omboriga aylanmagan")
+            self.sub.config(text="Git o'zgarishlaringiz tarixini saqlaydi. Boshlash uchun tugmani bosing.")
+            return self._buttons([("Git omborini yaratish", self.init, True)])
+        rows = gitutil.status(self.root_dir)
+        self.head.config(text=f"Shox: {gitutil.branch(self.root_dir) or '—'}")
+        self.sub.config(text=f"{len(rows)} ta fayl o'zgargan" if rows else "Hammasi saqlangan — o'zgarish yo'q")
+        for w, path in rows:
+            self.tree.insert("", "end", values=(w, path))
+        d = gitutil.diff(self.root_dir) if rows else ""
+        self._show(d if d != "(farq yo'q)" else ("Yangi fayllar «Saqlash» bosilganda qo'shiladi." if rows else ""))
+        self._buttons([("Saqlash (commit)", self.commit, True), ("Yuborish (push)", lambda: self._net("push"), False),
+                       ("Olish (pull)", lambda: self._net("pull"), False), ("Yangilash", self.refresh, False)])
+
+    def init(self):
+        ok, out = gitutil.run(self.root_dir, "init")
+        self._show(out)
+        self.refresh()
+
+    def commit(self):
+        text = self.msg.get().strip()
+        if not text:
+            return messagebox.showwarning("Diqqat", "Saqlash izohini yozing (nima o'zgardi?)", parent=self)
+        ok, out = gitutil.commit_all(self.root_dir, text)
+        self.msg.set("")
+        self.refresh()
+        self._show(("✓ Saqlandi\n\n" if ok else "Xato:\n") + out)
+
+    def _net(self, what):
+        self.config(cursor="watch")
+        self.update()
+        ok, out = gitutil.run(self.root_dir, what, timeout=120)
+        self.config(cursor="")
+        self.refresh()
+        self._show(("✓ Bajarildi\n\n" if ok else "Xato:\n") + out)
+
+
 class ModeRow(tk.Canvas):
     def __init__(self, parent, key, on_pick):
         super().__init__(parent, height=40, bg=P["side"], highlightthickness=0, cursor="hand2")
@@ -308,6 +450,10 @@ class App(tk.Tk):
         self.typing = None
         self.empty = None
         self.ph_on = False
+        self.cancelled = False
+        self.project = self.cfg.get("project") or ""
+        if self.project and not Path(self.project).is_dir():
+            self.project = ""
         self._build_sidebar()
         self._build_main()
         self.rebuild()
@@ -364,6 +510,11 @@ class App(tk.Tk):
         self.sub_lbl.pack(anchor="w")
         self.count_lbl = tk.Label(head, text="", fg=P["ok"], bg=P["card"], font=font(9, "bold"), padx=12, pady=5)
         self.count_lbl.pack(side="right")
+        self.git_btn = Pill(head, "Git", self.open_git, width=64, height=34, size=9, outline=P["line"], bg=P["bg"])
+        self.git_btn.pack(side="right", padx=(0, 8))
+        self.clear_btn = Pill(head, "✕", self.clear_project, width=34, height=34, size=9, outline=P["line"], bg=P["bg"])
+        self.proj_btn = Pill(head, "", self.choose_project, width=230, height=34, size=9, outline=P["line"], bg=P["bg"])
+        self.proj_btn.pack(side="right", padx=(0, 8))
         tk.Frame(main, bg=P["line"], height=1).pack(fill="x")
 
         wrap = tk.Frame(main, bg=P["bg"])
@@ -406,9 +557,12 @@ class App(tk.Tk):
     def _send_draw(self, over):
         c = self.send_btn
         c.delete("all")
-        col = P["muted"] if self.busy else (P["accent_hi"] if over else P["accent"])
-        c.create_oval(2, 2, 42, 42, fill=col, outline="")
-        c.create_text(22, 22, text="↑", fill="white", font=font(17, "bold"))
+        col = P["card_hi"] if self.busy else (P["accent_hi"] if over else P["accent"])
+        c.create_oval(2, 2, 42, 42, fill=P["err"] if self.busy and over else col, outline="")
+        if self.busy:
+            c.create_rectangle(15, 15, 29, 29, fill="white", outline="")
+        else:
+            c.create_text(22, 22, text="↑", fill="white", font=font(17, "bold"))
 
     def _layout_input(self):
         w, h = self.wrap.winfo_width(), self.wrap.winfo_height()
@@ -451,7 +605,8 @@ class App(tk.Tk):
             r.draw()
         _, title, desc = MODES[key]
         self.title_lbl.config(text=title)
-        self.sub_lbl.config(text=desc)
+        note = "  ·  loyihada faqat o'qiydi" if self.project and key in READ_ONLY_MODES else ""
+        self.sub_lbl.config(text=desc + note)
 
     def toggle_agent(self, name):
         if name in self.selected and len(self.selected) > 1:
@@ -468,6 +623,10 @@ class App(tk.Tk):
 
     def rebuild(self):
         self.orch = config.build(self.cfg)
+        self.orch.ctx.confirm = self._confirm_threadsafe
+        self.orch.ctx.emit = self._emit_threadsafe
+        self.orch.ctx.root = self.project or None
+        self._proj_label()
         self.selected = set(self.orch.agents)
         for w in self.agent_box.winfo_children():
             w.destroy()
@@ -476,6 +635,50 @@ class App(tk.Tk):
         self.pick_mode(self.mode.get())
         self._count()
         self.new_chat()
+
+    # ---------- loyiha va git ----------
+    def _proj_label(self):
+        if self.project:
+            name = Path(self.project).name or self.project
+            self.proj_btn.set_text("Loyiha:  " + (name if len(name) < 22 else name[:20] + "…"))
+            if not self.clear_btn.winfo_ismapped():
+                self.clear_btn.pack(side="right", padx=(0, 8), before=self.proj_btn)
+        else:
+            self.proj_btn.set_text("Loyiha papkasini tanlash")
+            self.clear_btn.pack_forget()
+
+    def choose_project(self):
+        d = filedialog.askdirectory(parent=self, title="Loyiha papkasini tanlang", initialdir=self.project or str(Path.home()))
+        if d:
+            self.set_project(str(Path(d)))
+
+    def clear_project(self):
+        self.set_project("")
+
+    def set_project(self, path):
+        self.project = path
+        self.cfg["project"] = path
+        config.write(self.cfg, self.cfg_path)
+        self.orch.ctx.root = path or None
+        self.orch.ctx.always.clear()
+        self._proj_label()
+        self.pick_mode(self.mode.get())
+        if self.empty is not None:
+            self.new_chat()
+
+    def open_git(self):
+        if not self.project:
+            return messagebox.showinfo("Git", "Avval «Loyiha papkasini tanlash» tugmasi bilan papkani tanlang.", parent=self)
+        GitDialog(self, self.project)
+
+    def _confirm_threadsafe(self, agent, kind, title, detail):
+        evt, box = threading.Event(), ["no"]
+        self.inbox.put(("ask", agent, kind, title, detail, box, evt))
+        evt.wait(timeout=900)
+        return box[0]
+
+    def _emit_threadsafe(self, agent, kind, text):
+        self.inbox.put(("event", agent, kind, text))
 
     def first_run(self):
         found = detect.discover()
@@ -516,10 +719,11 @@ class App(tk.Tk):
         c.pack()
         label(box, "Qanday yordam bera olaman?", size=22, weight="bold").pack(pady=(18, 4))
         label(box, "Agent sozlanmagan — chap pastdagi «Sozlamalar» orqali qo'shing." if demo else
-              "Savolingizni yozing — agentlaringiz birgalikda javob beradi.", fg=P["muted"], size=11).pack()
+              (f"Loyiha: {self.project}\nAgentlar fayllarni o'qiydi va ruxsatingiz bilan o'zgartiradi." if self.project else
+               "Savolingizni yozing — agentlaringiz birgalikda javob beradi."), fg=P["muted"], size=11).pack()
         chips = tk.Frame(box, bg=P["bg"])
         chips.pack(pady=26)
-        for i, s in enumerate(SUGGESTIONS):
+        for i, s in enumerate(PROJECT_SUGGESTIONS if self.project else SUGGESTIONS):
             Pill(chips, s, lambda s=s: self._use_suggestion(s), width=250, height=44, radius=16, size=10,
                  weight="normal", outline=P["line"]).grid(row=i // 2, column=i % 2, padx=6, pady=6)
         self.empty = box
@@ -620,6 +824,17 @@ class App(tk.Tk):
             cp.bind("<Button-1>", lambda e, t=text, w=cp: (self._copy(t), w.config(text="Nusxalandi ✓", fg=P["ok"])))
         self._scroll()
 
+    def add_activity(self, agent, kind, text):
+        self._clear_empty()
+        row = tk.Frame(self.inner, bg=P["bg"])
+        row.pack(fill="x", padx=28, pady=1)
+        label(row, f"{KIND_ICON.get(kind, '•')}  {agent}: {text}", fg=KIND_COLOR.get(kind, P["muted"]), size=9,
+              wraplength=700, justify="left").pack(side="left", padx=(46, 0))
+        if self.typing is not None:
+            self.typing.pack_forget()
+            self.typing.pack(fill="x", padx=28, pady=8)
+        self._scroll()
+
     def _scroll(self):
         self.update_idletasks()
         self.canvas.yview_moveto(1)
@@ -642,9 +857,15 @@ class App(tk.Tk):
         self.dots.config(text=["●○○", "○●○", "○○●"][i % 3])
         self.after(280, self._tick, i + 1)
 
+    def stop(self):
+        self.cancelled = True
+        self.orch.ctx.cancel.set()
+        if self.typing is not None:
+            self.who.config(text="  To'xtatilmoqda…")
+
     def send(self):
         if self.busy:
-            return
+            return self.stop()
         prompt = self._text()
         if not prompt:
             return
@@ -654,7 +875,7 @@ class App(tk.Tk):
         mode = self.mode.get()
         targets = [n for n in self.orch.agents if n in self.selected]
         shown = targets[:1] if mode == "single" else targets
-        self.busy = True
+        self.busy, self.cancelled = True, False
         self._send_draw(False)
         self._typing_on(shown)
         self.after(100, self._poll)
@@ -665,19 +886,39 @@ class App(tk.Tk):
             res, err = self.orch.run(prompt, mode, targets), ""
         except Exception as exc:
             res, err = [], str(exc)
-        self.inbox.put((res, err))
+        self.inbox.put(("done", res, err))
 
     def _poll(self):
-        try:
-            res, err = self.inbox.get_nowait()
-        except queue.Empty:
-            return self.after(100, self._poll)
-        self._done(res, err)
+        finished = False
+        while True:
+            try:
+                item = self.inbox.get_nowait()
+            except queue.Empty:
+                break
+            if item[0] == "event":
+                self.add_activity(*item[1:])
+            elif item[0] == "ask":
+                _, agent, kind, title, detail, box, evt = item
+                if self.cancelled:
+                    box[0] = "no"
+                else:
+                    d = ApproveDialog(self, agent, kind, title, detail)
+                    self.wait_window(d)
+                    box[0] = d.result
+                evt.set()
+            else:
+                self._done(item[1], item[2])
+                finished = True
+        if not finished:
+            self.after(100, self._poll)
 
     def _done(self, results, error):
         if self.typing is not None:
             self.typing.destroy()
             self.typing = None
+        if self.cancelled:
+            self.add_activity("Siz", "info", "Ish to'xtatildi.")
+            results = []
         if error:
             self.add_agent("Xato", error, err=True)
         for r in results:
