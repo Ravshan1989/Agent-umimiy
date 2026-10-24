@@ -24,6 +24,20 @@ Xavfsizlik: agent faqat tanlangan papka ichida ishlaydi (tashqariga chiqolmaydi,
 
 **Git** tugmasi: nima o'zgargani (oddiy tilda), o'zgarishlarni ko'rish, **Saqlash (commit)**, **Yuborish (push)**, **Olish (pull)**. Git kompyuteringizda o'rnatilgan bo'lishi kerak (git-scm.com); parollar sizning Git sozlamangizdan olinadi.
 
+## Rasm, PDF va fayllar
+
+Yozish maydonidagi **＋** tugmasi bilan **rasm** (PNG, JPG, GIF, WebP), **PDF**, **Word (.docx)** yoki **matn fayl** biriktiring — agent ularni ko'rib javob beradi. Rasmlarni Claude, ChatGPT-mos modellar, Gemini va ko'rish qobiliyatli Ollama modellari ko'ra oladi. PDF matni boshqa modellarga ham yuboriladi. Cheklov: rasm ≤ 5 MB, PDF ≤ 20 MB.
+
+## Internet
+
+Agentlar **internetdan qidirishi** (DuckDuckGo) va **sahifalarni o'qishi** mumkin, kerak bo'lsa sahifani **sizning brauzeringizda ochish**ni (ruxsat bilan) taklif qiladi. Sozlamalarda o'chirib qo'yish mumkin. Xavfsizlik: kompyuter va ichki tarmoq manzillariga (localhost, 192.168.x.x va h.k.) kirish taqiqlangan; sahifadagi matn «buyruq» emas, faqat ma'lumot sifatida qaraladi.
+Eslatma: bu brauzerni *boshqarish* (tugma bosish, forma to'ldirish) emas — faqat qidirish va o'qish.
+
+## Bir nechta suhbat
+
+Tepada brauzerdagi kabi **tablar**: har bir suhbatning o'z tarixi va o'z loyiha papkasi bor, bir vaqtda ishlayveradi (fon suhbat tugasa tabda yashil nuqta chiqadi). `＋` — yangi suhbat, `×` — yopish.
+Suhbatlar dastur yopilganda saqlanmaydi.
+
 ## Rejimlar
 
 | Rejim | Ishlashi |

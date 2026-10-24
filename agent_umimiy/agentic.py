@@ -7,8 +7,9 @@ from __future__ import annotations
 
 import json
 
+from . import attachments as att
 from .base import AgentError, http_json
-from .tools import TOOLS, Cancelled, Toolbox, system_prompt
+from .tools import Cancelled, Toolbox, system_prompt
 
 MAX_STEPS = 30
 
@@ -18,9 +19,9 @@ def _check(tb: Toolbox):
         raise Cancelled()
 
 
-def anthropic(o: dict, key: str, prompt: str, history: list, tb: Toolbox) -> str:
-    tools = [{"name": t.name, "description": t.description, "input_schema": t.parameters} for t in TOOLS]
-    messages = history + [{"role": "user", "content": prompt}]
+def anthropic(o: dict, key: str, prompt: str, history: list, tb: Toolbox, files=()) -> str:
+    tools = [{"name": t.name, "description": t.description, "input_schema": t.parameters} for t in tb.tools()]
+    messages = history + [{"role": "user", "content": att.anthropic_content(prompt, list(files))}]
     for _ in range(MAX_STEPS):
         _check(tb)
         data = http_json(
@@ -42,10 +43,11 @@ def anthropic(o: dict, key: str, prompt: str, history: list, tb: Toolbox) -> str
     raise AgentError(f"Agent {MAX_STEPS} qadamda tugata olmadi.")
 
 
-def openai(o: dict, key: str, prompt: str, history: list, tb: Toolbox) -> str:
+def openai(o: dict, key: str, prompt: str, history: list, tb: Toolbox, files=()) -> str:
     tools = [{"type": "function", "function": {"name": t.name, "description": t.description,
-                                               "parameters": t.parameters}} for t in TOOLS]
-    messages = [{"role": "system", "content": system_prompt(tb.ctx)}] + history + [{"role": "user", "content": prompt}]
+                                               "parameters": t.parameters}} for t in tb.tools()]
+    messages = [{"role": "system", "content": system_prompt(tb.ctx)}] + history + [
+        {"role": "user", "content": att.openai_content(prompt, list(files))}]
     for _ in range(MAX_STEPS):
         _check(tb)
         data = http_json(
@@ -68,10 +70,10 @@ def openai(o: dict, key: str, prompt: str, history: list, tb: Toolbox) -> str:
     raise AgentError(f"Agent {MAX_STEPS} qadamda tugata olmadi.")
 
 
-def ollama(o: dict, prompt: str, history: list, tb: Toolbox) -> str:
+def ollama(o: dict, prompt: str, history: list, tb: Toolbox, files=()) -> str:
     tools = [{"type": "function", "function": {"name": t.name, "description": t.description,
-                                               "parameters": t.parameters}} for t in TOOLS]
-    messages = [{"role": "system", "content": system_prompt(tb.ctx)}] + history + [{"role": "user", "content": prompt}]
+                                               "parameters": t.parameters}} for t in tb.tools()]
+    messages = [{"role": "system", "content": system_prompt(tb.ctx)}] + history + [att.ollama_message(prompt, list(files))]
     for _ in range(MAX_STEPS):
         _check(tb)
         data = http_json(o.get("base_url", "http://localhost:11434") + "/api/chat",

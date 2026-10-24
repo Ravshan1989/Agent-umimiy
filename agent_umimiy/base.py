@@ -40,9 +40,9 @@ class Agent(ABC):
     def _ask_tools(self, prompt: str, history: list[dict], tb: Toolbox) -> str:
         return self._ask(prompt, history)
 
-    def ask(self, prompt: str, history: list[dict] | None = None, ctx: Context | None = None) -> Result:
+    def ask(self, prompt: str, history: list[dict] | None = None, ctx: Context | None = None, files=None) -> Result:
         start = time.monotonic()
-        self.ctx = ctx
+        self.ctx, self._files = ctx, list(files or [])
         history = list(history or [])
         try:
             if ctx and ctx.active and self.supports_tools and self.options.get("tools", True):

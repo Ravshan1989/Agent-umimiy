@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import contextlib
 import copy
-import math
 import queue
 import re
 import threading
@@ -10,7 +10,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from . import config, detect, gitutil, theme
+from . import attachments, config, detect, gitutil, theme
 from .orchestrator import READ_ONLY_MODES
 from .providers import build_agent
 from .theme import P, Avatar, Pill, color_for, font, label, rrect
@@ -38,7 +38,7 @@ PROJECT_SUGGESTIONS = ["Bu loyiha nima haqida? Qisqa tushuntirib ber", "Kodda xa
 KIND_ICON = {"read": "◧", "write": "✎", "run": "▶", "info": "•"}
 KIND_COLOR = {"read": P["muted"], "write": P["warn"], "run": P["accent_hi"], "info": P["err"]}
 SUGGESTIONS = ["Bu kodni tushuntirib ber", "Menga qisqa xat yozib ber", "Ingliz tiliga tarjima qil",
-               "G'oyalar bo'yicha maslahat ber"]
+               "Internetdan bugungi yangiliklarni top"]
 
 
 def _wrapped_lines(lines, f, px):
@@ -158,7 +158,7 @@ class Settings(tk.Toplevel):
         self.title("Sozlamalar")
         self.configure(bg=P["bg"])
         self.cfg, self.on_save = cfg, on_save
-        self.geometry("680x560")
+        self.geometry("680x600")
         self.transient(parent)
         f = tk.Frame(self, bg=P["bg"], padx=22, pady=18)
         f.pack(fill="both", expand=True)
@@ -180,6 +180,10 @@ class Settings(tk.Toplevel):
         self.judge = tk.StringVar(value=cfg.get("judge", ""))
         self.judge_box = ttk.Combobox(jr, textvariable=self.judge, state="readonly", width=24)
         self.judge_box.pack(side="left", padx=10)
+        self.web = tk.BooleanVar(value=cfg.get("web", True))
+        tk.Checkbutton(f, text="Agentlar internetdan qidira va sahifalarni o'qiy olsin", variable=self.web, bg=P["bg"],
+                       fg=P["text"], selectcolor=P["card"], activebackground=P["bg"], activeforeground=P["text"],
+                       highlightthickness=0, bd=0, font=font(10)).pack(anchor="w", pady=(12, 0))
         Pill(f, "Saqlash va yopish", self.save, width=170, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(
             anchor="e", pady=(14, 0))
         self.refresh()
@@ -237,6 +241,7 @@ class Settings(tk.Toplevel):
 
     def save(self):
         self.cfg["judge"] = self.judge.get()
+        self.cfg["web"] = bool(self.web.get())
         self.on_save(self.cfg)
         self.destroy()
 
@@ -431,8 +436,60 @@ class AgentRow(tk.Canvas):
         self.create_oval(w - 22, h / 2 - 5, w - 12, h / 2 + 5, fill=P["ok"] if self.on else "", outline=P["ok"] if self.on else P["muted"], width=1)
 
 
+class Chat:
+    """Bitta suhbat: o'z tarixi, loyihasi, holati va ko'rinishi bor."""
+
+    def __init__(self, inner, win, project):
+        self.inner, self.win, self.project = inner, win, project
+        self.orch = None
+        self.title = "Yangi suhbat"
+        self.busy = self.cancelled = self.unread = False
+        self.typing = self.empty = self.dots = self.who = None
+        self.pending: list = []
+
+
+class TabButton(tk.Canvas):
+    W, H = 190, 34
+
+    def __init__(self, parent, chat, active, on_pick, on_close):
+        super().__init__(parent, width=self.W, height=self.H, bg=parent["bg"], highlightthickness=0, cursor="hand2")
+        self.chat, self.active, self.on_pick, self.on_close, self.over = chat, active, on_pick, on_close, False
+        self.bind("<Button-1>", self._click)
+        self.bind("<Button-2>", lambda e: on_close(chat))
+        self.bind("<Enter>", lambda e: self._h(True))
+        self.bind("<Leave>", lambda e: self._h(False))
+        self.draw()
+
+    def _h(self, v):
+        self.over = v
+        self.draw()
+
+    def _click(self, e):
+        (self.on_close if e.x > self.W - 28 else self.on_pick)(self.chat)
+
+    def draw(self):
+        self.delete("all")
+        fill = P["card_hi"] if self.active else (P["card"] if self.over else P["side"])
+        rrect(self, 0, 0, self.W, self.H, 12, fill=fill, outline=P["accent"] if self.active else "")
+        c = self.chat
+        if c.busy:
+            self.create_oval(12, 13, 20, 21, fill=P["accent_hi"], outline="")
+        elif c.unread:
+            self.create_oval(12, 13, 20, 21, fill=P["ok"], outline="")
+        title = c.title if len(c.title) <= 20 else c.title[:19] + "…"
+        self.create_text(28, self.H / 2, text=title, anchor="w", font=font(9, "bold" if self.active else "normal"),
+                         fill=P["text"] if self.active else P["muted"])
+        self.create_text(self.W - 16, self.H / 2, text="×", fill=P["err"] if self.over else P["muted"], font=font(13))
+
+
+def _delegate(name):
+    return property(lambda s: getattr(s._a, name), lambda s, v: setattr(s._a, name, v))
+
+
 class App(tk.Tk):
     PAD = 14
+    orch, inner, busy, typing, empty = (_delegate(n) for n in ("orch", "inner", "busy", "typing", "empty"))
+    cancelled, project, dots, who = (_delegate(n) for n in ("cancelled", "project", "dots", "who"))
 
     def __init__(self, cfg_path: str | None = None):
         super().__init__()
@@ -446,14 +503,11 @@ class App(tk.Tk):
         self.minsize(860, 560)
         self.mode = tk.StringVar(value="auto")
         self.selected: set[str] = set()
-        self.busy = False
-        self.typing = None
-        self.empty = None
+        self.chats: list[Chat] = []
+        self.cur: Chat | None = None
+        self._override: Chat | None = None
+        self._polling = False
         self.ph_on = False
-        self.cancelled = False
-        self.project = self.cfg.get("project") or ""
-        if self.project and not Path(self.project).is_dir():
-            self.project = ""
         self._build_sidebar()
         self._build_main()
         self.rebuild()
@@ -489,7 +543,7 @@ class App(tk.Tk):
         label(inner, "AGENTLAR", fg=P["muted"], size=8, weight="bold").pack(anchor="w", pady=(18, 6))
         bottom = tk.Frame(inner, bg=P["side"])
         bottom.pack(side="bottom", fill="x")
-        Pill(bottom, "＋  Yangi suhbat", self.new_chat, bg=P["accent"], hover=P["accent_hi"], fg="white",
+        Pill(bottom, "＋  Yangi suhbat", lambda: self.new_chat(), bg=P["accent"], hover=P["accent_hi"], fg="white",
              height=42, radius=14).pack(fill="x", pady=(0, 8))
         Pill(bottom, "⚙   Sozlamalar", self.open_settings, bg=P["card"], hover=P["card_hi"],
              height=42, radius=14).pack(fill="x")
@@ -499,6 +553,9 @@ class App(tk.Tk):
     def _build_main(self):
         main = tk.Frame(self, bg=P["bg"])
         main.pack(side="right", fill="both", expand=True)
+
+        self.tabbar = tk.Frame(main, bg=P["side"], padx=14, pady=8)
+        self.tabbar.pack(fill="x")
 
         head = tk.Frame(main, bg=P["bg"], padx=28, pady=14)
         head.pack(fill="x")
@@ -524,22 +581,24 @@ class App(tk.Tk):
         self.canvas.configure(yscrollcommand=sb.set)
         sb.pack(side="right", fill="y")
         self.canvas.pack(side="left", fill="both", expand=True)
-        self.inner = tk.Frame(self.canvas, bg=P["bg"])
-        self.win = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
-        self.inner.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
-        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfig(self.win, width=e.width))
+        self.canvas.bind("<Configure>", self._canvas_resized)
         for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
             self.bind_all(seq, self._wheel)
 
+        self.chips = tk.Frame(main, bg=P["bg"])
         self.wrap = tk.Canvas(main, bg=P["bg"], height=72, highlightthickness=0)
         self.wrap.pack(fill="x", padx=28, pady=(8, 20))
+        self.attach_btn = tk.Canvas(self.wrap, width=38, height=38, bg=P["card"], highlightthickness=0, cursor="hand2")
+        self.attach_btn.bind("<Button-1>", lambda e: self.attach())
+        self.attach_btn.bind("<Enter>", lambda e: self._attach_draw(True))
+        self.attach_btn.bind("<Leave>", lambda e: self._attach_draw(False))
+        self._attach_draw(False)
         self.entry = tk.Text(self.wrap, height=1, wrap="word", bg=P["card"], fg=P["text"], insertbackground=P["text"],
                              relief="flat", bd=0, highlightthickness=0, font=font(11), padx=2, pady=2)
         self.send_btn = tk.Canvas(self.wrap, width=44, height=44, bg=P["card"], highlightthickness=0, cursor="hand2")
         self.send_btn.bind("<Button-1>", lambda e: self.send())
         self.send_btn.bind("<Enter>", lambda e: self._send_draw(True))
         self.send_btn.bind("<Leave>", lambda e: self._send_draw(False))
-        self._send_draw(False)
         self.wrap.bind("<Configure>", lambda e: self._layout_input())
         self.entry.bind("<Return>", self._enter)
         self.entry.bind("<KeyRelease>", lambda e: self._grow())
@@ -554,12 +613,19 @@ class App(tk.Tk):
         self.canvas.yview_scroll(step * 3, "units")
 
     # ---------- kiritish maydoni ----------
+    def _attach_draw(self, over):
+        c = self.attach_btn
+        c.delete("all")
+        c.create_oval(2, 2, 36, 36, fill=P["accent"] if over else P["card_hi"], outline="")
+        c.create_text(19, 18, text="+", fill="white", font=font(17, "bold"))
+
     def _send_draw(self, over):
         c = self.send_btn
         c.delete("all")
-        col = P["card_hi"] if self.busy else (P["accent_hi"] if over else P["accent"])
-        c.create_oval(2, 2, 42, 42, fill=P["err"] if self.busy and over else col, outline="")
-        if self.busy:
+        busy = bool(self.cur and self.cur.busy)
+        col = P["card_hi"] if busy else (P["accent_hi"] if over else P["accent"])
+        c.create_oval(2, 2, 42, 42, fill=P["err"] if busy and over else col, outline="")
+        if busy:
             c.create_rectangle(15, 15, 29, 29, fill="white", outline="")
         else:
             c.create_text(22, 22, text="↑", fill="white", font=font(17, "bold"))
@@ -568,7 +634,8 @@ class App(tk.Tk):
         w, h = self.wrap.winfo_width(), self.wrap.winfo_height()
         self.wrap.delete("all")
         rrect(self.wrap, 1, 1, w - 1, h - 1, 26, fill=P["card"], outline=P["line"])
-        self.wrap.create_window(22, h / 2, window=self.entry, anchor="w", width=max(50, w - 100), height=h - 26)
+        self.wrap.create_window(30, h / 2, window=self.attach_btn)
+        self.wrap.create_window(56, h / 2, window=self.entry, anchor="w", width=max(50, w - 140), height=h - 26)
         self.wrap.create_window(w - 30, h / 2, window=self.send_btn)
 
     def _ph(self, show):
@@ -621,20 +688,135 @@ class App(tk.Tk):
     def _count(self):
         self.count_lbl.config(text=f"●  {len(self.selected)} agent faol")
 
+    @property
+    def _a(self) -> Chat:
+        return self._override or self.cur
+
+    @contextlib.contextmanager
+    def _as(self, chat):
+        prev, self._override = self._override, chat
+        try:
+            yield
+        finally:
+            self._override = prev
+
+    def _make_orch(self, chat):
+        o = config.build(self.cfg)
+        o.ctx.confirm = lambda agent, kind, title, detail, c=chat: self._confirm_threadsafe(c, agent, kind, title, detail)
+        o.ctx.emit = lambda agent, kind, text, c=chat: self.inbox.put(("event", c, agent, kind, text))
+        o.ctx.root = chat.project or None
+        o.ctx.web = bool(self.cfg.get("web", True))
+        return o
+
     def rebuild(self):
-        self.orch = config.build(self.cfg)
-        self.orch.ctx.confirm = self._confirm_threadsafe
-        self.orch.ctx.emit = self._emit_threadsafe
-        self.orch.ctx.root = self.project or None
-        self._proj_label()
-        self.selected = set(self.orch.agents)
+        """Agentlar yoki sozlamalar o'zgarganda: suhbatlar tarixi saqlanadi."""
+        if not self.chats:
+            self.new_chat()
+        for c in self.chats:
+            hist = c.orch.history
+            c.orch = self._make_orch(c)
+            c.orch.history = hist
+            if c.empty is not None:
+                with self._as(c):
+                    self.empty.destroy()
+                    self._show_empty()
+        self.selected = set(self.cur.orch.agents)
         for w in self.agent_box.winfo_children():
             w.destroy()
-        for a in self.orch.agents.values():
+        for a in self.cur.orch.agents.values():
             AgentRow(self.agent_box, a, self.toggle_agent).pack(fill="x", pady=1)
         self.pick_mode(self.mode.get())
         self._count()
-        self.new_chat()
+
+    # ---------- suhbatlar (tablar) ----------
+    def new_chat(self):
+        proj = self.cfg.get("project") or ""
+        inner = tk.Frame(self.canvas, bg=P["bg"])
+        win = self.canvas.create_window((0, 0), window=inner, anchor="nw", width=max(1, self.canvas.winfo_width()))
+        chat = Chat(inner, win, proj if proj and Path(proj).is_dir() else "")
+        inner.bind("<Configure>", lambda e: self._region() if self.cur is chat else None)
+        chat.orch = self._make_orch(chat)
+        self.chats.append(chat)
+        with self._as(chat):
+            self._show_empty()
+        self.switch(chat)
+
+    def switch(self, chat):
+        self.cur = chat
+        chat.unread = False
+        for c in self.chats:
+            self.canvas.itemconfigure(c.win, state="normal" if c is chat else "hidden")
+        self.update_idletasks()
+        self._region()
+        self.canvas.yview_moveto(1)
+        self._proj_label()
+        self.pick_mode(self.mode.get())
+        self._render_tabs()
+        self._render_chips()
+        self._send_draw(False)
+
+    def close_chat(self, chat):
+        if chat.busy:
+            chat.cancelled = True
+            chat.orch.ctx.cancel.set()
+        idx = self.chats.index(chat)
+        self.chats.remove(chat)
+        self.canvas.delete(chat.win)
+        chat.inner.destroy()
+        if not self.chats:
+            return self.new_chat()
+        if self.cur is chat:
+            self.switch(self.chats[min(idx, len(self.chats) - 1)])
+        else:
+            self._render_tabs()
+
+    def _render_tabs(self):
+        for w in self.tabbar.winfo_children():
+            w.destroy()
+        for c in self.chats:
+            TabButton(self.tabbar, c, c is self.cur, self.switch, self.close_chat).pack(side="left", padx=(0, 6))
+        Pill(self.tabbar, "+", lambda: self.new_chat(), width=38, height=34, size=13, bg=P["side"],
+             hover=P["card"], fg=P["muted"]).pack(side="left")
+
+    def _canvas_resized(self, e):
+        for c in self.chats:
+            self.canvas.itemconfig(c.win, width=e.width)
+        self._region()
+
+    def _region(self):
+        if self.cur:
+            h = max(self.cur.inner.winfo_reqheight(), self.canvas.winfo_height())
+            self.canvas.configure(scrollregion=(0, 0, self.canvas.winfo_width(), h))
+
+    # ---------- biriktirmalar ----------
+    def attach(self):
+        paths = filedialog.askopenfilenames(parent=self, title="Fayl biriktirish (rasm, PDF, Word, matn)",
+                                            filetypes=attachments.FILETYPES)
+        for p in paths:
+            try:
+                self.cur.pending.append(attachments.load(p))
+            except attachments.AttachError as exc:
+                messagebox.showwarning("Fayl biriktirilmadi", str(exc), parent=self)
+        self._render_chips()
+        self.entry.focus_set()
+
+    def _remove_attachment(self, a):
+        self.cur.pending.remove(a)
+        self._render_chips()
+
+    def _render_chips(self):
+        for w in self.chips.winfo_children():
+            w.destroy()
+        if not self.cur or not self.cur.pending:
+            return self.chips.pack_forget()
+        self.chips.pack(fill="x", padx=28, before=self.wrap)
+        for a in self.cur.pending:
+            f = tk.Frame(self.chips, bg=P["card_hi"], padx=10, pady=4)
+            f.pack(side="left", padx=(0, 8))
+            label(f, ("▣ " if a.kind == "image" else "▤ ") + a.name, size=9).pack(side="left")
+            x = label(f, "  ✕", fg=P["muted"], size=9, cursor="hand2")
+            x.pack(side="left")
+            x.bind("<Button-1>", lambda e, a=a: self._remove_attachment(a))
 
     # ---------- loyiha va git ----------
     def _proj_label(self):
@@ -657,28 +839,26 @@ class App(tk.Tk):
 
     def set_project(self, path):
         self.project = path
-        self.cfg["project"] = path
+        self.cfg["project"] = path  # yangi suhbatlar shu papka bilan boshlanadi
         config.write(self.cfg, self.cfg_path)
         self.orch.ctx.root = path or None
         self.orch.ctx.always.clear()
         self._proj_label()
         self.pick_mode(self.mode.get())
         if self.empty is not None:
-            self.new_chat()
+            self.empty.destroy()
+            self._show_empty()
 
     def open_git(self):
         if not self.project:
             return messagebox.showinfo("Git", "Avval «Loyiha papkasini tanlash» tugmasi bilan papkani tanlang.", parent=self)
         GitDialog(self, self.project)
 
-    def _confirm_threadsafe(self, agent, kind, title, detail):
+    def _confirm_threadsafe(self, chat, agent, kind, title, detail):
         evt, box = threading.Event(), ["no"]
-        self.inbox.put(("ask", agent, kind, title, detail, box, evt))
+        self.inbox.put(("ask", chat, agent, kind, title, detail, box, evt))
         evt.wait(timeout=900)
         return box[0]
-
-    def _emit_threadsafe(self, agent, kind, text):
-        self.inbox.put(("event", agent, kind, text))
 
     def first_run(self):
         found = detect.discover()
@@ -702,13 +882,6 @@ class App(tk.Tk):
         self.rebuild()
 
     # ---------- chat ----------
-    def new_chat(self):
-        self.orch.reset()
-        self.typing = None
-        for w in self.inner.winfo_children():
-            w.destroy()
-        self._show_empty()
-
     def _show_empty(self):
         demo = list(self.orch.agents) == ["demo"]
         box = tk.Frame(self.inner, bg=P["bg"])
@@ -724,7 +897,7 @@ class App(tk.Tk):
         chips = tk.Frame(box, bg=P["bg"])
         chips.pack(pady=26)
         for i, s in enumerate(PROJECT_SUGGESTIONS if self.project else SUGGESTIONS):
-            Pill(chips, s, lambda s=s: self._use_suggestion(s), width=250, height=44, radius=16, size=10,
+            Pill(chips, s, lambda s=s: self._use_suggestion(s), width=290, height=44, radius=16, size=10,
                  weight="normal", outline=P["line"]).grid(row=i // 2, column=i % 2, padx=6, pady=6)
         self.empty = box
 
@@ -797,11 +970,16 @@ class App(tk.Tk):
             self.empty.destroy()
             self.empty = None
 
-    def add_user(self, text):
+    def add_user(self, text, files=()):
         self._clear_empty()
         row = tk.Frame(self.inner, bg=P["bg"])
         row.pack(fill="x", padx=28, pady=8)
-        self._bubble(row, text, P["user"], "white").pack(side="right")
+        col = tk.Frame(row, bg=P["bg"])
+        col.pack(side="right")
+        if files:
+            label(col, "   ".join(("▣ " if a.kind == "image" else "▤ ") + a.name for a in files), fg=P["muted"],
+                  size=9).pack(anchor="e", pady=(0, 4))
+        self._bubble(col, text, P["user"], "white").pack(anchor="e")
         self._scroll()
 
     def add_agent(self, name, text, meta="", err=False):
@@ -836,26 +1014,30 @@ class App(tk.Tk):
         self._scroll()
 
     def _scroll(self):
+        if self._a is not self.cur:
+            return
         self.update_idletasks()
+        self._region()
         self.canvas.yview_moveto(1)
-        self.after(150, lambda: self.canvas.yview_moveto(1))  # pufakcha aniq o'lchamga kelgach
+        self.after(150, lambda: (self._region(), self.canvas.yview_moveto(1)))  # pufakcha aniq o'lchamga kelgach
 
     def _typing_on(self, names):
+        chat = self._a
         row = tk.Frame(self.inner, bg=P["bg"])
         row.pack(fill="x", padx=28, pady=8)
-        self.dots = label(row, "", fg=P["accent_hi"], size=14, weight="bold")
-        self.dots.pack(side="left", padx=(46, 0))
-        self.who = label(row, "  " + ", ".join(names) + " yozmoqda…", fg=P["muted"], size=9)
-        self.who.pack(side="left")
-        self.typing = row
-        self._tick(0)
+        chat.dots = label(row, "", fg=P["accent_hi"], size=14, weight="bold")
+        chat.dots.pack(side="left", padx=(46, 0))
+        chat.who = label(row, "  " + ", ".join(names) + " yozmoqda…", fg=P["muted"], size=9)
+        chat.who.pack(side="left")
+        chat.typing = row
+        self._tick(chat, 0)
         self._scroll()
 
-    def _tick(self, i):
-        if self.typing is None:
+    def _tick(self, chat, i):
+        if chat.typing is None or chat not in self.chats:
             return
-        self.dots.config(text=["●○○", "○●○", "○○●"][i % 3])
-        self.after(280, self._tick, i + 1)
+        chat.dots.config(text=["●○○", "○●○", "○○●"][i % 3])
+        self.after(280, self._tick, chat, i + 1)
 
     def stop(self):
         self.cancelled = True
@@ -866,53 +1048,70 @@ class App(tk.Tk):
     def send(self):
         if self.busy:
             return self.stop()
-        prompt = self._text()
-        if not prompt:
+        chat = self.cur
+        prompt, files = self._text(), list(chat.pending)
+        if not prompt and not files:
             return
+        prompt = prompt or "Biriktirilgan fayl(lar)ni ko'rib chiq va qisqacha tushuntir."
         self.entry.delete("1.0", "end")
         self._grow()
-        self.add_user(prompt)
+        if chat.title == "Yangi suhbat":
+            chat.title = prompt.replace("\n", " ")[:22]
+        self.add_user(prompt, files)
+        chat.pending = []
+        self._render_chips()
         mode = self.mode.get()
         targets = [n for n in self.orch.agents if n in self.selected]
         shown = targets[:1] if mode == "single" else targets
         self.busy, self.cancelled = True, False
         self._send_draw(False)
+        self._render_tabs()
         self._typing_on(shown)
-        self.after(100, self._poll)
-        threading.Thread(target=self._work, args=(prompt, mode, targets), daemon=True).start()
+        if not self._polling:
+            self._polling = True
+            self.after(100, self._poll)
+        threading.Thread(target=self._work, args=(chat, prompt, mode, targets, files), daemon=True).start()
 
-    def _work(self, prompt, mode, targets):
+    def _work(self, chat, prompt, mode, targets, files):
         try:
-            res, err = self.orch.run(prompt, mode, targets), ""
+            res, err = chat.orch.run(prompt, mode, targets, files), ""
         except Exception as exc:
             res, err = [], str(exc)
-        self.inbox.put(("done", res, err))
+        self.inbox.put(("done", chat, res, err))
 
     def _poll(self):
-        finished = False
         while True:
             try:
                 item = self.inbox.get_nowait()
             except queue.Empty:
                 break
-            if item[0] == "event":
-                self.add_activity(*item[1:])
-            elif item[0] == "ask":
-                _, agent, kind, title, detail, box, evt = item
-                if self.cancelled:
-                    box[0] = "no"
+            chat = item[1]
+            if chat not in self.chats:  # suhbat yopilgan
+                if item[0] == "ask":
+                    item[-2][0] = "no"
+                    item[-1].set()
+                continue
+            with self._as(chat):
+                if item[0] == "event":
+                    self.add_activity(*item[2:])
+                elif item[0] == "ask":
+                    _, _, agent, kind, title, detail, box, evt = item
+                    if chat.cancelled:
+                        box[0] = "no"
+                    else:
+                        d = ApproveDialog(self, f"{agent} · {chat.title}", kind, title, detail)
+                        self.wait_window(d)
+                        box[0] = d.result
+                    evt.set()
                 else:
-                    d = ApproveDialog(self, agent, kind, title, detail)
-                    self.wait_window(d)
-                    box[0] = d.result
-                evt.set()
-            else:
-                self._done(item[1], item[2])
-                finished = True
-        if not finished:
+                    self._done(item[2], item[3])
+        if any(c.busy for c in self.chats):
             self.after(100, self._poll)
+        else:
+            self._polling = False
 
     def _done(self, results, error):
+        chat = self._a
         if self.typing is not None:
             self.typing.destroy()
             self.typing = None
@@ -926,9 +1125,13 @@ class App(tk.Tk):
                 self.add_agent(r.agent, r.text or "(bo'sh javob)", f"{r.seconds:.1f} s")
             else:
                 self.add_agent(r.agent, r.error, "xato", err=True)
-        self.busy = False
-        self._send_draw(False)
-        self.entry.focus_set()
+        chat.busy = False
+        if chat is not self.cur:
+            chat.unread = True
+        else:
+            self._send_draw(False)
+            self.entry.focus_set()
+        self._render_tabs()
 
 
 def run(cfg_path: str | None = None):
