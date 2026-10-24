@@ -158,6 +158,32 @@ class LoopTests(unittest.TestCase):
         self.assertEqual(Path(r.text).resolve(), Path(self.d).resolve())
 
 
+class CliResolveTests(unittest.TestCase):
+    def test_missing_program_message(self):
+        r = build_agent({"name": "c", "type": "cli", "command": "yoq-dastur-xyz -p {prompt}"}).ask("x")
+        self.assertFalse(r.ok)
+        self.assertIn("topilmadi", r.error)
+        self.assertIn("yoq-dastur-xyz", r.error)
+
+    def test_cmd_shim_gets_prompt_via_stdin(self):
+        import os
+        import stat
+        d = Path(tempfile.mkdtemp())
+        shim = d / "fakeclaude.cmd"  # Windows'dagi npm shimini taqlid qiladi
+        shim.write_text("#!/bin/sh\necho \"ARGS:$#\"\ncat\n")
+        shim.chmod(shim.stat().st_mode | stat.S_IEXEC)
+        old = os.environ["PATH"]
+        os.environ["PATH"] = f"{d}{os.pathsep}{old}"
+        try:
+            prompt = 'a & b | "c" > d %PATH% ^'
+            r = build_agent({"name": "c", "type": "cli", "command": "fakeclaude.cmd -p {prompt}"}).ask(prompt)
+        finally:
+            os.environ["PATH"] = old
+        self.assertTrue(r.ok, r.error)
+        self.assertTrue(r.text.startswith("ARGS:1"), r.text)  # faqat -p, so'rov argumentda emas
+        self.assertIn(prompt, r.text)
+
+
 @unittest.skipUnless(gitutil.have_git(), "git yo'q")
 class GitTests(unittest.TestCase):
     def test_flow(self):

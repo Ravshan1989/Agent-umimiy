@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import os
 import shlex
+import shutil
 import subprocess
+import sys
 
 from . import agentic, proc
 from . import attachments as att
@@ -115,19 +117,28 @@ class CLIAgent(Agent):
         template = o.get("command")
         if not template:
             raise AgentError("'command' ko'rsatilmagan")
-        parts = shlex.split(template)
-        use_stdin = not any("{prompt}" in p for p in parts)
-        argv = [p.replace("{prompt}", prompt) for p in parts]
+        win = sys.platform == "win32"
+        parts = [x[1:-1] if len(x) > 1 and x[0] == x[-1] and x[0] in "\"'" else x
+                 for x in shlex.split(template, posix=not win)]
+        exe = shutil.which(parts[0])
+        if not exe:
+            raise AgentError(f"«{parts[0]}» dasturi topilmadi: u o'rnatilmagan yoki PATH da yo'q. "
+                             "Sozlamalardan bu agentni o'chiring yoki buyruqqa dasturning to'liq yo'lini yozing.")
         ctx = getattr(self, "ctx", None)
         if self._files:
             prompt += "\n\nBiriktirilgan fayllar (to'liq yo'li):\n" + "\n".join(a.path for a in self._files)
-            if use_stdin is False:
-                argv = [p.replace("{prompt}", prompt) for p in parts]
+        # Windows'dagi .cmd/.bat (npm o'rnatgan claude, codex...) buyruq qatori orqali xavfsiz emas va
+        # &, |, " kabi belgilarda buziladi — so'rovni stdin orqali beramiz.
+        batch = exe.lower().endswith((".cmd", ".bat"))
+        if batch:
+            parts = [x for x in parts if "{prompt}" not in x]
+        use_stdin = batch or not any("{prompt}" in x for x in parts)
+        argv = [exe] + [x.replace("{prompt}", prompt) for x in parts[1:]]
         try:
             p = proc.run(argv, input=prompt if use_stdin else None, timeout=o.get("timeout", 300),
                          cwd=(ctx.root if ctx and ctx.root else o.get("cwd")) or None)
         except FileNotFoundError as exc:
-            raise AgentError(f"Buyruq topilmadi: {argv[0]}") from exc
+            raise AgentError(f"Buyruq ishga tushmadi: {parts[0]}") from exc
         except subprocess.TimeoutExpired as exc:
             raise AgentError("Vaqt tugadi") from exc
         if p.returncode != 0:
