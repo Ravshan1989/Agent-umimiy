@@ -1,0 +1,83 @@
+from __future__ import annotations
+
+import json
+import time
+import urllib.error
+import urllib.request
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+
+from .tools import Cancelled, Context, Toolbox, describe_agent
+
+
+@dataclass
+class Result:
+    agent: str
+    text: str
+    ok: bool = True
+    seconds: float = 0.0
+    error: str = ""
+
+
+class AgentError(Exception):
+    pass
+
+
+class Agent(ABC):
+    """Har bir AI agent shu interfeysni amalga oshiradi."""
+
+    kind = "base"
+    supports_tools = False
+
+    def __init__(self, name: str, description: str = "", **options):
+        self.name = name
+        self.description = description
+        self.options = options
+
+    @abstractmethod
+    def _ask(self, prompt: str, history: list[dict]) -> str: ...
+
+    def _ask_tools(self, prompt: str, history: list[dict], tb: Toolbox) -> str:
+        return self._ask(prompt, history)
+
+    def ask(self, prompt: str, history: list[dict] | None = None, ctx: Context | None = None, files=None) -> Result:
+        start = time.monotonic()
+        self.ctx, self._files = ctx, list(files or [])
+        history = list(history or [])
+        plain = prompt
+        if ctx and ctx.roster and self.kind != "echo":  # asbobsiz yo'lda agent o'z muhitini shu orqali biladi
+            plain = (f"[Context: you are the agent '{self.name}' inside the desktop app Agent Umimiy, which combines these "
+                     "agents:\n" + "\n".join(describe_agent(a) for a in ctx.roster) +
+                     "\nIf asked which agents exist, list all of them, not only yourself.]\n\n" + prompt)
+        try:
+            if ctx and ctx.active and self.supports_tools and self.options.get("tools", True):
+                try:
+                    text = self._ask_tools(prompt, history, Toolbox(ctx, self.name))
+                except AgentError as exc:
+                    # model asboblarni qo'llamasa (masalan, kichik lokal model) — oddiy chatga qaytamiz
+                    if not str(exc).startswith(("HTTP 400", "HTTP 404", "HTTP 422")):
+                        raise
+                    text = self._ask(plain, history)
+            else:
+                text = self._ask(plain, history)
+            return Result(self.name, text, True, time.monotonic() - start)
+        except Cancelled:
+            return Result(self.name, "", False, time.monotonic() - start, "To'xtatildi")
+        except Exception as exc:  # agent xatosi butun tizimni to'xtatmasligi kerak
+            return Result(self.name, "", False, time.monotonic() - start, str(exc))
+
+
+def http_json(url: str, payload: dict, headers: dict, timeout: float = 120) -> dict:
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json", **headers},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as exc:
+        raise AgentError(f"HTTP {exc.code}: {exc.read().decode(errors='replace')[:500]}") from exc
+    except urllib.error.URLError as exc:
+        raise AgentError(f"Ulanish xatosi: {exc.reason}") from exc
