@@ -277,7 +277,19 @@ class Settings(tk.Toplevel):
         self.lang = tk.StringVar(value=i18n.LANG_NAMES.get(cfg.get("lang", "uz"), i18n.LANG_NAMES["uz"]))
         ttk.Combobox(lr, textvariable=self.lang, state="readonly", width=16,
                      values=list(self._lang_names)).pack(side="left", padx=10)
-        label(f, i18n.t("Tilni o'zgartirish dasturni qayta ishga tushirgandan so'ng to'liq qo'llanadi."),
+        tr = tk.Frame(f, bg=P["bg"])
+        tr.pack(fill="x", pady=(10, 0))
+        label(tr, i18n.t("Mavzu") + ":", fg=P["muted"]).pack(side="left")
+        self._theme_names = {i18n.t("Qorong'i"): "dark", i18n.t("Yorug'"): "light"}
+        self.theme_var = tk.StringVar(value=next((k for k, v in self._theme_names.items()
+                                                   if v == cfg.get("theme", "dark")), i18n.t("Qorong'i")))
+        ttk.Combobox(tr, textvariable=self.theme_var, state="readonly", width=14,
+                     values=list(self._theme_names)).pack(side="left", padx=10)
+        label(tr, i18n.t("Urg'u rang") + ":", fg=P["muted"]).pack(side="left", padx=(12, 0))
+        self.accent_var = tk.StringVar(value=cfg.get("accent", "violet"))
+        ttk.Combobox(tr, textvariable=self.accent_var, state="readonly", width=12,
+                     values=list(theme.ACCENTS)).pack(side="left", padx=10)
+        label(f, i18n.t("Til, mavzu va rang o'zgarishi dasturni qayta ishga tushirgandan so'ng qo'llanadi."),
               fg=P["muted"], size=8).pack(anchor="w", pady=(4, 0))
         self.keep = tk.BooleanVar(value=cfg.get("save_chats", True))
         tk.Checkbutton(f, text=i18n.t("Suhbatlarni shu kompyuterda saqlash (dastur qayta ochilganda tiklanadi)"), variable=self.keep,
@@ -359,6 +371,8 @@ class Settings(tk.Toplevel):
         self.cfg["browser"] = bool(self.brow.get())
         self.cfg["save_chats"] = bool(self.keep.get())
         self.cfg["lang"] = self._lang_names.get(self.lang.get(), "uz")
+        self.cfg["theme"] = self._theme_names.get(self.theme_var.get(), "dark")
+        self.cfg["accent"] = self.accent_var.get() if self.accent_var.get() in theme.ACCENTS else "violet"
         i18n.set_lang(self.cfg["lang"])
         self.on_save(self.cfg)
         self.destroy()
@@ -976,11 +990,12 @@ class App(tk.Tk):
 
     def __init__(self, cfg_path: str | None = None):
         super().__init__()
-        theme.setup(self)
         self.cfg_path = cfg_path
         self.inbox: queue.Queue = queue.Queue()
         self.cfg = config.read(cfg_path)
         i18n.set_lang(self.cfg.get("lang", "uz"))
+        theme.apply_palette(self.cfg.get("theme", "dark"), self.cfg.get("accent", "violet"))
+        theme.setup(self)
         first_run = not config.config_path(cfg_path).exists()
         self.title("Agent Umimiy")
         w, h = fit(self, 1180, 780)

@@ -336,6 +336,15 @@ TR: dict[str, dict[str, str]] = {
     "To'xtatilmoqda…": {"ru": "Остановка…", "en": "Stopping…"},
     "Nusxalash": {"ru": "Копировать", "en": "Copy"},
     "Nusxalandi ✓": {"ru": "Скопировано ✓", "en": "Copied ✓"},
+
+    # — Mavzu / rang —
+    "Mavzu": {"ru": "Тема", "en": "Theme"},
+    "Qorong'i": {"ru": "Тёмная", "en": "Dark"},
+    "Yorug'": {"ru": "Светлая", "en": "Light"},
+    "Urg'u rang": {"ru": "Акцент", "en": "Accent"},
+    "Til, mavzu va rang o'zgarishi dasturni qayta ishga tushirgandan so'ng qo'llanadi.":
+        {"ru": "Смена языка, темы и цвета применится после перезапуска приложения.",
+         "en": "Language, theme and color changes apply after restarting the app."},
 }
 
 
