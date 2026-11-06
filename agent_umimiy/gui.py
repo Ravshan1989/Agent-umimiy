@@ -633,7 +633,7 @@ class McpDialog(tk.Toplevel):
         self.result, self.taken = None, set(taken)
         spec = spec or {}
         bar, f = scroll_body(self)
-        label(f, "Plagin sozlamasi", size=14, weight="bold").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+        label(f, i18n.t("Plagin sozlamasi"), size=14, weight="bold").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
         r = 1
         if not spec:
             label(f, i18n.t("Shablon"), fg=P["muted"]).grid(row=r, column=0, sticky="w", pady=5)
@@ -1448,13 +1448,14 @@ class App(tk.Tk):
         found = detect.discover()
         if found:
             names = "\n".join("• " + a["name"] for a in found)
-            if messagebox.askyesno("Xush kelibsiz!", f"Kompyuteringizda quyidagi agentlar topildi:\n\n{names}\n\n"
-                                   "Hammasini qo'shaymi?", parent=self):
+            if messagebox.askyesno(i18n.t("Xush kelibsiz!"), i18n.t("Kompyuteringizda quyidagi agentlar topildi:") +
+                                   f"\n\n{names}\n\n" + i18n.t("Hammasini qo'shaymi?"), parent=self):
                 self.cfg["agents"] += found
                 config.write(self.cfg, self.cfg_path)
                 return self.rebuild()
-        messagebox.showinfo("Xush kelibsiz!", "Boshlash uchun «Sozlamalar» da agent qo'shing "
-                            "(Claude, ChatGPT, Gemini yoki lokal model).", parent=self)
+        messagebox.showinfo(i18n.t("Xush kelibsiz!"),
+                            i18n.t("Boshlash uchun «Sozlamalar» da agent qo'shing (Claude, ChatGPT, Gemini yoki lokal model)."),
+                            parent=self)
         self.open_settings()
 
     # ---------- telefondan boshqarish ----------
@@ -1552,7 +1553,7 @@ class App(tk.Tk):
             chat.cancelled = True
             chat.orch.ctx.cancel.set()
             if chat.typing is not None and chat.who is not None:
-                chat.who.config(text="  To'xtatilmoqda…")
+                chat.who.config(text="  " + i18n.t("To'xtatilmoqda…"))
             return {"ok": True}
         if action == "close":
             self.close_chat(chat)
@@ -1731,9 +1732,9 @@ class App(tk.Tk):
         self._bubble(col, text, "#2a1519" if err else P["card"], P["err"] if err else P["text"],
                      outline="#5b2530" if err else P["line"]).pack(anchor="w", pady=(5, 0))
         if not err:
-            cp = label(col, "Nusxalash", fg=P["muted"], size=8, cursor="hand2")
+            cp = label(col, i18n.t("Nusxalash"), fg=P["muted"], size=8, cursor="hand2")
             cp.pack(anchor="w", pady=(3, 0))
-            cp.bind("<Button-1>", lambda e, t=text, w=cp: (self._copy(t), w.config(text="Nusxalandi ✓", fg=P["ok"])))
+            cp.bind("<Button-1>", lambda e, t=text, w=cp: (self._copy(t), w.config(text=i18n.t("Nusxalandi ✓"), fg=P["ok"])))
         self._scroll()
 
     def _todo_card(self, text):
@@ -1806,7 +1807,7 @@ class App(tk.Tk):
         self.cancelled = True
         self.orch.ctx.cancel.set()
         if self.typing is not None:
-            self.who.config(text="  To'xtatilmoqda…")
+            self.who.config(text="  " + i18n.t("To'xtatilmoqda…"))
 
     def send(self):
         if self.busy:

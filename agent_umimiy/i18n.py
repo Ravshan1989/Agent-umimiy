@@ -324,6 +324,18 @@ TR: dict[str, dict[str, str]] = {
          "en": "Connecting… (on first run npx downloads the package, may take 1–2 minutes)"},
     "Bu plagin o'chirilsinmi?": {"ru": "Удалить этот плагин?", "en": "Delete this plugin?"},
     "Papka": {"ru": "Папка", "en": "Folder"},
+
+    # — Boshqa (xush kelibsiz, status, nusxalash) —
+    "Xush kelibsiz!": {"ru": "Добро пожаловать!", "en": "Welcome!"},
+    "Kompyuteringizda quyidagi agentlar topildi:":
+        {"ru": "На вашем компьютере найдены агенты:", "en": "The following agents were found on your computer:"},
+    "Hammasini qo'shaymi?": {"ru": "Добавить всех?", "en": "Add them all?"},
+    "Boshlash uchun «Sozlamalar» da agent qo'shing (Claude, ChatGPT, Gemini yoki lokal model).":
+        {"ru": "Чтобы начать, добавьте агента в «Настройках» (Claude, ChatGPT, Gemini или локальная модель).",
+         "en": "To start, add an agent in «Settings» (Claude, ChatGPT, Gemini or a local model)."},
+    "To'xtatilmoqda…": {"ru": "Остановка…", "en": "Stopping…"},
+    "Nusxalash": {"ru": "Копировать", "en": "Copy"},
+    "Nusxalandi ✓": {"ru": "Скопировано ✓", "en": "Copied ✓"},
 }
 
 
