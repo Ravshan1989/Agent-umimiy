@@ -12,6 +12,7 @@ the agents read and edit your files, control the browser, and help each other.
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![UI](https://img.shields.io/badge/interface-Uzbek-1EB53A)
+[![Tests](https://github.com/Ravshan1989/Agent-umimiy/actions/workflows/tests.yml/badge.svg)](https://github.com/Ravshan1989/Agent-umimiy/actions/workflows/tests.yml)
 
 [📥 Download](#-installation) · [✨ Features](#-features) · [⚙️ Setup](#️-setup) · [📖 Guide](#-detailed-guide) · [👨‍💻 Developers](#-for-developers)
 

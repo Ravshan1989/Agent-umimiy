@@ -58,7 +58,8 @@ def cli_health(exe: str) -> tuple[bool, str]:
         if low.endswith(".exe"):
             targets = [exe]
         elif low.endswith((".cmd", ".bat")):
-            text = open(exe, encoding="utf-8", errors="replace").read(20000)
+            with open(exe, encoding="utf-8", errors="replace") as _f:
+                text = _f.read(20000)
             base = os.path.dirname(os.path.abspath(exe))
             targets = []
             for m in re.finditer(r'"(?:%~?dp0%?)[\\/]*([^"%]+?\.exe)"', text, re.I):
