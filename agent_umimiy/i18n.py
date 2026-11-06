@@ -93,6 +93,34 @@ TR: dict[str, dict[str, str]] = {
     # — Til tanlovi —
     "Til": {"ru": "Язык", "en": "Language"},
     "Interfeys tili": {"ru": "Язык интерфейса", "en": "Interface language"},
+
+    # — Asosiy oyna —
+    "Yangi suhbat": {"ru": "Новый чат", "en": "New chat"},
+    "Barcha AI bir joyda": {"ru": "Весь ваш AI в одном месте", "en": "All your AI in one place"},
+    "REJIM": {"ru": "РЕЖИМ", "en": "MODE"},
+    "AGENTLAR": {"ru": "АГЕНТЫ", "en": "AGENTS"},
+    "＋  Yangi suhbat": {"ru": "＋  Новый чат", "en": "＋  New chat"},
+    "⬡   Plaginlar": {"ru": "⬡   Плагины", "en": "⬡   Plugins"},
+    "⚙   Sozlamalar": {"ru": "⚙   Настройки", "en": "⚙   Settings"},
+    "Xabar yozing…   (Enter — yuborish, Shift+Enter — yangi qator)":
+        {"ru": "Напишите сообщение…   (Enter — отправить, Shift+Enter — новая строка)",
+         "en": "Type a message…   (Enter — send, Shift+Enter — new line)"},
+    "agent faol": {"ru": "агент(ов) активно", "en": "agent(s) active"},
+    "Loyiha:": {"ru": "Проект:", "en": "Project:"},
+    "Loyiha papkasini tanlash": {"ru": "Выбрать папку проекта", "en": "Choose project folder"},
+    "Avval «Loyiha papkasini tanlash» tugmasi bilan papkani tanlang.":
+        {"ru": "Сначала выберите папку кнопкой «Выбрать папку проекта».",
+         "en": "First choose a folder with the “Choose project folder” button."},
+    "Qanday yordam bera olaman?": {"ru": "Чем могу помочь?", "en": "How can I help?"},
+    "Agent sozlanmagan — chap pastdagi «Sozlamalar» orqali qo'shing.":
+        {"ru": "Агент не настроен — добавьте через «Настройки» внизу слева.",
+         "en": "No agent configured — add one via “Settings” at the bottom left."},
+    "Agentlar fayllarni o'qiydi va ruxsatingiz bilan o'zgartiradi.":
+        {"ru": "Агенты читают файлы и изменяют их с вашего разрешения.",
+         "en": "Agents read files and change them with your permission."},
+    "Savolingizni yozing — agentlaringiz birgalikda javob beradi.":
+        {"ru": "Напишите вопрос — ваши агенты ответят вместе.",
+         "en": "Type your question — your agents answer together."},
     "loyihada faqat o'qiydi": {"ru": "в проекте только чтение", "en": "read-only in the project"},
     "Tilni o'zgartirish dasturni qayta ishga tushirgandan so'ng to'liq qo'llanadi.":
         {"ru": "Смена языка полностью применится после перезапуска приложения.",

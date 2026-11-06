@@ -6,11 +6,11 @@ from tkinter import font as tkfont
 from tkinter import ttk
 
 P = {
-    "bg": "#0d0f16", "side": "#121521", "card": "#1a1e2e", "card_hi": "#232842", "line": "#2a3047",
-    "text": "#e8eaf4", "muted": "#8b92ab", "accent": "#7c6cff", "accent_hi": "#9a8dff",
-    "user": "#5a49ee", "ok": "#34d399", "err": "#f87171", "code": "#080a10", "warn": "#fbbf24",
+    "bg": "#0a0b10", "side": "#0e1017", "card": "#161a24", "card_hi": "#212636", "line": "#262b3a",
+    "text": "#eef0f8", "muted": "#949bb3", "accent": "#7b6cff", "accent_hi": "#9a8cff",
+    "user": "#5d4ef2", "ok": "#35d6a0", "err": "#fb7185", "code": "#07090e", "warn": "#fcc53d",
 }
-AVATARS = ["#7c6cff", "#22d3ee", "#f59e0b", "#ec4899", "#34d399", "#f97316", "#60a5fa", "#a3e635"]
+AVATARS = ["#7b6cff", "#22d3ee", "#fbbf24", "#f472b6", "#34d399", "#fb923c", "#60a5fa", "#a78bfa"]
 FAMILY = "Segoe UI"
 MONO = "Consolas"
 
@@ -59,7 +59,7 @@ def setup(root: tk.Misc):
 class Pill(tk.Canvas):
     """Yumaloq tugma."""
 
-    def __init__(self, parent, text, command, bg=None, hover=None, fg=None, height=36, radius=12,
+    def __init__(self, parent, text, command, bg=None, hover=None, fg=None, height=36, radius=14,
                  width=None, size=10, weight="bold", anchor="center", outline=None):
         self.parent_bg = parent["bg"]
         super().__init__(parent, height=height, highlightthickness=0, bg=self.parent_bg, cursor="hand2",

@@ -880,9 +880,9 @@ class ModeRow(tk.Canvas):
         w, h = self.winfo_width(), self.winfo_height()
         icon, title, _ = MODES[self.key]
         if self.active:
-            rrect(self, 0, 0, w, h, 12, fill=P["card_hi"], outline=P["accent"])
+            rrect(self, 0, 0, w, h, 14, fill=P["card_hi"], outline=P["accent"])
         elif self.over:
-            rrect(self, 0, 0, w, h, 12, fill=P["card"], outline="")
+            rrect(self, 0, 0, w, h, 14, fill=P["card"], outline="")
         self.create_text(22, h / 2, text=icon, fill=P["accent_hi"] if self.active else P["muted"], font=font(13))
         self.create_text(46, h / 2, text=i18n.t(title), anchor="w", fill=P["text"] if self.active else P["muted"],
                          font=font(10, "bold" if self.active else "normal"))
@@ -905,7 +905,7 @@ class AgentRow(tk.Canvas):
         self.delete("all")
         w, h = self.winfo_width(), self.winfo_height()
         if self.over:
-            rrect(self, 0, 0, w, h, 12, fill=P["card"], outline="")
+            rrect(self, 0, 0, w, h, 14, fill=P["card"], outline="")
         c = color_for(self.agent.name)
         self.create_oval(8, h / 2 - 15, 38, h / 2 + 15, fill=c if self.on else P["line"], outline="")
         self.create_text(23, h / 2, text=self.agent.name[:1].upper(), fill="white", font=font(11, "bold"))
@@ -957,13 +957,14 @@ class TabButton(tk.Canvas):
     def draw(self):
         self.delete("all")
         fill = P["card_hi"] if self.active else (P["card"] if self.over else P["side"])
-        rrect(self, 0, 0, self.W, self.H, 12, fill=fill, outline=P["accent"] if self.active else "")
+        rrect(self, 0, 0, self.W, self.H, 14, fill=fill, outline=P["accent"] if self.active else "")
         c = self.chat
         if c.busy:
             self.create_oval(12, 13, 20, 21, fill=P["accent_hi"], outline="")
         elif c.unread:
             self.create_oval(12, 13, 20, 21, fill=P["ok"], outline="")
-        title = c.title if len(c.title) <= 20 else c.title[:19] + "…"
+        _nm = i18n.t(c.title)
+        title = _nm if len(_nm) <= 20 else _nm[:19] + "…"
         self.create_text(28, self.H / 2, text=title, anchor="w", font=font(9, "bold" if self.active else "normal"),
                          fill=P["text"] if self.active else P["muted"])
         self.create_text(self.W - 16, self.H / 2, text="×", fill=P["err"] if self.over else P["muted"], font=font(13))
@@ -1031,24 +1032,24 @@ class App(tk.Tk):
         t = tk.Frame(logo, bg=P["side"])
         t.pack(side="left", padx=12)
         label(t, "Agent Umimiy", size=14, weight="bold").pack(anchor="w")
-        label(t, "Barcha AI bir joyda", fg=P["muted"], size=9).pack(anchor="w")
+        label(t, i18n.t("Barcha AI bir joyda"), fg=P["muted"], size=9).pack(anchor="w")
 
-        label(inner, "REJIM", fg=P["muted"], size=8, weight="bold").pack(anchor="w", pady=(2 if c else 4, 4 if c else 6))
+        label(inner, i18n.t("REJIM"), fg=P["muted"], size=8, weight="bold").pack(anchor="w", pady=(2 if c else 4, 4 if c else 6))
         self.mode_rows = {}
         for k in MODES:
             r = ModeRow(inner, k, self.pick_mode, height=32 if c else 40)
             r.pack(fill="x", pady=1)
             self.mode_rows[k] = r
 
-        label(inner, "AGENTLAR", fg=P["muted"], size=8, weight="bold").pack(anchor="w", pady=(8 if c else 18, 4 if c else 6))
+        label(inner, i18n.t("AGENTLAR"), fg=P["muted"], size=8, weight="bold").pack(anchor="w", pady=(8 if c else 18, 4 if c else 6))
         bottom = tk.Frame(inner, bg=P["side"])
         bottom.pack(side="bottom", fill="x")
         bh, gap = (34, 5) if c else (42, 8)
-        Pill(bottom, "＋  Yangi suhbat", lambda: self.new_chat(), bg=P["accent"], hover=P["accent_hi"], fg="white",
+        Pill(bottom, i18n.t("＋  Yangi suhbat"), lambda: self.new_chat(), bg=P["accent"], hover=P["accent_hi"], fg="white",
              height=bh, radius=14).pack(fill="x", pady=(0, gap))
-        Pill(bottom, "⬡   Plaginlar", self.open_plugins, bg=P["card"], hover=P["card_hi"],
+        Pill(bottom, i18n.t("⬡   Plaginlar"), self.open_plugins, bg=P["card"], hover=P["card_hi"],
              height=bh, radius=14).pack(fill="x", pady=(0, gap))
-        Pill(bottom, "⚙   Sozlamalar", self.open_settings, bg=P["card"], hover=P["card_hi"],
+        Pill(bottom, i18n.t("⚙   Sozlamalar"), self.open_settings, bg=P["card"], hover=P["card_hi"],
              height=bh, radius=14).pack(fill="x")
         # agentlar ro'yxati: ko'p bo'lsa aylantiriladi
         holder = tk.Frame(inner, bg=P["side"])
@@ -1162,7 +1163,7 @@ class App(tk.Tk):
         text = self.entry.get("1.0", "end").strip()
         if show and not text:
             self.entry.delete("1.0", "end")
-            self.entry.insert("1.0", "Xabar yozing…   (Enter — yuborish, Shift+Enter — yangi qator)")
+            self.entry.insert("1.0", i18n.t("Xabar yozing…   (Enter — yuborish, Shift+Enter — yangi qator)"))
             self.entry.config(fg=P["muted"])
             self.ph_on = True
         elif not show and self.ph_on:
@@ -1206,7 +1207,7 @@ class App(tk.Tk):
         self._count()
 
     def _count(self):
-        self.count_lbl.config(text=f"●  {len(self.selected)} agent faol")
+        self.count_lbl.config(text=f"●  {len(self.selected)} " + i18n.t("agent faol"))
 
     @property
     def _a(self) -> Chat:
@@ -1410,11 +1411,11 @@ class App(tk.Tk):
     def _proj_label(self):
         if self.project:
             name = Path(self.project).name or self.project
-            self.proj_btn.set_text("Loyiha:  " + (name if len(name) < 22 else name[:20] + "…"))
+            self.proj_btn.set_text(i18n.t("Loyiha:") + "  " + (name if len(name) < 22 else name[:20] + "…"))
             if not self.clear_btn.winfo_ismapped():
                 self.clear_btn.pack(side="right", padx=(0, 8), before=self.proj_btn)
         else:
-            self.proj_btn.set_text("Loyiha papkasini tanlash")
+            self.proj_btn.set_text(i18n.t("Loyiha papkasini tanlash"))
             self.clear_btn.pack_forget()
 
     def choose_project(self):
@@ -1439,7 +1440,7 @@ class App(tk.Tk):
 
     def open_git(self):
         if not self.project:
-            return messagebox.showinfo("Git", "Avval «Loyiha papkasini tanlash» tugmasi bilan papkani tanlang.", parent=self)
+            return messagebox.showinfo("Git", i18n.t("Avval «Loyiha papkasini tanlash» tugmasi bilan papkani tanlang."), parent=self)
         GitDialog(self, self.project)
 
     def _confirm_threadsafe(self, chat, agent, kind, title, detail):
@@ -1619,10 +1620,10 @@ class App(tk.Tk):
         rrect(c, 0, 0, 72, 72, 22, fill=P["accent"], outline="")
         c.create_text(36, 36, text="A", fill="white", font=font(30, "bold"))
         c.pack()
-        label(box, "Qanday yordam bera olaman?", size=22, weight="bold").pack(pady=(18, 4))
-        label(box, "Agent sozlanmagan — chap pastdagi «Sozlamalar» orqali qo'shing." if demo else
-              (f"Loyiha: {self.project}\nAgentlar fayllarni o'qiydi va ruxsatingiz bilan o'zgartiradi." if self.project else
-               "Savolingizni yozing — agentlaringiz birgalikda javob beradi."), fg=P["muted"], size=11).pack()
+        label(box, i18n.t("Qanday yordam bera olaman?"), size=22, weight="bold").pack(pady=(18, 4))
+        label(box, i18n.t("Agent sozlanmagan — chap pastdagi «Sozlamalar» orqali qo'shing.") if demo else
+              (i18n.t("Loyiha:") + f" {self.project}\n" + i18n.t("Agentlar fayllarni o'qiydi va ruxsatingiz bilan o'zgartiradi.") if self.project else
+               i18n.t("Savolingizni yozing — agentlaringiz birgalikda javob beradi.")), fg=P["muted"], size=11).pack()
         chips = tk.Frame(box, bg=P["bg"])
         chips.pack(pady=26)
         for i, s in enumerate(i18n.t(x) for x in (PROJECT_SUGGESTIONS if self.project else SUGGESTIONS)):
