@@ -375,7 +375,7 @@ class ApproveDialog(tk.Toplevel):
         self.result = "no"
         f = tk.Frame(self, bg=P["bg"], padx=22, pady=18)
         f.pack(fill="both", expand=True)
-        label(f, f"{agent} ruxsat so'ramoqda", fg=P["warn"], size=9, weight="bold").pack(anchor="w")
+        label(f, f"{agent} " + i18n.t("ruxsat so'ramoqda"), fg=P["warn"], size=9, weight="bold").pack(anchor="w")
         label(f, title, size=13, weight="bold", wraplength=560, justify="left").pack(anchor="w", pady=(2, 10))
         box = tk.Text(f, width=76, height=14, bg=P["code"], fg="#c9d1ff", relief="flat", bd=0, font=font(10, mono=True),
                       padx=10, pady=8, wrap="none" if kind == "write" else "word", highlightthickness=0)
@@ -391,11 +391,11 @@ class ApproveDialog(tk.Toplevel):
         box.pack(fill="both", expand=True)
         row = tk.Frame(f, bg=P["bg"])
         row.pack(fill="x", pady=(14, 0))
-        always = ("Shu suhbatda doim ruxsat" if kind == "write" else
-                  "Brauzerda doim ruxsat" if kind.startswith("browser") else
-                  "Bu plaginga doim ruxsat" if kind.startswith("mcp") else "Buyruqlarga doim ruxsat")
-        Pill(row, "Rad etish", lambda: self._done("no"), width=110, fg=P["err"]).pack(side="left")
-        Pill(row, "Ruxsat berish", lambda: self._done("yes"), width=140, bg=P["accent"], hover=P["accent_hi"],
+        always = (i18n.t("Shu suhbatda doim ruxsat") if kind == "write" else
+                  i18n.t("Brauzerda doim ruxsat") if kind.startswith("browser") else
+                  i18n.t("Bu plaginga doim ruxsat") if kind.startswith("mcp") else i18n.t("Buyruqlarga doim ruxsat"))
+        Pill(row, i18n.t("Rad etish"), lambda: self._done("no"), width=110, fg=P["err"]).pack(side="left")
+        Pill(row, i18n.t("Ruxsat berish"), lambda: self._done("yes"), width=140, bg=P["accent"], hover=P["accent_hi"],
              fg="white").pack(side="right")
         Pill(row, always, lambda: self._done("always"), width=190, outline=P["line"], bg=P["bg"]).pack(side="right", padx=8)
         self.protocol("WM_DELETE_WINDOW", lambda: self._done("no"))
@@ -425,8 +425,8 @@ class GitDialog(tk.Toplevel):
         self.sub = label(f, "", fg=P["muted"], size=9)
         self.sub.pack(anchor="w", pady=(0, 10))
         self.tree = ttk.Treeview(f, columns=("what", "file"), show="headings", height=6)
-        self.tree.heading("what", text="Holati")
-        self.tree.heading("file", text="Fayl")
+        self.tree.heading("what", text=i18n.t("Holati"))
+        self.tree.heading("file", text=i18n.t("Fayl"))
         self.tree.column("what", width=190)
         self.tree.column("file", width=480)
         self.tree.pack(fill="x")
@@ -437,7 +437,7 @@ class GitDialog(tk.Toplevel):
         self.out.pack(fill="both", expand=True, pady=10)
         msg = tk.Frame(f, bg=P["bg"])
         msg.pack(fill="x")
-        label(msg, "Saqlash izohi:", fg=P["muted"]).pack(side="left")
+        label(msg, i18n.t("Saqlash izohi:"), fg=P["muted"]).pack(side="left")
         self.msg = tk.StringVar()
         ttk.Entry(msg, textvariable=self.msg).pack(side="left", fill="x", expand=True, padx=10)
         self.btns = tk.Frame(f, bg=P["bg"])
@@ -463,22 +463,22 @@ class GitDialog(tk.Toplevel):
     def refresh(self):
         self.tree.delete(*self.tree.get_children())
         if not gitutil.have_git():
-            self.head.config(text="Git o'rnatilmagan")
-            self.sub.config(text="git-scm.com saytidan Git ni o'rnating, so'ng bu oynani qayta oching.")
+            self.head.config(text=i18n.t("Git o'rnatilmagan"))
+            self.sub.config(text=i18n.t("git-scm.com saytidan Git ni o'rnating, so'ng bu oynani qayta oching."))
             return self._buttons([])
         if not gitutil.is_repo(self.root_dir):
-            self.head.config(text="Bu papka hali Git omboriga aylanmagan")
-            self.sub.config(text="Git o'zgarishlaringiz tarixini saqlaydi. Boshlash uchun tugmani bosing.")
-            return self._buttons([("Git omborini yaratish", self.init, True)])
+            self.head.config(text=i18n.t("Bu papka hali Git omboriga aylanmagan"))
+            self.sub.config(text=i18n.t("Git o'zgarishlaringiz tarixini saqlaydi. Boshlash uchun tugmani bosing."))
+            return self._buttons([(i18n.t("Git omborini yaratish"), self.init, True)])
         rows = gitutil.status(self.root_dir)
-        self.head.config(text=f"Shox: {gitutil.branch(self.root_dir) or '—'}")
-        self.sub.config(text=f"{len(rows)} ta fayl o'zgargan" if rows else "Hammasi saqlangan — o'zgarish yo'q")
+        self.head.config(text=i18n.t("Shox:") + f" {gitutil.branch(self.root_dir) or '—'}")
+        self.sub.config(text=f"{len(rows)} " + i18n.t("ta fayl o'zgargan") if rows else i18n.t("Hammasi saqlangan — o'zgarish yo'q"))
         for w, path in rows:
             self.tree.insert("", "end", values=(w, path))
         d = gitutil.diff(self.root_dir) if rows else ""
-        self._show(d if d != "(farq yo'q)" else ("Yangi fayllar «Saqlash» bosilganda qo'shiladi." if rows else ""))
-        self._buttons([("Saqlash (commit)", self.commit, True), ("Yuborish (push)", lambda: self._net("push"), False),
-                       ("Olish (pull)", lambda: self._net("pull"), False), ("Yangilash", self.refresh, False)])
+        self._show(d if d != "(farq yo'q)" else (i18n.t("Yangi fayllar «Saqlash» bosilganda qo'shiladi.") if rows else ""))
+        self._buttons([(i18n.t("Saqlash (commit)"), self.commit, True), (i18n.t("Yuborish (push)"), lambda: self._net("push"), False),
+                       (i18n.t("Olish (pull)"), lambda: self._net("pull"), False), (i18n.t("Yangilash"), self.refresh, False)])
 
     def init(self):
         ok, out = gitutil.run(self.root_dir, "init")
@@ -488,11 +488,11 @@ class GitDialog(tk.Toplevel):
     def commit(self):
         text = self.msg.get().strip()
         if not text:
-            return messagebox.showwarning("Diqqat", "Saqlash izohini yozing (nima o'zgardi?)", parent=self)
+            return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("Saqlash izohini yozing (nima o'zgardi?)"), parent=self)
         ok, out = gitutil.commit_all(self.root_dir, text)
         self.msg.set("")
         self.refresh()
-        self._show(("✓ Saqlandi\n\n" if ok else "Xato:\n") + out)
+        self._show((i18n.t("✓ Saqlandi") + "\n\n" if ok else i18n.t("Xato:") + "\n") + out)
 
     def _net(self, what):
         self.config(cursor="watch")
@@ -500,7 +500,7 @@ class GitDialog(tk.Toplevel):
         ok, out = gitutil.run(self.root_dir, what, timeout=120)
         self.config(cursor="")
         self.refresh()
-        self._show(("✓ Bajarildi\n\n" if ok else "Xato:\n") + out)
+        self._show((i18n.t("✓ Bajarildi") + "\n\n" if ok else i18n.t("Xato:") + "\n") + out)
 
 
 class RemoteDialog(tk.Toplevel):
@@ -514,10 +514,9 @@ class RemoteDialog(tk.Toplevel):
         fit(self, 600, 800)
         self.transient(app)
         bar, f = scroll_body(self, (24, 18))
-        Pill(bar, "Yopish", self.destroy, width=100, height=34, size=9, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(anchor="e")
-        label(f, "Telefondan boshqarish", size=15, weight="bold").pack(anchor="w")
-        label(f, "Telefon va kompyuter bir Wi-Fi tarmog'ida bo'lsin. QR-kodni telefon kamerasi bilan skanerlang: chat telefon brauzerida ochiladi, "
-                 "ruxsat so'rovlari ham telefonda chiqadi.", fg=P["muted"], size=9, wraplength=500, justify="left").pack(anchor="w", pady=(2, 10))
+        Pill(bar, i18n.t("Yopish"), self.destroy, width=100, height=34, size=9, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(anchor="e")
+        label(f, i18n.t("Telefondan boshqarish"), size=15, weight="bold").pack(anchor="w")
+        label(f, i18n.t("Telefon va kompyuter bir Wi-Fi tarmog'ida bo'lsin. QR-kodni telefon kamerasi bilan skanerlang: chat telefon brauzerida ochiladi, ruxsat so'rovlari ham telefonda chiqadi."), fg=P["muted"], size=9, wraplength=500, justify="left").pack(anchor="w", pady=(2, 10))
         self.status = label(f, "", size=11, weight="bold")
         self.status.pack(anchor="w")
         self.qr = tk.Canvas(f, width=230, height=230, bg="white", highlightthickness=0)
@@ -525,7 +524,7 @@ class RemoteDialog(tk.Toplevel):
         self.url_var = tk.StringVar()
         ipr = tk.Frame(f, bg=P["bg"])
         ipr.pack(fill="x", pady=(0, 6))
-        label(ipr, "Kompyuter manzili:", fg=P["muted"], size=9).pack(side="left")
+        label(ipr, i18n.t("Kompyuter manzili:"), fg=P["muted"], size=9).pack(side="left")
         self.ip_var = tk.StringVar()
         self.ip_box = ttk.Combobox(ipr, textvariable=self.ip_var, state="readonly", width=44)
         self.ip_box.pack(side="left", padx=8)
@@ -535,45 +534,38 @@ class RemoteDialog(tk.Toplevel):
         row.pack(fill="x", pady=10)
         self.toggle = Pill(row, "", self._toggle, width=130, height=34, size=9, bg=P["accent"], hover=P["accent_hi"], fg="white")
         self.toggle.pack(side="left", padx=(0, 6))
-        Pill(row, "Manzilni nusxalash", self._copy, width=150, height=34, size=9).pack(side="left", padx=(0, 6))
-        Pill(row, "Yangi kalit", self._renew, width=100, height=34, size=9).pack(side="left")
+        Pill(row, i18n.t("Manzilni nusxalash"), self._copy, width=150, height=34, size=9).pack(side="left", padx=(0, 6))
+        Pill(row, i18n.t("Yangi kalit"), self._renew, width=100, height=34, size=9).pack(side="left")
         fw = tk.Frame(f, bg=P["bg"])
         fw.pack(fill="x", pady=(0, 6))
-        Pill(fw, "Windows devoriga ruxsat berish", self._firewall, width=230, height=34, size=9, outline=P["line"], bg=P["bg"]).pack(side="left")
-        self.fw_lbl = label(fw, "To'suvchi qoidalarni ham o'chiradi", size=9, fg=P["muted"], wraplength=240, justify="left")
+        Pill(fw, i18n.t("Windows devoriga ruxsat berish"), self._firewall, width=230, height=34, size=9, outline=P["line"], bg=P["bg"]).pack(side="left")
+        self.fw_lbl = label(fw, i18n.t("To'suvchi qoidalarni ham o'chiradi"), size=9, fg=P["muted"], wraplength=240, justify="left")
         self.fw_lbl.pack(side="left", padx=10)
-        label(f, "Ulanmasa, tekshiring:\n1) Telefonda mobil internet o'chiq, Wi-Fi yoqilgan va kompyuter bilan BIR XIL tarmoqda (mehmon/guest Wi-Fi emas).\n"
-                 "2) Yuqoridagi «Kompyuter manzili» ni boshqasiga almashtirib ko'ring (Docker/VPN bo'lsa, birinchisi noto'g'ri bo'lishi mumkin).\n"
-                 "3) «Windows devoriga ruxsat berish» tugmasini bosing (administrator so'raydi).\n"
-                 "4) Telefon brauzerida faqat manzilni oching (kalitsiz): http://MANZIL:PORT/ — sahifa ochilsa, tarmoq yaxshi.\n"
-                 "5) Kompyuter boshqa joyda (masalan, Chrome Remote Desktop orqali ulangan «SERVER») bo'lsa, telefon u bilan bir Wi-Fi'da bo'lmaydi: Tailscale ishlating.",
+        label(f, i18n.t("Ulanmasa, tekshiring:\n1) Telefonda mobil internet o'chiq, Wi-Fi yoqilgan va kompyuter bilan BIR XIL tarmoqda (mehmon/guest Wi-Fi emas).\n2) Yuqoridagi «Kompyuter manzili» ni boshqasiga almashtirib ko'ring (Docker/VPN bo'lsa, birinchisi noto'g'ri bo'lishi mumkin).\n3) «Windows devoriga ruxsat berish» tugmasini bosing (administrator so'raydi).\n4) Telefon brauzerida faqat manzilni oching (kalitsiz): http://MANZIL:PORT/ — sahifa ochilsa, tarmoq yaxshi.\n5) Kompyuter boshqa joyda (masalan, Chrome Remote Desktop orqali ulangan «SERVER») bo'lsa, telefon u bilan bir Wi-Fi'da bo'lmaydi: Tailscale ishlating."),
               fg=P["muted"], size=9, wraplength=500, justify="left").pack(anchor="w", pady=(0, 8))
-        label(f, "Xavfsizlik: manzildagi kalit (t=...) parol vazifasini bajaradi: uni hech kimga bermang. Ulanish shifrlanmagan (HTTP), "
-                 "shuning uchun faqat ishonchli uy Wi-Fi'ida ishlating. Boshqa joydan ulanish uchun Tailscale kabi shifrlangan tunnel "
-                 "o'rnating va shu manzildagi IP o'rniga kompyuterning Tailscale IP sini yozing. Kalit boshqaga ko'rinib qolsa, «Yangi kalit» ni bosing. "
-                 "Windows xavfsizlik devori so'rasa, «Ruxsat berish» (shaxsiy tarmoq) ni tanlang.",
+        label(f, i18n.t("Xavfsizlik: manzildagi kalit (t=...) parol vazifasini bajaradi: uni hech kimga bermang. Ulanish shifrlanmagan (HTTP), shuning uchun faqat ishonchli uy Wi-Fi'ida ishlating. Boshqa joydan ulanish uchun Tailscale kabi shifrlangan tunnel o'rnating va shu manzildagi IP o'rniga kompyuterning Tailscale IP sini yozing. Kalit boshqaga ko'rinib qolsa, «Yangi kalit» ni bosing. Windows xavfsizlik devori so'rasa, «Ruxsat berish» (shaxsiy tarmoq) ni tanlang."),
               fg=P["muted"], size=9, wraplength=500, justify="left").pack(anchor="w", pady=(4, 0))
         self.refresh()
 
     def refresh(self):
         app = self.app
         on = app.remote is not None
-        self.toggle.set_text("O'chirish" if on else "Yoqish")
+        self.toggle.set_text(i18n.t("To'xtatish") if on else i18n.t("Yoqish"))
         self.qr.delete("all")
         if not on:
-            self.status.config(text="○ O'chiq", fg=P["muted"])
+            self.status.config(text=i18n.t("○ O'chiq"), fg=P["muted"])
             self.url_var.set("")
-            self.qr.create_text(115, 115, text="Yoqilmagan", fill="#999", font=font(12))
+            self.qr.create_text(115, 115, text=i18n.t("Yoqilmagan"), fill="#999", font=font(12))
             return
         ips = remotelib.local_ips()
-        choices = [f"{o['ip']}  ({o['note']})" for o in ips] or ["127.0.0.1  (faqat shu kompyuter)"]
+        choices = [f"{o['ip']}  ({o['note']})" for o in ips] or [i18n.t("127.0.0.1  (faqat shu kompyuter)")]
         self.ip_box["values"] = choices
         if self.ip_var.get() not in choices:
             self.ip_var.set(choices[0])
         ip = self.ip_var.get().split()[0]
         url = app.remote.url(ip)
         ok, msg = app.remote.selftest(ip)
-        self.status.config(text=("● Yoqilgan. " + ("Server kompyuterda ishlayapti." if ok else "Lekin server javob bermayapti!")), fg=P["ok"] if ok else P["err"])
+        self.status.config(text=(i18n.t("● Yoqilgan.") + " " + (i18n.t("Server kompyuterda ishlayapti.") if ok else i18n.t("Lekin server javob bermayapti!"))), fg=P["ok"] if ok else P["err"])
         self.url_var.set(url)
         try:
             import qrcode
@@ -589,11 +581,11 @@ class RemoteDialog(tk.Toplevel):
                         self.qr.create_rectangle(off + x * cell, off + y * cell, off + (x + 1) * cell, off + (y + 1) * cell,
                                                  fill="black", outline="black")
         except Exception:
-            self.qr.create_text(115, 115, text="QR-kod yaratib bo'lmadi.\nManzilni qo'lda yozing.", fill="#555", font=font(11))
+            self.qr.create_text(115, 115, text=i18n.t("QR-kod yaratib bo'lmadi.\nManzilni qo'lda yozing."), fill="#555", font=font(11))
 
     def _firewall(self):
         if not self.app.remote:
-            return messagebox.showinfo("Devor", "Avval «Yoqish» tugmasini bosing.", parent=self)
+            return messagebox.showinfo(i18n.t("Devor"), i18n.t("Avval «Yoqish» tugmasini bosing."), parent=self)
         ok, msg = remotelib.open_firewall(self.app.remote.port)
         self.fw_lbl.config(text=msg, fg=P["ok"] if ok else P["err"])
         if ok:
@@ -603,9 +595,9 @@ class RemoteDialog(tk.Toplevel):
         if not self.winfo_exists():
             return
         if remotelib.firewall_rule_exists():
-            self.fw_lbl.config(text="✓ Qoida qo'shildi. Endi telefondan qayta urinib ko'ring.", fg=P["ok"])
+            self.fw_lbl.config(text=i18n.t("✓ Qoida qo'shildi. Endi telefondan qayta urinib ko'ring."), fg=P["ok"])
         else:
-            self.fw_lbl.config(text="Qoida topilmadi: administrator so'rovi rad etilgan yoki hali tugamagan.", fg=P["err"])
+            self.fw_lbl.config(text=i18n.t("Qoida topilmadi: administrator so'rovi rad etilgan yoki hali tugamagan."), fg=P["err"])
 
     def _toggle(self):
         if self.app.remote:
@@ -622,7 +614,7 @@ class RemoteDialog(tk.Toplevel):
             self.clipboard_append(self.url_var.get())
 
     def _renew(self):
-        if messagebox.askyesno("Yangi kalit", "Eski manzil ishlamay qoladi, telefonda QR-kodni qayta skanerlash kerak. Davom etilsinmi?", parent=self):
+        if messagebox.askyesno(i18n.t("Yangi kalit"), i18n.t("Eski manzil ishlamay qoladi, telefonda QR-kodni qayta skanerlash kerak. Davom etilsinmi?"), parent=self):
             self.app.new_remote_token()
             self.refresh()
 
@@ -644,32 +636,32 @@ class McpDialog(tk.Toplevel):
         label(f, "Plagin sozlamasi", size=14, weight="bold").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
         r = 1
         if not spec:
-            label(f, "Shablon", fg=P["muted"]).grid(row=r, column=0, sticky="w", pady=5)
+            label(f, i18n.t("Shablon"), fg=P["muted"]).grid(row=r, column=0, sticky="w", pady=5)
             self.preset = tk.StringVar()
             cb = ttk.Combobox(f, textvariable=self.preset, values=[p["label"] for p in mcplib.PRESETS], state="readonly", width=44)
             cb.grid(row=r, column=1, pady=5, padx=(12, 0))
             cb.bind("<<ComboboxSelected>>", lambda e: self._apply_preset())
             r += 1
         self.v = {k: tk.StringVar(value=spec.get(k, "")) for k in ("name", "command", "url")}
-        self.v["transport"] = tk.StringVar(value=self.TRANSPORTS.get(spec.get("transport", "stdio")))
+        self.v["transport"] = tk.StringVar(value=i18n.t(self.TRANSPORTS.get(spec.get("transport", "stdio"))))
         for key, text in (("name", "Nomi (lotincha, probelsiz)"), ("transport", "Turi"), ("command", "Buyruq"), ("url", "URL")):
-            label(f, text, fg=P["muted"]).grid(row=r, column=0, sticky="w", pady=5)
+            label(f, i18n.t(text), fg=P["muted"]).grid(row=r, column=0, sticky="w", pady=5)
             if key == "transport":
-                w = ttk.Combobox(f, textvariable=self.v[key], values=list(self.TRANSPORTS.values()), state="readonly", width=44)
+                w = ttk.Combobox(f, textvariable=self.v[key], values=[i18n.t(x) for x in self.TRANSPORTS.values()], state="readonly", width=44)
             else:
                 w = ttk.Entry(f, textvariable=self.v[key], width=47)
             w.grid(row=r, column=1, pady=5, padx=(12, 0))
             r += 1
         self.texts = {}
         for key, text in (("env", "Muhit o'zgaruvchilari\n(KALIT=qiymat, har qatorda bittadan)"), ("headers", "Sarlavhalar\n(Authorization: Bearer ..., har qatorda bittadan)")):
-            label(f, text, fg=P["muted"], justify="left").grid(row=r, column=0, sticky="nw", pady=5)
+            label(f, i18n.t(text), fg=P["muted"], justify="left").grid(row=r, column=0, sticky="nw", pady=5)
             t = tk.Text(f, width=47, height=3, bg=P["card"], fg=P["text"], insertbackground=P["text"], relief="flat",
                         highlightthickness=1, highlightbackground=P["line"], font=font(10, mono=True))
             t.insert("1.0", spec.get(key, ""))
             t.grid(row=r, column=1, pady=5, padx=(12, 0))
             self.texts[key] = t
             r += 1
-        self.note = label(f, "Kalitlar faqat shu kompyuterdagi sozlama faylida saqlanadi.", fg=P["muted"], size=9, wraplength=480, justify="left")
+        self.note = label(f, i18n.t("Kalitlar faqat shu kompyuterdagi sozlama faylida saqlanadi."), fg=P["muted"], size=9, wraplength=480, justify="left")
         self.note.grid(row=r, column=0, columnspan=2, sticky="w", pady=(6, 12))
         btns = tk.Frame(bar, bg=P["bg"])
         btns.pack(anchor="e")
@@ -680,7 +672,7 @@ class McpDialog(tk.Toplevel):
     def _apply_preset(self):
         p = next(x for x in mcplib.PRESETS if x["label"] == self.preset.get())
         self.v["name"].set(p["name"])
-        self.v["transport"].set(self.TRANSPORTS[p["transport"]])
+        self.v["transport"].set(i18n.t(self.TRANSPORTS[p["transport"]]))
         self.v["command"].set(p.get("command", ""))
         self.v["url"].set(p.get("url", ""))
         for k in ("env", "headers"):
@@ -690,15 +682,15 @@ class McpDialog(tk.Toplevel):
 
     def _save(self):
         name = re.sub(r"[^A-Za-z0-9_-]", "_", self.v["name"].get().strip())
-        transport = next(k for k, t in self.TRANSPORTS.items() if t == self.v["transport"].get()) if self.v["transport"].get() else "stdio"
+        transport = next((k for k, t in self.TRANSPORTS.items() if self.v["transport"].get() in (t, i18n.t(t))), "stdio")
         if not name:
-            return messagebox.showwarning("Diqqat", "Nomini yozing (lotin harflarida)", parent=self)
+            return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("Nomini yozing (lotin harflarida)"), parent=self)
         if name in self.taken:
-            return messagebox.showwarning("Diqqat", "Bu nom band", parent=self)
+            return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("Bu nom band"), parent=self)
         if transport == "stdio" and not self.v["command"].get().strip():
             return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("Buyruqni yozing"), parent=self)
         if transport == "http" and not self.v["url"].get().strip():
-            return messagebox.showwarning("Diqqat", "URL ni yozing", parent=self)
+            return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("URL ni yozing"), parent=self)
         self.result = {"name": name, "transport": transport, "command": self.v["command"].get().strip(),
                        "url": self.v["url"].get().strip(), "env": self.texts["env"].get("1.0", "end").strip(),
                        "headers": self.texts["headers"].get("1.0", "end").strip()}
@@ -717,15 +709,15 @@ class PluginsDialog(tk.Toplevel):
         self.cfg, self.manager, self.on_save = cfg, manager, on_save
         self.items: list = [dict(x) for x in cfg.get("mcp", [])]
         bar, f = scroll_body(self)
-        Pill(bar, "Yopish", self.destroy, width=100, height=34, size=9, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(anchor="e")
-        label(f, "Plaginlar", size=15, weight="bold").pack(anchor="w")
-        label(f, "Tayyor xizmatlarni ulang: fayllar, Notion, GitHub, hujjatlar va boshqalar. Agentlar ularning asboblaridan foydalanadi.",
+        Pill(bar, i18n.t("Yopish"), self.destroy, width=100, height=34, size=9, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(anchor="e")
+        label(f, i18n.t("Plaginlar"), size=15, weight="bold").pack(anchor="w")
+        label(f, i18n.t("Tayyor xizmatlarni ulang: fayllar, Notion, GitHub, hujjatlar va boshqalar. Agentlar ularning asboblaridan foydalanadi."),
               fg=P["muted"], size=9, wraplength=760, justify="left").pack(anchor="w", pady=(0, 10))
         self.tree = ttk.Treeview(f, columns=("kind", "status", "tools"), show="tree headings", height=5)
-        self.tree.heading("#0", text="Plagin")
-        self.tree.heading("kind", text="Turi")
-        self.tree.heading("status", text="Holati")
-        self.tree.heading("tools", text="Asboblar")
+        self.tree.heading("#0", text=i18n.t("Plagin"))
+        self.tree.heading("kind", text=i18n.t("Turi"))
+        self.tree.heading("status", text=i18n.t("Holati"))
+        self.tree.heading("tools", text=i18n.t("Asboblar"))
         self.tree.column("#0", width=230)
         self.tree.column("kind", width=90)
         self.tree.column("status", width=280)
@@ -741,31 +733,31 @@ class PluginsDialog(tk.Toplevel):
                               padx=10, pady=6, wrap="word", highlightthickness=0, state="disabled")
         self.detail.pack(fill="x")
 
-        label(f, "Ko'nikmalar (skills)", size=13, weight="bold").pack(anchor="w", pady=(18, 0))
-        label(f, "Papkaga SKILL.md joylashtiring. Claude ko'nikmalari (~/.claude/skills) va loyihadagi .claude/skills avtomatik topiladi.",
+        label(f, i18n.t("Ko'nikmalar (skills)"), size=13, weight="bold").pack(anchor="w", pady=(18, 0))
+        label(f, i18n.t("Papkaga SKILL.md joylashtiring. Claude ko'nikmalari (~/.claude/skills) va loyihadagi .claude/skills avtomatik topiladi."),
               fg=P["muted"], size=9, wraplength=760, justify="left").pack(anchor="w", pady=(0, 8))
         self.skills = ttk.Treeview(f, columns=("src", "desc"), show="tree headings", height=5)
-        self.skills.heading("#0", text="Ko'nikma")
-        self.skills.heading("src", text="Manba")
-        self.skills.heading("desc", text="Tavsif")
+        self.skills.heading("#0", text=i18n.t("Ko'nikma"))
+        self.skills.heading("src", text=i18n.t("Manba"))
+        self.skills.heading("desc", text=i18n.t("Tavsif"))
         self.skills.column("#0", width=190)
         self.skills.column("src", width=110)
         self.skills.column("desc", width=420)
         self.skills.pack(fill="both", expand=True)
         row2 = tk.Frame(f, bg=P["bg"])
         row2.pack(fill="x", pady=(10, 0))
-        Pill(row2, "Ko'nikmalar papkasini ochish", self.open_skills_dir, width=220, height=34, size=9).pack(side="left", padx=(0, 6))
-        Pill(row2, "Yangilash", self._refresh_skills, width=100, height=34, size=9).pack(side="left")
+        Pill(row2, i18n.t("Ko'nikmalar papkasini ochish"), self.open_skills_dir, width=220, height=34, size=9).pack(side="left", padx=(0, 6))
+        Pill(row2, i18n.t("Yangilash"), self._refresh_skills, width=100, height=34, size=9).pack(side="left")
         self._refresh_skills()
         self._tick()
 
     # -- MCP --
     def _status(self, item):
         if not item.get("enabled", True):
-            return "o'chiq", 0, ""
+            return i18n.t("o'chiq"), 0, ""
         s = self.manager.servers.get(item["name"])
         if not s:
-            return "kutilmoqda", 0, ""
+            return i18n.t("kutilmoqda"), 0, ""
         return s.status, len(s.tools), s.error
 
     def _tick(self):
@@ -777,7 +769,7 @@ class PluginsDialog(tk.Toplevel):
             st, n, _ = self._status(it)
             dot = {"tayyor": "● ", "xato": "✕ ", "ulanmoqda": "… "}.get(st, "○ ")
             self.tree.insert("", "end", iid=str(i), text=it["name"], values=(
-                "HTTP" if it.get("transport") == "http" else "dastur", dot + st, n if st == "tayyor" else ""))
+                "HTTP" if it.get("transport") == "http" else i18n.t("dastur"), dot + i18n.t(st), n if st == "tayyor" else ""))
         if sel and sel[0] in self.tree.get_children():
             self.tree.selection_set(sel[0])
         self._detail()
@@ -794,11 +786,11 @@ class PluginsDialog(tk.Toplevel):
             st, n, err = self._status(self.items[i])
             s = self.manager.servers.get(self.items[i]["name"])
             if err:
-                text = "Xato: " + err
+                text = i18n.t("Xato:") + " " + err
             elif s and s.tools:
-                text = "Asboblar: " + ", ".join(t.get("name", "") for t in s.tools)
+                text = i18n.t("Asboblar:") + " " + ", ".join(t.get("name", "") for t in s.tools)
             elif st == "ulanmoqda":
-                text = "Ulanmoqda… (birinchi marta npx paketni yuklab oladi, 1-2 daqiqa ketishi mumkin)"
+                text = i18n.t("Ulanmoqda… (birinchi marta npx paketni yuklab oladi, 1-2 daqiqa ketishi mumkin)")
         self.detail.config(state="normal")
         self.detail.delete("1.0", "end")
         self.detail.insert("1.0", text)
@@ -827,7 +819,7 @@ class PluginsDialog(tk.Toplevel):
 
     def remove(self):
         i = self._sel()
-        if i is not None and messagebox.askyesno("O'chirish", "Bu plagin o'chirilsinmi?", parent=self):
+        if i is not None and messagebox.askyesno(i18n.t("O'chirish"), i18n.t("Bu plagin o'chirilsinmi?"), parent=self):
             del self.items[i]
             self._commit()
 
@@ -862,7 +854,7 @@ class PluginsDialog(tk.Toplevel):
             else:
                 subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(d)])
         except OSError:
-            messagebox.showinfo("Papka", str(d), parent=self)
+            messagebox.showinfo(i18n.t("Papka"), str(d), parent=self)
 
 
 class ModeRow(tk.Canvas):

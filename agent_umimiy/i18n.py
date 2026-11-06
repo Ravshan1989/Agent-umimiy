@@ -205,6 +205,125 @@ TR: dict[str, dict[str, str]] = {
     "Masalan: codex exec {prompt}  yoki  claude -p {prompt}":
         {"ru": "Например: codex exec {prompt}  или  claude -p {prompt}",
          "en": "For example: codex exec {prompt}  or  claude -p {prompt}"},
+
+    # — Ruxsat so'rovi oynasi —
+    "ruxsat so'ramoqda": {"ru": "запрашивает разрешение", "en": "is requesting permission"},
+    "Shu suhbatda doim ruxsat": {"ru": "Всегда разрешать в этом чате", "en": "Always allow in this chat"},
+    "Brauzerda doim ruxsat": {"ru": "Всегда разрешать в браузере", "en": "Always allow in the browser"},
+    "Bu plaginga doim ruxsat": {"ru": "Всегда разрешать этот плагин", "en": "Always allow this plugin"},
+    "Buyruqlarga doim ruxsat": {"ru": "Всегда разрешать команды", "en": "Always allow commands"},
+    "Rad etish": {"ru": "Отклонить", "en": "Deny"},
+    "Ruxsat berish": {"ru": "Разрешить", "en": "Allow"},
+
+    # — Git oynasi —
+    "Holati": {"ru": "Статус", "en": "Status"},
+    "Fayl": {"ru": "Файл", "en": "File"},
+    "Saqlash izohi:": {"ru": "Комментарий коммита:", "en": "Commit message:"},
+    "Git o'rnatilmagan": {"ru": "Git не установлен", "en": "Git is not installed"},
+    "git-scm.com saytidan Git ni o'rnating, so'ng bu oynani qayta oching.":
+        {"ru": "Установите Git с git-scm.com, затем снова откройте это окно.",
+         "en": "Install Git from git-scm.com, then reopen this window."},
+    "Bu papka hali Git omboriga aylanmagan":
+        {"ru": "Эта папка ещё не является репозиторием Git", "en": "This folder is not a Git repository yet"},
+    "Git o'zgarishlaringiz tarixini saqlaydi. Boshlash uchun tugmani bosing.":
+        {"ru": "Git хранит историю ваших изменений. Нажмите кнопку, чтобы начать.",
+         "en": "Git keeps a history of your changes. Press the button to start."},
+    "Git omborini yaratish": {"ru": "Создать репозиторий Git", "en": "Create Git repository"},
+    "Shox:": {"ru": "Ветка:", "en": "Branch:"},
+    "ta fayl o'zgargan": {"ru": "файл(ов) изменено", "en": "file(s) changed"},
+    "Hammasi saqlangan — o'zgarish yo'q": {"ru": "Всё сохранено — изменений нет", "en": "All saved — no changes"},
+    "Yangi fayllar «Saqlash» bosilganda qo'shiladi.":
+        {"ru": "Новые файлы добавятся при нажатии «Сохранить».", "en": "New files are added when you press “Save”."},
+    "Saqlash (commit)": {"ru": "Сохранить (commit)", "en": "Save (commit)"},
+    "Yuborish (push)": {"ru": "Отправить (push)", "en": "Push"},
+    "Olish (pull)": {"ru": "Получить (pull)", "en": "Pull"},
+    "Yangilash": {"ru": "Обновить", "en": "Refresh"},
+    "Saqlash izohini yozing (nima o'zgardi?)":
+        {"ru": "Напишите комментарий коммита (что изменилось?)", "en": "Write a commit message (what changed?)"},
+    "✓ Saqlandi": {"ru": "✓ Сохранено", "en": "✓ Saved"},
+    "Xato:": {"ru": "Ошибка:", "en": "Error:"},
+    "✓ Bajarildi": {"ru": "✓ Готово", "en": "✓ Done"},
+
+    # — Telefondan boshqarish oynasi —
+    "Telefon va kompyuter bir Wi-Fi tarmog'ida bo'lsin. QR-kodni telefon kamerasi bilan skanerlang: chat telefon brauzerida ochiladi, ruxsat so'rovlari ham telefonda chiqadi.":
+        {"ru": "Телефон и компьютер должны быть в одной сети Wi-Fi. Отсканируйте QR-код камерой телефона: чат откроется в браузере телефона, запросы разрешений тоже появятся на телефоне.",
+         "en": "Keep the phone and computer on the same Wi-Fi. Scan the QR code with the phone camera: the chat opens in the phone browser, and permission prompts also appear on the phone."},
+    "Kompyuter manzili:": {"ru": "Адрес компьютера:", "en": "Computer address:"},
+    "Manzilni nusxalash": {"ru": "Копировать адрес", "en": "Copy address"},
+    "Yangi kalit": {"ru": "Новый ключ", "en": "New key"},
+    "Windows devoriga ruxsat berish": {"ru": "Разрешить в брандмауэре Windows", "en": "Allow through Windows firewall"},
+    "To'suvchi qoidalarni ham o'chiradi": {"ru": "Также удаляет блокирующие правила", "en": "Also removes blocking rules"},
+    "Ulanmasa, tekshiring:\n1) Telefonda mobil internet o'chiq, Wi-Fi yoqilgan va kompyuter bilan BIR XIL tarmoqda (mehmon/guest Wi-Fi emas).\n2) Yuqoridagi «Kompyuter manzili» ni boshqasiga almashtirib ko'ring (Docker/VPN bo'lsa, birinchisi noto'g'ri bo'lishi mumkin).\n3) «Windows devoriga ruxsat berish» tugmasini bosing (administrator so'raydi).\n4) Telefon brauzerida faqat manzilni oching (kalitsiz): http://MANZIL:PORT/ — sahifa ochilsa, tarmoq yaxshi.\n5) Kompyuter boshqa joyda (masalan, Chrome Remote Desktop orqali ulangan «SERVER») bo'lsa, telefon u bilan bir Wi-Fi'da bo'lmaydi: Tailscale ishlating.":
+        {"ru": "Если не подключается, проверьте:\n1) На телефоне мобильный интернет выключен, Wi-Fi включён и в ТОЙ ЖЕ сети, что и компьютер (не гостевой Wi-Fi).\n2) Попробуйте сменить «Адрес компьютера» выше (при Docker/VPN первый может быть неверным).\n3) Нажмите «Разрешить в брандмауэре Windows» (запросит администратора).\n4) В браузере телефона откройте только адрес (без ключа): http://АДРЕС:ПОРТ/ — если страница открылась, сеть в порядке.\n5) Если компьютер в другом месте (например «SERVER» через Chrome Remote Desktop), телефон не будет с ним в одной Wi-Fi: используйте Tailscale.",
+         "en": "If it won't connect, check:\n1) On the phone, mobile data is off, Wi-Fi is on and on the SAME network as the computer (not guest Wi-Fi).\n2) Try switching the «Computer address» above (with Docker/VPN the first one may be wrong).\n3) Press «Allow through Windows firewall» (asks for administrator).\n4) In the phone browser open just the address (no key): http://ADDRESS:PORT/ — if the page opens, the network is fine.\n5) If the computer is elsewhere (e.g. a «SERVER» via Chrome Remote Desktop), the phone won't share its Wi-Fi: use Tailscale."},
+    "Xavfsizlik: manzildagi kalit (t=...) parol vazifasini bajaradi: uni hech kimga bermang. Ulanish shifrlanmagan (HTTP), shuning uchun faqat ishonchli uy Wi-Fi'ida ishlating. Boshqa joydan ulanish uchun Tailscale kabi shifrlangan tunnel o'rnating va shu manzildagi IP o'rniga kompyuterning Tailscale IP sini yozing. Kalit boshqaga ko'rinib qolsa, «Yangi kalit» ni bosing. Windows xavfsizlik devori so'rasa, «Ruxsat berish» (shaxsiy tarmoq) ni tanlang.":
+        {"ru": "Безопасность: ключ в адресе (t=...) работает как пароль — никому его не давайте. Соединение не зашифровано (HTTP), поэтому используйте только в доверенной домашней Wi-Fi. Для доступа извне установите зашифрованный туннель вроде Tailscale и укажите Tailscale-IP компьютера вместо IP в адресе. Если ключ кто-то увидел, нажмите «Новый ключ». Если спросит брандмауэр Windows, выберите «Разрешить» (частная сеть).",
+         "en": "Security: the key in the address (t=...) works like a password — don't share it. The connection is unencrypted (HTTP), so use it only on a trusted home Wi-Fi. To connect from elsewhere, set up an encrypted tunnel like Tailscale and use the computer's Tailscale IP instead of the IP in the address. If someone sees the key, press «New key». If the Windows firewall asks, choose «Allow» (private network)."},
+    "To'xtatish": {"ru": "Остановить", "en": "Stop"},
+    "Yoqish": {"ru": "Включить", "en": "Turn on"},
+    "○ O'chiq": {"ru": "○ Выключено", "en": "○ Off"},
+    "Yoqilmagan": {"ru": "Не включено", "en": "Not enabled"},
+    "127.0.0.1  (faqat shu kompyuter)": {"ru": "127.0.0.1  (только этот компьютер)", "en": "127.0.0.1  (this computer only)"},
+    "● Yoqilgan.": {"ru": "● Включено.", "en": "● Enabled."},
+    "Server kompyuterda ishlayapti.": {"ru": "Сервер работает на компьютере.", "en": "The server is running on the computer."},
+    "Lekin server javob bermayapti!": {"ru": "Но сервер не отвечает!", "en": "But the server isn't responding!"},
+    "QR-kod yaratib bo'lmadi.\nManzilni qo'lda yozing.":
+        {"ru": "Не удалось создать QR-код.\nВведите адрес вручную.", "en": "Could not create the QR code.\nEnter the address manually."},
+    "Devor": {"ru": "Брандмауэр", "en": "Firewall"},
+    "Avval «Yoqish» tugmasini bosing.": {"ru": "Сначала нажмите «Включить».", "en": "First press «Turn on»."},
+    "✓ Qoida qo'shildi. Endi telefondan qayta urinib ko'ring.":
+        {"ru": "✓ Правило добавлено. Теперь попробуйте снова с телефона.", "en": "✓ Rule added. Now try again from the phone."},
+    "Qoida topilmadi: administrator so'rovi rad etilgan yoki hali tugamagan.":
+        {"ru": "Правило не найдено: запрос администратора отклонён или ещё не завершён.",
+         "en": "Rule not found: the administrator prompt was declined or hasn't finished yet."},
+    "Eski manzil ishlamay qoladi, telefonda QR-kodni qayta skanerlash kerak. Davom etilsinmi?":
+        {"ru": "Старый адрес перестанет работать, нужно заново отсканировать QR-код на телефоне. Продолжить?",
+         "en": "The old address will stop working; you'll need to rescan the QR code on the phone. Continue?"},
+
+    # — Plagin sozlamasi va Plaginlar oynasi —
+    "Shablon": {"ru": "Шаблон", "en": "Template"},
+    "Nomi (lotincha, probelsiz)": {"ru": "Имя (латиницей, без пробелов)", "en": "Name (latin, no spaces)"},
+    "Buyruq": {"ru": "Команда", "en": "Command"},
+    "Muhit o'zgaruvchilari\n(KALIT=qiymat, har qatorda bittadan)":
+        {"ru": "Переменные окружения\n(КЛЮЧ=значение, по одной в строке)",
+         "en": "Environment variables\n(KEY=value, one per line)"},
+    "Sarlavhalar\n(Authorization: Bearer ..., har qatorda bittadan)":
+        {"ru": "Заголовки\n(Authorization: Bearer ..., по одному в строке)",
+         "en": "Headers\n(Authorization: Bearer ..., one per line)"},
+    "Kalitlar faqat shu kompyuterdagi sozlama faylida saqlanadi.":
+        {"ru": "Ключи хранятся только в файле настроек на этом компьютере.",
+         "en": "Keys are stored only in the settings file on this computer."},
+    "Nomini yozing (lotin harflarida)": {"ru": "Введите имя (латиницей)", "en": "Enter a name (in latin letters)"},
+    "Bu nom band": {"ru": "Это имя занято", "en": "This name is taken"},
+    "URL ni yozing": {"ru": "Введите URL", "en": "Enter a URL"},
+    "Kompyuterdagi dastur (masalan npx ...)":
+        {"ru": "Программа на компьютере (например npx ...)", "en": "Program on the computer (e.g. npx ...)"},
+    "Masofaviy server (URL)": {"ru": "Удалённый сервер (URL)", "en": "Remote server (URL)"},
+    "Tayyor xizmatlarni ulang: fayllar, Notion, GitHub, hujjatlar va boshqalar. Agentlar ularning asboblaridan foydalanadi.":
+        {"ru": "Подключайте готовые сервисы: файлы, Notion, GitHub, документы и другие. Агенты используют их инструменты.",
+         "en": "Connect ready services: files, Notion, GitHub, docs and more. Agents use their tools."},
+    "Plagin": {"ru": "Плагин", "en": "Plugin"},
+    "Asboblar": {"ru": "Инструменты", "en": "Tools"},
+    "Ko'nikmalar (skills)": {"ru": "Навыки (skills)", "en": "Skills"},
+    "Papkaga SKILL.md joylashtiring. Claude ko'nikmalari (~/.claude/skills) va loyihadagi .claude/skills avtomatik topiladi.":
+        {"ru": "Поместите SKILL.md в папку. Навыки Claude (~/.claude/skills) и .claude/skills проекта находятся автоматически.",
+         "en": "Put a SKILL.md in a folder. Claude skills (~/.claude/skills) and the project's .claude/skills are found automatically."},
+    "Ko'nikma": {"ru": "Навык", "en": "Skill"},
+    "Manba": {"ru": "Источник", "en": "Source"},
+    "Tavsif": {"ru": "Описание", "en": "Description"},
+    "Ko'nikmalar papkasini ochish": {"ru": "Открыть папку навыков", "en": "Open skills folder"},
+    "dastur": {"ru": "программа", "en": "program"},
+    "o'chiq": {"ru": "выкл", "en": "off"},
+    "kutilmoqda": {"ru": "ожидание", "en": "pending"},
+    "tayyor": {"ru": "готов", "en": "ready"},
+    "xato": {"ru": "ошибка", "en": "error"},
+    "ulanmoqda": {"ru": "подключение", "en": "connecting"},
+    "Asboblar:": {"ru": "Инструменты:", "en": "Tools:"},
+    "Ulanmoqda… (birinchi marta npx paketni yuklab oladi, 1-2 daqiqa ketishi mumkin)":
+        {"ru": "Подключение… (при первом запуске npx загрузит пакет, может занять 1–2 минуты)",
+         "en": "Connecting… (on first run npx downloads the package, may take 1–2 minutes)"},
+    "Bu plagin o'chirilsinmi?": {"ru": "Удалить этот плагин?", "en": "Delete this plugin?"},
+    "Papka": {"ru": "Папка", "en": "Folder"},
 }
 
 
