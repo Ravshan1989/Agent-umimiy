@@ -13,7 +13,7 @@ from agent_umimiy.tools import Context, Toolbox, system_prompt
 class MarkdownTests(unittest.TestCase):
     def test_blocks_and_inline(self):
         segs = markdown.parse("# Sarlavha\n- bir **qalin**\n- ikki `kod`\n[sayt](https://a.uz/x)\n```py\nx = 1\n```\nOxiri")
-        d = {t: tags for t, tags in segs}
+        d = dict(segs)
         self.assertEqual(d["Sarlavha"], ("h1",))
         self.assertEqual(d["qalin"], ("b",))
         self.assertEqual(d["kod"], ("ic",))

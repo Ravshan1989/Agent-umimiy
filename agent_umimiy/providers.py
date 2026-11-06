@@ -7,9 +7,9 @@ import subprocess
 import sys
 
 from . import agentic, proc
-from .detect import cli_health
 from . import attachments as att
 from .base import Agent, AgentError, http_json
+from .detect import cli_health
 
 
 def _key(opts: dict, default_env: str) -> str:

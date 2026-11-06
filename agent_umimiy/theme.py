@@ -5,11 +5,11 @@ import tkinter as tk
 from tkinter import font as tkfont
 from tkinter import ttk
 
-P = dict(
-    bg="#0d0f16", side="#121521", card="#1a1e2e", card_hi="#232842", line="#2a3047",
-    text="#e8eaf4", muted="#8b92ab", accent="#7c6cff", accent_hi="#9a8dff",
-    user="#5a49ee", ok="#34d399", err="#f87171", code="#080a10", warn="#fbbf24",
-)
+P = {
+    "bg": "#0d0f16", "side": "#121521", "card": "#1a1e2e", "card_hi": "#232842", "line": "#2a3047",
+    "text": "#e8eaf4", "muted": "#8b92ab", "accent": "#7c6cff", "accent_hi": "#9a8dff",
+    "user": "#5a49ee", "ok": "#34d399", "err": "#f87171", "code": "#080a10", "warn": "#fbbf24",
+}
 AVATARS = ["#7c6cff", "#22d3ee", "#f59e0b", "#ec4899", "#34d399", "#f97316", "#60a5fa", "#a3e635"]
 FAMILY = "Segoe UI"
 MONO = "Consolas"

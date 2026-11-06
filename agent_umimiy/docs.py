@@ -6,8 +6,8 @@ import datetime
 import io
 import re
 import statistics
-import zipfile
 import xml.etree.ElementTree as ET
+import zipfile
 from collections import Counter
 from pathlib import Path
 
@@ -71,7 +71,7 @@ BUILTIN_DATE_IDS = set(range(14, 23)) | set(range(27, 37)) | set(range(45, 48)) 
 
 def _is_date_format(code: str) -> bool:
     code = re.sub(r'"[^"]*"|\\.|\[[^\]]*\]|_.|\*.', "", code)
-    return bool(re.search(r"[ymdhs]", code, re.I)) and not re.fullmatch(r"(general|[0#?.,%\-+() E]*)", code.strip(), re.I)
+    return bool(re.search(r"[ymdhs]", code, re.IGNORECASE)) and not re.fullmatch(r"(general|[0#?.,%\-+() E]*)", code.strip(), re.IGNORECASE)
 
 
 def _fmt_number(v: float) -> str:
@@ -255,7 +255,7 @@ def read_pptx(path) -> str:
         if tree is not None:
             walk(tree, title, body)
         note = ""
-        for _, (rtype, target) in _rels(z, part).items():
+        for rtype, target in _rels(z, part).values():
             if rtype.endswith("/notesSlide") and target in z.namelist():
                 n = [t for sp in ET.fromstring(z.read(target)).iter(NS_P + "sp")
                      if (ph := sp.find(f"{NS_P}nvSpPr/{NS_P}nvPr/{NS_P}ph")) is not None and ph.get("type") == "body"

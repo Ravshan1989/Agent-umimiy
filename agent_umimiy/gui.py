@@ -19,7 +19,7 @@ from . import remote as remotelib
 from . import skills as skilllib
 from .orchestrator import READ_ONLY_MODES
 from .providers import build_agent
-from .theme import P, Avatar, Pill, color_for, font, label, rrect
+from .theme import Avatar, P, Pill, color_for, font, label, rrect
 
 MODES = {
     "auto": ("✦", "Avtomatik", "Eng mos agentni o'zi tanlaydi"),
@@ -675,7 +675,6 @@ class McpDialog(tk.Toplevel):
         self.note.config(text=p["note"])
 
     def _save(self):
-        import re
         name = re.sub(r"[^A-Za-z0-9_-]", "_", self.v["name"].get().strip())
         transport = next(k for k, t in self.TRANSPORTS.items() if t == self.v["transport"].get()) if self.v["transport"].get() else "stdio"
         if not name:
@@ -1565,8 +1564,6 @@ class App(tk.Tk):
 
     def _remote_attachment(self, f):
         import base64
-        import re
-        import time
         name = re.sub(r"[^\w.\- ]", "_", str(f.get("name", "fayl")))[-80:] or "fayl"
         d = config.user_dir() / "uploads"
         d.mkdir(parents=True, exist_ok=True)

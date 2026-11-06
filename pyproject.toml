@@ -9,3 +9,21 @@ dependencies = ["pypdf", "qrcode"]
 
 [project.scripts]
 agent-umimiy = "agent_umimiy.__main__:main"
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+
+[tool.ruff.lint]
+# Mantiqiy xatolarga e'tibor; uslubiy (keng try/except kabi, ataylab) qoidalar o'chirilgan.
+select = ["F", "I", "UP", "B", "FURB", "PERF", "C4", "ISC"]
+ignore = [
+    "B008",    # argument standartida funksiya chaqiruvi (Tkinter uslubi)
+    "B904",    # except ichida `raise ... from` talab qilinmaydi
+    "UP031",   # printf-uslubdagi formatlashga ruxsat
+    "PERF203", # try/except ichidagi sikl
+    "PERF401", # qo'lda list tuzish (o'qilishi uchun qoldirildi)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B017", "F841"]

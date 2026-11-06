@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import difflib
 import html
-import json
 import ipaddress
+import json
 import re
 import socket
 import subprocess
@@ -14,8 +14,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import webbrowser
-from html.parser import HTMLParser
 from dataclasses import dataclass, field
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Callable
 
@@ -139,7 +139,7 @@ TOOLS.append(Tool(
 BY_NAME = {t.name: t for t in TOOLS}
 
 
-def available(ctx: "Context") -> list[Tool]:
+def available(ctx: Context) -> list[Tool]:
     """Loyiha papkasi tanlanmagan bo'lsa — faqat internet va reja asboblari."""
     out = [t for t in TOOLS if ctx.root or t.kind in ("web", "open", "meta", "browser")]
     out = [t for t in out if ctx.web or t.kind not in ("web", "open")]
@@ -155,12 +155,12 @@ def available(ctx: "Context") -> list[Tool]:
     return out
 
 
-def _skills(ctx: "Context") -> list:
+def _skills(ctx: Context) -> list:
     from . import skills
     return skills.discover(ctx.root) if ctx.skills else []
 
 
-def skills_text(ctx: "Context") -> str:
+def skills_text(ctx: Context) -> str:
     items = _skills(ctx)
     if not items:
         return ""
@@ -174,7 +174,7 @@ def describe_agent(a: dict) -> str:
     return f"- {a['name']} ({a.get('kind', '?')}{extra}){desc}"
 
 
-def roster_text(ctx: "Context", agent: str) -> str:
+def roster_text(ctx: Context, agent: str) -> str:
     if not ctx.roster:
         return ""
     text = (f"\n\nYou are the agent named '{agent}'. This desktop app (Agent Umimiy) combines these agents:\n"
@@ -633,8 +633,8 @@ def _html_text(body: str) -> str:
 
 def _parse_ddg(body: str) -> str:
     out = []
-    links = re.findall(r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>', body, flags=re.S)
-    snips = re.findall(r'class="result__snippet"[^>]*>(.*?)</a>', body, flags=re.S)
+    links = re.findall(r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>', body, flags=re.DOTALL)
+    snips = re.findall(r'class="result__snippet"[^>]*>(.*?)</a>', body, flags=re.DOTALL)
     for i, (href, title) in enumerate(links[:8]):
         q = urllib.parse.parse_qs(urllib.parse.urlparse(html.unescape(href)).query)
         url = q.get("uddg", [html.unescape(href)])[0]

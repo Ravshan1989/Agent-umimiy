@@ -30,6 +30,20 @@ mavzudagi oynada, **to'liq o'zbek tilida**.
 
 Ilova kompyuteringizdagi mavjud agentlarni **o'zi topadi** — hech narsa yozib o'tirishingiz kerak emas.
 
+## 📸 Ko'rinishi
+
+> Skrinshotlar `docs/screenshots/` papkasiga qo'shiladi ([qo'llanma](docs/screenshots/README.md)).
+> Fayllarni qo'shganingizdan so'ng quyidagi izohni oching — rasmlar o'zi chiqadi.
+
+<!--
+<div align="center">
+<img src="docs/screenshots/main.png" alt="Asosiy oyna" width="800">
+<br><br>
+<img src="docs/screenshots/settings.png" alt="Sozlamalar" width="420">
+<img src="docs/screenshots/phone.png" alt="Telefondan boshqarish" width="240">
+</div>
+-->
+
 ## ✨ Imkoniyatlar
 
 | | Imkoniyat | Tavsif |

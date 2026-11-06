@@ -62,7 +62,7 @@ def cli_health(exe: str) -> tuple[bool, str]:
                 text = _f.read(20000)
             base = os.path.dirname(os.path.abspath(exe))
             targets = []
-            for m in re.finditer(r'"(?:%~?dp0%?)[\\/]*([^"%]+?\.exe)"', text, re.I):
+            for m in re.finditer(r'"(?:%~?dp0%?)[\\/]*([^"%]+?\.exe)"', text, re.IGNORECASE):
                 targets.append(os.path.normpath(os.path.join(base, m.group(1).replace("\\", os.sep))))
         else:
             return True, ""
