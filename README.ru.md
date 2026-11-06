@@ -12,6 +12,7 @@
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Лицензия](https://img.shields.io/badge/лицензия-MIT-green)
 ![Интерфейс](https://img.shields.io/badge/интерфейс-узбекский-1EB53A)
+[![Тесты](https://github.com/Ravshan1989/Agent-umimiy/actions/workflows/tests.yml/badge.svg)](https://github.com/Ravshan1989/Agent-umimiy/actions/workflows/tests.yml)
 
 [📥 Скачать](#-установка) · [✨ Возможности](#-возможности) · [⚙️ Настройка](#️-настройка) · [📖 Руководство](#-подробное-руководство) · [👨‍💻 Разработчикам](#-для-разработчиков)
 

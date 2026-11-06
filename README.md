@@ -12,6 +12,7 @@ agentlar fayllaringizni o'qiydi, tahrirlaydi, brauzerni boshqaradi va bir-biriga
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Litsenziya](https://img.shields.io/badge/litsenziya-MIT-green)
 ![Til](https://img.shields.io/badge/interfeys-o'zbek%20tilida-1EB53A)
+[![Testlar](https://github.com/Ravshan1989/Agent-umimiy/actions/workflows/tests.yml/badge.svg)](https://github.com/Ravshan1989/Agent-umimiy/actions/workflows/tests.yml)
 
 [📥 Yuklab olish](#-ornatish) · [✨ Imkoniyatlar](#-imkoniyatlar) · [⚙️ Sozlash](#️-sozlash) · [📖 Qo'llanma](#-batafsil-qollanma) · [👨‍💻 Dasturchilar](#-dasturchilar-uchun)
 
