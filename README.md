@@ -15,6 +15,8 @@ agentlar fayllaringizni o'qiydi, tahrirlaydi, brauzerni boshqaradi va bir-biriga
 
 [📥 Yuklab olish](#-ornatish) · [✨ Imkoniyatlar](#-imkoniyatlar) · [⚙️ Sozlash](#️-sozlash) · [📖 Qo'llanma](#-batafsil-qollanma) · [👨‍💻 Dasturchilar](#-dasturchilar-uchun)
 
+🌐 **O'zbekcha** · [English](README.en.md) · [Русский](README.ru.md)
+
 </div>
 
 ---
@@ -261,9 +263,27 @@ Tayyor `.exe` hozircha faqat Windows uchun. macOS va Linux'da manba koddan (`pyt
 ## 🗺 Reja
 
 - [x] Manba kodini ochiq qilish
+- [x] Hujjatlar (README) ingliz va rus tillarida
 - [ ] macOS va Linux versiyalari
-- [ ] Ingliz va rus tillaridagi interfeys
+- [ ] Ingliz va rus tillaridagi ilova interfeysi
 - [ ] Avtomatik yangilanish
+
+## 💜 Claude for Open Source
+
+Agent Umimiy — ochiq kodli loyiha va u Claude bilan ishlashni to'liq qo'llab-quvvatlaydi.
+Anthropic ochiq kod hamjamiyati uchun **Claude for Open Source** dasturini taklif qiladi: mos
+keladigan OSS maintainer va hissa qo'shuvchilar **Claude Ultra** rejasidan **6 oy davomida bepul**
+foydalanishlari mumkin.
+
+- **Kimlar uchun?** Ochiq kodli loyihalarni faol yurituvchi yoki ularga muntazam hissa qo'shuvchilar.
+  GitHub'dagi faolligingiz hisobga olinadi.
+- **Shartlar bor:** dasturning o'z mezonlari bor — hammaga ham berilavermaydi. Batafsil shartlar va
+  savol-javoblar rasmiy sahifada.
+
+👉 **Ariza topshirish:** <https://claude.com/contact-sales/claude-for-oss>
+
+> Havola Anthropic'ning rasmiy sahifasiga olib boradi. Shartlar va imkoniyatlar Anthropic tomonidan
+> belgilanadi va o'zgarishi mumkin.
 
 ## 📄 Litsenziya
 
