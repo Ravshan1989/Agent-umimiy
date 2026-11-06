@@ -121,6 +121,43 @@ TR: dict[str, dict[str, str]] = {
     "Savolingizni yozing — agentlaringiz birgalikda javob beradi.":
         {"ru": "Напишите вопрос — ваши агенты ответят вместе.",
          "en": "Type your question — your agents answer together."},
+
+    # — Sozlamalar oynasi —
+    "Agentlaringiz": {"ru": "Ваши агенты", "en": "Your agents"},
+    "Qo'shing, tahrirlang yoki vaqtincha o'chirib qo'ying":
+        {"ru": "Добавляйте, редактируйте или временно отключайте",
+         "en": "Add, edit or temporarily disable them"},
+    "Agent": {"ru": "Агент", "en": "Agent"},
+    "Model / buyruq": {"ru": "Модель / команда", "en": "Model / command"},
+    "Yoqilgan": {"ru": "Включён", "en": "Enabled"},
+    "+ Qo'shish": {"ru": "+ Добавить", "en": "+ Add"},
+    "Yoq / o'chir": {"ru": "Вкл / выкл", "en": "On / off"},
+    "Avto-topish": {"ru": "Автопоиск", "en": "Auto-detect"},
+    "Qayta ulash": {"ru": "Переподключить", "en": "Reconnect"},
+    "Kengashda hakam:": {"ru": "Судья совета:", "en": "Council judge:"},
+    "Suhbatlarni shu kompyuterda saqlash (dastur qayta ochilganda tiklanadi)":
+        {"ru": "Сохранять чаты на этом компьютере (восстановятся при перезапуске)",
+         "en": "Save chats on this computer (restored when the app reopens)"},
+    "Suhbatlar tarixini o'chirish": {"ru": "Очистить историю чатов", "en": "Clear chat history"},
+    "Agentlar brauzerni boshqara olsin (sayt ochish, bosish, yozish — har safar ruxsat so'raydi)":
+        {"ru": "Разрешить агентам управлять браузером (открытие сайтов, клики, ввод — каждый раз спрашивает)",
+         "en": "Let agents control the browser (open sites, click, type — asks each time)"},
+    "Telefondan boshqarish (mobil kirish)…":
+        {"ru": "Управление с телефона (мобильный доступ)…", "en": "Phone control (mobile access)…"},
+    "Agentlar internetdan qidira va sahifalarni o'qiy olsin":
+        {"ru": "Разрешить агентам искать в интернете и читать страницы",
+         "en": "Let agents search the internet and read pages"},
+    "Saqlash va yopish": {"ru": "Сохранить и закрыть", "en": "Save and close"},
+    "Tarixni o'chirish": {"ru": "Очистить историю", "en": "Clear history"},
+    "Barcha saqlangan suhbatlar o'chirilsinmi?":
+        {"ru": "Удалить все сохранённые чаты?", "en": "Delete all saved chats?"},
+    "ha": {"ru": "да", "en": "yes"},
+    "yo'q": {"ru": "нет", "en": "no"},
+    "Bu agent o'chirilsinmi?": {"ru": "Удалить этого агента?", "en": "Delete this agent?"},
+    "ta yangi agent topildi.": {"ru": "новых агент(ов) найдено.", "en": "new agent(s) found."},
+    "Yangi agent topilmadi. Ollama/LM Studio ishga tushirilganini tekshiring.":
+        {"ru": "Новые агенты не найдены. Проверьте, запущены ли Ollama/LM Studio.",
+         "en": "No new agents found. Check that Ollama/LM Studio is running."},
     "loyihada faqat o'qiydi": {"ru": "в проекте только чтение", "en": "read-only in the project"},
     "Tilni o'zgartirish dasturni qayta ishga tushirgandan so'ng to'liq qo'llanadi.":
         {"ru": "Смена языка полностью применится после перезапуска приложения.",

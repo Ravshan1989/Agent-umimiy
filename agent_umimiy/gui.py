@@ -249,21 +249,21 @@ class Settings(tk.Toplevel):
         fit(self, 720, 760)
         self.transient(parent)
         bar, f = scroll_body(self)
-        label(f, "Agentlaringiz", size=15, weight="bold").pack(anchor="w")
-        label(f, "Qo'shing, tahrirlang yoki vaqtincha o'chirib qo'ying", fg=P["muted"], size=9).pack(anchor="w", pady=(0, 10))
+        label(f, i18n.t("Agentlaringiz"), size=15, weight="bold").pack(anchor="w")
+        label(f, i18n.t("Qo'shing, tahrirlang yoki vaqtincha o'chirib qo'ying"), fg=P["muted"], size=9).pack(anchor="w", pady=(0, 10))
         self.tree = ttk.Treeview(f, columns=("type", "model", "on"), show="headings", height=8)
         for c, t, w in (("type", "Agent", 250), ("model", "Model / buyruq", 220), ("on", "Yoqilgan", 80)):
-            self.tree.heading(c, text=t)
+            self.tree.heading(c, text=i18n.t(t))
             self.tree.column(c, width=w)
         self.tree.pack(fill="both", expand=True)
         row = tk.Frame(f, bg=P["bg"])
         row.pack(fill="x", pady=12)
         for text, cmd, w in (("+ Qo'shish", self.add, 100), ("Tahrirlash", self.edit, 100), ("O'chirish", self.remove, 90),
                              ("Yoq / o'chir", self.toggle, 110), ("Avto-topish", self.autodetect, 110)):
-            Pill(row, text, cmd, width=w, height=34, size=9).pack(side="left", padx=(0, 6))
+            Pill(row, i18n.t(text), cmd, width=w, height=34, size=9).pack(side="left", padx=(0, 6))
         jr = tk.Frame(f, bg=P["bg"])
         jr.pack(fill="x")
-        label(jr, "Kengashda hakam:", fg=P["muted"]).pack(side="left")
+        label(jr, i18n.t("Kengashda hakam:"), fg=P["muted"]).pack(side="left")
         self.judge = tk.StringVar(value=cfg.get("judge", ""))
         self.judge_box = ttk.Combobox(jr, textvariable=self.judge, state="readonly", width=24)
         self.judge_box.pack(side="left", padx=10)
@@ -277,34 +277,34 @@ class Settings(tk.Toplevel):
         label(f, i18n.t("Tilni o'zgartirish dasturni qayta ishga tushirgandan so'ng to'liq qo'llanadi."),
               fg=P["muted"], size=8).pack(anchor="w", pady=(4, 0))
         self.keep = tk.BooleanVar(value=cfg.get("save_chats", True))
-        tk.Checkbutton(f, text="Suhbatlarni shu kompyuterda saqlash (dastur qayta ochilganda tiklanadi)", variable=self.keep,
+        tk.Checkbutton(f, text=i18n.t("Suhbatlarni shu kompyuterda saqlash (dastur qayta ochilganda tiklanadi)"), variable=self.keep,
                        bg=P["bg"], fg=P["text"], selectcolor=P["card"], activebackground=P["bg"],
                        activeforeground=P["text"], highlightthickness=0, bd=0, font=font(10)).pack(anchor="w", pady=(12, 0))
-        Pill(f, "Suhbatlar tarixini o'chirish", self._wipe, width=210, height=32, size=9, fg=P["err"],
+        Pill(f, i18n.t("Suhbatlar tarixini o'chirish"), self._wipe, width=210, height=32, size=9, fg=P["err"],
              outline=P["line"], bg=P["bg"]).pack(anchor="w", pady=(8, 0))
         self.brow = tk.BooleanVar(value=cfg.get("browser", True))
-        tk.Checkbutton(f, text="Agentlar brauzerni boshqara olsin (sayt ochish, bosish, yozish — har safar ruxsat so'raydi)",
+        tk.Checkbutton(f, text=i18n.t("Agentlar brauzerni boshqara olsin (sayt ochish, bosish, yozish — har safar ruxsat so'raydi)"),
                        variable=self.brow, bg=P["bg"], fg=P["text"], selectcolor=P["card"], activebackground=P["bg"],
                        activeforeground=P["text"], highlightthickness=0, bd=0, font=font(10)).pack(anchor="w", pady=(12, 0))
-        Pill(f, "Telefondan boshqarish (mobil kirish)…", lambda: self.master.open_remote(), width=300, height=32, size=9,
+        Pill(f, i18n.t("Telefondan boshqarish (mobil kirish)…"), lambda: self.master.open_remote(), width=300, height=32, size=9,
              outline=P["line"], bg=P["bg"]).pack(anchor="w", pady=(8, 0))
         self.web = tk.BooleanVar(value=cfg.get("web", True))
-        tk.Checkbutton(f, text="Agentlar internetdan qidira va sahifalarni o'qiy olsin", variable=self.web, bg=P["bg"],
+        tk.Checkbutton(f, text=i18n.t("Agentlar internetdan qidira va sahifalarni o'qiy olsin"), variable=self.web, bg=P["bg"],
                        fg=P["text"], selectcolor=P["card"], activebackground=P["bg"], activeforeground=P["text"],
                        highlightthickness=0, bd=0, font=font(10)).pack(anchor="w", pady=(12, 0))
-        Pill(bar, "Saqlash va yopish", self.save, width=170, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(anchor="e")
+        Pill(bar, i18n.t("Saqlash va yopish"), self.save, width=170, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(anchor="e")
         self.refresh()
 
     def _wipe(self):
-        if messagebox.askyesno("Tarixni o'chirish", "Barcha saqlangan suhbatlar o'chirilsinmi?", parent=self):
+        if messagebox.askyesno(i18n.t("Tarixni o'chirish"), i18n.t("Barcha saqlangan suhbatlar o'chirilsinmi?"), parent=self):
             self.master.clear_history()
 
     def refresh(self):
         self.tree.delete(*self.tree.get_children())
         for i, a in enumerate(self.cfg["agents"]):
             self.tree.insert("", "end", iid=str(i), values=(
-                f"{a['name']}  ·  {SHORT_TYPE.get(a['type'], a['type'])}",
-                a.get("model") or a.get("command", ""), "ha" if a.get("enabled", True) else "yo'q"))
+                f"{a['name']}  ·  {i18n.t(SHORT_TYPE.get(a['type'], a['type']))}",
+                a.get("model") or a.get("command", ""), i18n.t("ha") if a.get("enabled", True) else i18n.t("yo'q")))
         self.judge_box["values"] = [a["name"] for a in self.cfg["agents"]]
 
     def _sel(self):
@@ -331,7 +331,7 @@ class Settings(tk.Toplevel):
 
     def remove(self):
         i = self._sel()
-        if i is not None and messagebox.askyesno("O'chirish", "Bu agent o'chirilsinmi?", parent=self):
+        if i is not None and messagebox.askyesno(i18n.t("O'chirish"), i18n.t("Bu agent o'chirilsinmi?"), parent=self):
             del self.cfg["agents"][i]
             self.refresh()
 
@@ -347,8 +347,8 @@ class Settings(tk.Toplevel):
         new = [a for a in detect.discover() if a["name"] not in have]
         self.cfg["agents"] += new
         self.refresh()
-        messagebox.showinfo("Avto-topish", f"{len(new)} ta yangi agent topildi." if new else
-                            "Yangi agent topilmadi. Ollama/LM Studio ishga tushirilganini tekshiring.", parent=self)
+        messagebox.showinfo(i18n.t("Avto-topish"), f"{len(new)} " + i18n.t("ta yangi agent topildi.") if new else
+                            i18n.t("Yangi agent topilmadi. Ollama/LM Studio ishga tushirilganini tekshiring."), parent=self)
 
     def save(self):
         self.cfg["judge"] = self.judge.get()
@@ -733,7 +733,7 @@ class PluginsDialog(tk.Toplevel):
         row.pack(fill="x", pady=10)
         for text, cmd, w in (("+ Qo'shish", self.add, 100), ("Tahrirlash", self.edit, 100), ("O'chirish", self.remove, 90),
                              ("Yoq / o'chir", self.toggle, 110), ("Qayta ulash", self.reconnect, 110)):
-            Pill(row, text, cmd, width=w, height=34, size=9).pack(side="left", padx=(0, 6))
+            Pill(row, i18n.t(text), cmd, width=w, height=34, size=9).pack(side="left", padx=(0, 6))
         self.detail = tk.Text(f, height=5, bg=P["code"], fg="#c9d1ff", relief="flat", bd=0, font=font(9, mono=True),
                               padx=10, pady=6, wrap="word", highlightthickness=0, state="disabled")
         self.detail.pack(fill="x")
@@ -911,7 +911,7 @@ class AgentRow(tk.Canvas):
         self.create_text(23, h / 2, text=self.agent.name[:1].upper(), fill="white", font=font(11, "bold"))
         self.create_text(50, h / 2 - 8, text=self.agent.name, anchor="w", font=font(10, "bold"),
                          fill=P["text"] if self.on else P["muted"])
-        self.create_text(50, h / 2 + 9, text=SHORT_TYPE.get(self.agent.kind, self.agent.kind), anchor="w",
+        self.create_text(50, h / 2 + 9, text=i18n.t(SHORT_TYPE.get(self.agent.kind, self.agent.kind)), anchor="w",
                          font=font(8), fill=P["muted"])
         self.create_oval(w - 22, h / 2 - 5, w - 12, h / 2 + 5, fill=P["ok"] if self.on else "", outline=P["ok"] if self.on else P["muted"], width=1)
 
