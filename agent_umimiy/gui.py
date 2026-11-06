@@ -13,7 +13,7 @@ import webbrowser
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from . import attachments, chatstore, config, detect, gitutil, markdown, theme
+from . import attachments, chatstore, config, detect, gitutil, i18n, markdown, theme
 from . import mcp as mcplib
 from . import remote as remotelib
 from . import skills as skilllib
@@ -126,7 +126,7 @@ class AgentDialog(tk.Toplevel):
 
     def __init__(self, parent, spec=None):
         super().__init__(parent)
-        self.title("Agent sozlamasi")
+        self.title(i18n.t("Agent sozlamasi"))
         self.configure(bg=P["bg"])
         fit(self, 640, 600)
         self.result = None
@@ -243,7 +243,7 @@ class AgentDialog(tk.Toplevel):
 class Settings(tk.Toplevel):
     def __init__(self, parent, cfg, on_save):
         super().__init__(parent)
-        self.title("Sozlamalar")
+        self.title(i18n.t("Sozlamalar"))
         self.configure(bg=P["bg"])
         self.cfg, self.on_save = cfg, on_save
         fit(self, 720, 760)
@@ -267,6 +267,15 @@ class Settings(tk.Toplevel):
         self.judge = tk.StringVar(value=cfg.get("judge", ""))
         self.judge_box = ttk.Combobox(jr, textvariable=self.judge, state="readonly", width=24)
         self.judge_box.pack(side="left", padx=10)
+        lr = tk.Frame(f, bg=P["bg"])
+        lr.pack(fill="x", pady=(12, 0))
+        label(lr, i18n.t("Interfeys tili") + ":", fg=P["muted"]).pack(side="left")
+        self._lang_names = {i18n.LANG_NAMES[c]: c for c in i18n.LANGS}
+        self.lang = tk.StringVar(value=i18n.LANG_NAMES.get(cfg.get("lang", "uz"), i18n.LANG_NAMES["uz"]))
+        ttk.Combobox(lr, textvariable=self.lang, state="readonly", width=16,
+                     values=list(self._lang_names)).pack(side="left", padx=10)
+        label(f, i18n.t("Tilni o'zgartirish dasturni qayta ishga tushirgandan so'ng to'liq qo'llanadi."),
+              fg=P["muted"], size=8).pack(anchor="w", pady=(4, 0))
         self.keep = tk.BooleanVar(value=cfg.get("save_chats", True))
         tk.Checkbutton(f, text="Suhbatlarni shu kompyuterda saqlash (dastur qayta ochilganda tiklanadi)", variable=self.keep,
                        bg=P["bg"], fg=P["text"], selectcolor=P["card"], activebackground=P["bg"],
@@ -346,6 +355,8 @@ class Settings(tk.Toplevel):
         self.cfg["web"] = bool(self.web.get())
         self.cfg["browser"] = bool(self.brow.get())
         self.cfg["save_chats"] = bool(self.keep.get())
+        self.cfg["lang"] = self._lang_names.get(self.lang.get(), "uz")
+        i18n.set_lang(self.cfg["lang"])
         self.on_save(self.cfg)
         self.destroy()
 
@@ -355,7 +366,7 @@ class ApproveDialog(tk.Toplevel):
 
     def __init__(self, parent, agent, kind, title, detail):
         super().__init__(parent)
-        self.title("Ruxsat kerak")
+        self.title(i18n.t("Ruxsat kerak"))
         self.configure(bg=P["bg"])
         self.transient(parent)
         self.result = "no"
@@ -400,7 +411,7 @@ class GitDialog(tk.Toplevel):
     def __init__(self, parent, root):
         super().__init__(parent)
         self.root_dir = root
-        self.title("Git — o'zgarishlar")
+        self.title(i18n.t("Git — o'zgarishlar"))
         self.configure(bg=P["bg"])
         fit(self, 760, 640)
         self.transient(parent)
@@ -495,7 +506,7 @@ class RemoteDialog(tk.Toplevel):
     def __init__(self, app):
         super().__init__(app)
         self.app = app
-        self.title("Telefondan boshqarish")
+        self.title(i18n.t("Telefondan boshqarish"))
         self.configure(bg=P["bg"])
         fit(self, 600, 800)
         self.transient(app)
@@ -620,7 +631,7 @@ class McpDialog(tk.Toplevel):
 
     def __init__(self, parent, spec=None, taken=()):
         super().__init__(parent)
-        self.title("Plagin sozlamasi")
+        self.title(i18n.t("Plagin sozlamasi"))
         self.configure(bg=P["bg"])
         fit(self, 700, 680)
         self.transient(parent)
@@ -696,7 +707,7 @@ class PluginsDialog(tk.Toplevel):
 
     def __init__(self, parent, cfg, manager, on_save):
         super().__init__(parent)
-        self.title("Plaginlar")
+        self.title(i18n.t("Plaginlar"))
         self.configure(bg=P["bg"])
         fit(self, 840, 800)
         self.transient(parent)
@@ -873,7 +884,7 @@ class ModeRow(tk.Canvas):
         elif self.over:
             rrect(self, 0, 0, w, h, 12, fill=P["card"], outline="")
         self.create_text(22, h / 2, text=icon, fill=P["accent_hi"] if self.active else P["muted"], font=font(13))
-        self.create_text(46, h / 2, text=title, anchor="w", fill=P["text"] if self.active else P["muted"],
+        self.create_text(46, h / 2, text=i18n.t(title), anchor="w", fill=P["text"] if self.active else P["muted"],
                          font=font(10, "bold" if self.active else "normal"))
 
 
@@ -973,6 +984,7 @@ class App(tk.Tk):
         self.cfg_path = cfg_path
         self.inbox: queue.Queue = queue.Queue()
         self.cfg = config.read(cfg_path)
+        i18n.set_lang(self.cfg.get("lang", "uz"))
         first_run = not config.config_path(cfg_path).exists()
         self.title("Agent Umimiy")
         w, h = fit(self, 1180, 780)
@@ -1179,9 +1191,9 @@ class App(tk.Tk):
             r.active = k == key
             r.draw()
         _, title, desc = MODES[key]
-        self.title_lbl.config(text=title)
-        note = "  ·  loyihada faqat o'qiydi" if self.project and key in READ_ONLY_MODES else ""
-        self.sub_lbl.config(text=desc + note)
+        self.title_lbl.config(text=i18n.t(title))
+        note = "  ·  " + i18n.t("loyihada faqat o'qiydi") if self.project and key in READ_ONLY_MODES else ""
+        self.sub_lbl.config(text=i18n.t(desc) + note)
 
     def toggle_agent(self, name):
         if name in self.selected and len(self.selected) > 1:
@@ -1518,7 +1530,7 @@ class App(tk.Tk):
                     "chat": chat.id, "records": recs, "total": len(chat.records), "reset": reset, "busy": chat.busy,
                     "typing": targets[:1] if self.mode.get() == "single" else targets,
                     "asks": [{k: v for k, v in a.items() if k != "dialog"} for a in self.asks.values()],
-                    "mode": self.mode.get(), "modes": {k: v[1] for k, v in MODES.items()},
+                    "mode": self.mode.get(), "modes": {k: i18n.t(v[1]) for k, v in MODES.items()},
                     "agents": [{"name": n, "on": n in self.selected} for n in chat.orch.agents]}
         if action == "new":
             self.new_chat(show=False)
@@ -1613,7 +1625,7 @@ class App(tk.Tk):
                "Savolingizni yozing — agentlaringiz birgalikda javob beradi."), fg=P["muted"], size=11).pack()
         chips = tk.Frame(box, bg=P["bg"])
         chips.pack(pady=26)
-        for i, s in enumerate(PROJECT_SUGGESTIONS if self.project else SUGGESTIONS):
+        for i, s in enumerate(i18n.t(x) for x in (PROJECT_SUGGESTIONS if self.project else SUGGESTIONS)):
             Pill(chips, s, lambda s=s: self._use_suggestion(s), width=290, height=44, radius=16, size=10,
                  weight="normal", outline=P["line"]).grid(row=i // 2, column=i % 2, padx=6, pady=6)
         self.empty = box
