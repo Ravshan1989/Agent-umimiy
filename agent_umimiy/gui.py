@@ -133,21 +133,21 @@ class AgentDialog(tk.Toplevel):
         self.transient(parent)
         spec = spec or {}
         bar, f = scroll_body(self)
-        label(f, "Agent sozlamasi", size=14, weight="bold").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
+        label(f, i18n.t("Agent sozlamasi"), size=14, weight="bold").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
         self.vars = {}
         rows = [("name", "Nomi"), ("type", "Turi"), ("model", "Model"), ("api_key", "API kalit"),
                 ("base_url", "Manzil (ixtiyoriy)"), ("command", "Buyruq (CLI uchun)")]
         for i, (k, text) in enumerate(rows, start=1):
-            label(f, text, fg=P["muted"]).grid(row=i, column=0, sticky="w", pady=5)
+            label(f, i18n.t(text), fg=P["muted"]).grid(row=i, column=0, sticky="w", pady=5)
             v = tk.StringVar(value=spec.get(k, ""))
             if k == "type":
-                v.set(TYPE_LABELS.get(spec.get("type", "anthropic"), TYPE_LABELS["anthropic"]))
-                w = ttk.Combobox(f, textvariable=v, values=list(TYPE_LABELS.values()), state="readonly", width=38)
+                v.set(i18n.t(TYPE_LABELS.get(spec.get("type", "anthropic"), TYPE_LABELS["anthropic"])))
+                w = ttk.Combobox(f, textvariable=v, values=[i18n.t(x) for x in TYPE_LABELS.values()], state="readonly", width=38)
                 w.bind("<<ComboboxSelected>>", lambda e: self._type_changed())
             elif k == "model":
                 w = ttk.Combobox(f, textvariable=v, values=[], width=38)
                 self.model_box = w
-                Pill(f, "Ro'yxat", self._load_models, width=70, height=30, size=9, outline=P["line"],
+                Pill(f, i18n.t("Ro'yxat"), self._load_models, width=70, height=30, size=9, outline=P["line"],
                      bg=P["bg"]).grid(row=i, column=2, padx=(8, 0))
             else:
                 w = ttk.Entry(f, textvariable=v, width=40, show="•" if k == "api_key" else "")
@@ -158,13 +158,17 @@ class AgentDialog(tk.Toplevel):
         self._hint()
         btns = tk.Frame(bar, bg=P["bg"])
         btns.pack(anchor="e")
-        Pill(btns, "Bekor", self.destroy, width=90).pack(side="left", padx=4)
-        Pill(btns, "Sinab ko'rish", self._test, width=130, outline=P["line"], bg=P["bg"]).pack(side="left", padx=4)
-        Pill(btns, "Saqlash", self._save, width=110, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(side="left")
+        Pill(btns, i18n.t("Bekor"), self.destroy, width=90).pack(side="left", padx=4)
+        Pill(btns, i18n.t("Sinab ko'rish"), self._test, width=130, outline=P["line"], bg=P["bg"]).pack(side="left", padx=4)
+        Pill(btns, i18n.t("Saqlash"), self._save, width=110, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(side="left")
         self.grab_set()
 
     def _type(self):
-        return LABEL_TO_TYPE.get(self.vars["type"].get(), "anthropic")
+        lbl = self.vars["type"].get()
+        for k, v in TYPE_LABELS.items():
+            if lbl in (v, i18n.t(v)):
+                return k
+        return "anthropic"
 
     def _type_changed(self):
         if self._type() == "freellm":
@@ -177,30 +181,29 @@ class AgentDialog(tk.Toplevel):
         t = REAL_TYPE.get(self._type(), self._type())
         url = self.vars["base_url"].get().strip() or ("https://api.openai.com/v1" if t == "openai" else "")
         if t != "openai" or not url:
-            return messagebox.showinfo("Modellar ro'yxati", "Ro'yxat OpenAI-mos shlyuzlar (FreeLLMAPI, LM Studio, "
-                                       "OpenRouter...) uchun ishlaydi. Boshqalarda model nomini o'zingiz yozing.", parent=self)
+            return messagebox.showinfo(i18n.t("Modellar ro'yxati"), i18n.t("Ro'yxat OpenAI-mos shlyuzlar (FreeLLMAPI, LM Studio, OpenRouter...) uchun ishlaydi. Boshqalarda model nomini o'zingiz yozing."), parent=self)
         self.config(cursor="watch")
         self.update()
         try:
             ids = detect.list_models(url, self.vars["api_key"].get().strip())
         except Exception as exc:
             self.config(cursor="")
-            return messagebox.showerror("Ro'yxat olinmadi", f"{exc}\n\nShlyuz ishlayotganini va API kalit to'g'riligini tekshiring.", parent=self)
+            return messagebox.showerror(i18n.t("Ro'yxat olinmadi"), f"{exc}\n\n" + i18n.t("Shlyuz ishlayotganini va API kalit to'g'riligini tekshiring."), parent=self)
         self.config(cursor="")
         self.model_box["values"] = ids
         if ids and not self.vars["model"].get():
             self.vars["model"].set(ids[0])
-        messagebox.showinfo("Modellar ro'yxati", f"{len(ids)} ta model topildi. Ro'yxatdan tanlang.", parent=self)
+        messagebox.showinfo(i18n.t("Modellar ro'yxati"), f"{len(ids)} " + i18n.t("ta model topildi. Ro'yxatdan tanlang."), parent=self)
 
     def _hint(self):
-        self.hint.config(text={
+        self.hint.config(text=i18n.t({
             "freellm": "Brauzerda localhost:3001 → «Agentlar» bo'limidagi API KEY ni «API kalit» maydoniga qo'ying, so'ng «Ro'yxat» tugmasi bilan modelni tanlang.",
             "anthropic": "Kalitni console.anthropic.com dan oling. Model bo'sh qolsa, standarti ishlatiladi.",
             "openai": "OpenAI, OpenRouter, Groq yoki LM Studio. Lokal bo'lsa manzilni yozing: http://localhost:1234/v1",
             "gemini": "Kalitni aistudio.google.com dan oling.",
             "ollama": "Avval ollama.com dan o'rnating va modelni yuklab oling. Kalit shart emas.",
             "cli": "Masalan: codex exec {prompt}  yoki  claude -p {prompt}",
-        }[self._type()])
+        }[self._type()]))
 
     def _spec(self):
         t = REAL_TYPE.get(self._type(), self._type())
@@ -216,26 +219,26 @@ class AgentDialog(tk.Toplevel):
     def _test(self):
         s = self._spec()
         if not s["name"]:
-            return messagebox.showwarning("Diqqat", "Nomini yozing", parent=self)
+            return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("Nomini yozing"), parent=self)
         if self._type() == "freellm" and not self.vars["model"].get().strip():
-            return messagebox.showwarning("Diqqat", "Avval «Ro'yxat» tugmasi bilan modelni tanlang.", parent=self)
+            return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("Avval «Ro'yxat» tugmasi bilan modelni tanlang."), parent=self)
         self.config(cursor="watch")
         self.update()
         r = build_agent(s).ask("Salom! Bir so'z bilan javob ber.")
         self.config(cursor="")
         if r.ok:
-            messagebox.showinfo("Ishlayapti ✓", r.text[:300], parent=self)
+            messagebox.showinfo(i18n.t("Ishlayapti ✓"), r.text[:300], parent=self)
         else:
-            messagebox.showerror("Xato", r.error, parent=self)
+            messagebox.showerror(i18n.t("Xato"), r.error, parent=self)
 
     def _save(self):
         s = self._spec()
         if not s["name"]:
-            return messagebox.showwarning("Diqqat", "Nomini yozing", parent=self)
+            return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("Nomini yozing"), parent=self)
         if self._type() == "freellm" and not self.vars["model"].get().strip():
-            return messagebox.showwarning("Diqqat", "Avval «Ro'yxat» tugmasi bilan modelni tanlang.", parent=self)
+            return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("Avval «Ro'yxat» tugmasi bilan modelni tanlang."), parent=self)
         if s["type"] == "cli" and not s.get("command"):
-            return messagebox.showwarning("Diqqat", "Buyruqni yozing", parent=self)
+            return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("Buyruqni yozing"), parent=self)
         self.result = s
         self.destroy()
 
@@ -670,8 +673,8 @@ class McpDialog(tk.Toplevel):
         self.note.grid(row=r, column=0, columnspan=2, sticky="w", pady=(6, 12))
         btns = tk.Frame(bar, bg=P["bg"])
         btns.pack(anchor="e")
-        Pill(btns, "Bekor", self.destroy, width=90).pack(side="left", padx=4)
-        Pill(btns, "Saqlash", self._save, width=110, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(side="left")
+        Pill(btns, i18n.t("Bekor"), self.destroy, width=90).pack(side="left", padx=4)
+        Pill(btns, i18n.t("Saqlash"), self._save, width=110, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(side="left")
         self.grab_set()
 
     def _apply_preset(self):
@@ -693,7 +696,7 @@ class McpDialog(tk.Toplevel):
         if name in self.taken:
             return messagebox.showwarning("Diqqat", "Bu nom band", parent=self)
         if transport == "stdio" and not self.v["command"].get().strip():
-            return messagebox.showwarning("Diqqat", "Buyruqni yozing", parent=self)
+            return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("Buyruqni yozing"), parent=self)
         if transport == "http" and not self.v["url"].get().strip():
             return messagebox.showwarning("Diqqat", "URL ni yozing", parent=self)
         self.result = {"name": name, "transport": transport, "command": self.v["command"].get().strip(),

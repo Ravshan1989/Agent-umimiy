@@ -162,6 +162,49 @@ TR: dict[str, dict[str, str]] = {
     "Tilni o'zgartirish dasturni qayta ishga tushirgandan so'ng to'liq qo'llanadi.":
         {"ru": "Смена языка полностью применится после перезапуска приложения.",
          "en": "The language change fully applies after restarting the app."},
+
+    # — Agent qo'shish oynasi —
+    "Nomi": {"ru": "Имя", "en": "Name"},
+    "Turi": {"ru": "Тип", "en": "Type"},
+    "Model": {"ru": "Модель", "en": "Model"},
+    "API kalit": {"ru": "API-ключ", "en": "API key"},
+    "Manzil (ixtiyoriy)": {"ru": "Адрес (необязательно)", "en": "URL (optional)"},
+    "Buyruq (CLI uchun)": {"ru": "Команда (для CLI)", "en": "Command (for CLI)"},
+    "Diqqat": {"ru": "Внимание", "en": "Attention"},
+    "Nomini yozing": {"ru": "Введите имя", "en": "Enter a name"},
+    "Buyruqni yozing": {"ru": "Введите команду", "en": "Enter a command"},
+    "Avval «Ro'yxat» tugmasi bilan modelni tanlang.":
+        {"ru": "Сначала выберите модель кнопкой «Список».",
+         "en": "First pick a model with the “List” button."},
+    "Modellar ro'yxati": {"ru": "Список моделей", "en": "Model list"},
+    "Ro'yxat OpenAI-mos shlyuzlar (FreeLLMAPI, LM Studio, OpenRouter...) uchun ishlaydi. Boshqalarda model nomini o'zingiz yozing.":
+        {"ru": "Список работает для OpenAI-совместимых шлюзов (FreeLLMAPI, LM Studio, OpenRouter...). Для остальных впишите имя модели вручную.",
+         "en": "The list works for OpenAI-compatible gateways (FreeLLMAPI, LM Studio, OpenRouter...). For others, type the model name yourself."},
+    "Ro'yxat olinmadi": {"ru": "Не удалось получить список", "en": "Could not fetch the list"},
+    "Shlyuz ishlayotganini va API kalit to'g'riligini tekshiring.":
+        {"ru": "Проверьте, работает ли шлюз и верен ли API-ключ.",
+         "en": "Check that the gateway is running and the API key is correct."},
+    "ta model topildi. Ro'yxatdan tanlang.":
+        {"ru": "модель(ей) найдено. Выберите из списка.", "en": "model(s) found. Pick one from the list."},
+    "Ishlayapti ✓": {"ru": "Работает ✓", "en": "Working ✓"},
+    "Xato": {"ru": "Ошибка", "en": "Error"},
+    "Brauzerda localhost:3001 → «Agentlar» bo'limidagi API KEY ni «API kalit» maydoniga qo'ying, so'ng «Ro'yxat» tugmasi bilan modelni tanlang.":
+        {"ru": "В браузере localhost:3001 → скопируйте API KEY из раздела «Агенты» в поле «API-ключ», затем выберите модель кнопкой «Список».",
+         "en": "In the browser open localhost:3001 → copy the API KEY from the “Agents” section into the “API key” field, then pick a model with the “List” button."},
+    "Kalitni console.anthropic.com dan oling. Model bo'sh qolsa, standarti ishlatiladi.":
+        {"ru": "Получите ключ на console.anthropic.com. Если поле модели пустое, используется модель по умолчанию.",
+         "en": "Get the key from console.anthropic.com. If the model is left empty, the default is used."},
+    "OpenAI, OpenRouter, Groq yoki LM Studio. Lokal bo'lsa manzilni yozing: http://localhost:1234/v1":
+        {"ru": "OpenAI, OpenRouter, Groq или LM Studio. Для локального укажите адрес: http://localhost:1234/v1",
+         "en": "OpenAI, OpenRouter, Groq or LM Studio. For a local one, enter the URL: http://localhost:1234/v1"},
+    "Kalitni aistudio.google.com dan oling.":
+        {"ru": "Получите ключ на aistudio.google.com.", "en": "Get the key from aistudio.google.com."},
+    "Avval ollama.com dan o'rnating va modelni yuklab oling. Kalit shart emas.":
+        {"ru": "Сначала установите с ollama.com и загрузите модель. Ключ не нужен.",
+         "en": "First install from ollama.com and pull a model. No key needed."},
+    "Masalan: codex exec {prompt}  yoki  claude -p {prompt}":
+        {"ru": "Например: codex exec {prompt}  или  claude -p {prompt}",
+         "en": "For example: codex exec {prompt}  or  claude -p {prompt}"},
 }
 
 
