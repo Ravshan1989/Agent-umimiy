@@ -10,7 +10,7 @@ from pathlib import Path
 from agent_umimiy import attachments as att
 from agent_umimiy.orchestrator import Orchestrator
 from agent_umimiy.providers import build_agent
-from agent_umimiy.tools import Context, Toolbox, _html_text, _parse_ddg
+from agent_umimiy.tools import Context, Toolbox, _parse_ddg
 from tests.test_tools import serve
 
 PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
@@ -18,8 +18,8 @@ PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4
 
 def make_pdf(text: str) -> bytes:
     objs = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 100] /Contents 4 0 R "
-            "/Resources << /Font << /F1 5 0 R >> >> >>"]
+            ("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 100] /Contents 4 0 R "
+             "/Resources << /Font << /F1 5 0 R >> >> >>")]
     stream = f"BT /F1 18 Tf 10 50 Td ({text}) Tj ET"
     objs += [f"<< /Length {len(stream)} >>\nstream\n{stream}\nendstream", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
     out, offs = b"%PDF-1.4\n", []

@@ -6,7 +6,6 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from agent_umimiy import detect
 from agent_umimiy.orchestrator import Orchestrator
 from agent_umimiy.providers import build_agent
-from agent_umimiy.tools import Context
 
 
 def gateway(need_key=True, chat_status=200):

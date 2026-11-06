@@ -5,12 +5,40 @@ import tkinter as tk
 from tkinter import font as tkfont
 from tkinter import ttk
 
-P = dict(
-    bg="#0d0f16", side="#121521", card="#1a1e2e", card_hi="#232842", line="#2a3047",
-    text="#e8eaf4", muted="#8b92ab", accent="#7c6cff", accent_hi="#9a8dff",
-    user="#5a49ee", ok="#34d399", err="#f87171", code="#080a10", warn="#fbbf24",
-)
-AVATARS = ["#7c6cff", "#22d3ee", "#f59e0b", "#ec4899", "#34d399", "#f97316", "#60a5fa", "#a3e635"]
+# Qorong'i (standart) va yorug' palitralar. Urg'u rang (accent) alohida tanlanadi.
+DARK = {
+    "bg": "#0a0b10", "side": "#0e1017", "card": "#161a24", "card_hi": "#212636", "line": "#262b3a",
+    "text": "#eef0f8", "muted": "#949bb3", "accent": "#7b6cff", "accent_hi": "#9a8cff",
+    "user": "#5d4ef2", "ok": "#35d6a0", "err": "#fb7185", "code": "#07090e", "warn": "#fcc53d",
+}
+LIGHT = {
+    "bg": "#f5f6fb", "side": "#eceef6", "card": "#ffffff", "card_hi": "#e6e9f4", "line": "#d7dbe9",
+    "text": "#161a26", "muted": "#616879", "accent": "#7b6cff", "accent_hi": "#6354f0",
+    "user": "#5d4ef2", "ok": "#0ea47a", "err": "#e5484d", "code": "#10131d", "warn": "#c2810a",
+}
+# Urg'u rang presetlari: (accent, accent_hi, user)
+ACCENTS = {
+    "violet": ("#7b6cff", "#9a8cff", "#5d4ef2"),
+    "blue": ("#3b82f6", "#60a5fa", "#2563eb"),
+    "teal": ("#14b8a6", "#2dd4bf", "#0d9488"),
+    "green": ("#22c55e", "#4ade80", "#16a34a"),
+    "orange": ("#f97316", "#fb923c", "#ea580c"),
+    "pink": ("#ec4899", "#f472b6", "#db2777"),
+}
+
+# Jonli palitra — hamma joy shuni o'qiydi. apply_palette() uni joyida yangilaydi.
+P = dict(DARK)
+AVATARS = ["#7b6cff", "#22d3ee", "#fbbf24", "#f472b6", "#34d399", "#fb923c", "#60a5fa", "#a78bfa"]
+
+
+def apply_palette(theme: str = "dark", accent: str | None = "violet"):
+    """Palitrani (qorong'i/yorug') va urg'u rangni qo'llaydi. P joyida yangilanadi."""
+    pal = dict(LIGHT if theme == "light" else DARK)
+    a, ah, u = ACCENTS.get(accent or "violet", ACCENTS["violet"])
+    pal["accent"], pal["accent_hi"], pal["user"] = a, ah, u
+    P.clear()
+    P.update(pal)
+    return P
 FAMILY = "Segoe UI"
 MONO = "Consolas"
 
@@ -59,7 +87,7 @@ def setup(root: tk.Misc):
 class Pill(tk.Canvas):
     """Yumaloq tugma."""
 
-    def __init__(self, parent, text, command, bg=None, hover=None, fg=None, height=36, radius=12,
+    def __init__(self, parent, text, command, bg=None, hover=None, fg=None, height=36, radius=14,
                  width=None, size=10, weight="bold", anchor="center", outline=None):
         self.parent_bg = parent["bg"]
         super().__init__(parent, height=height, highlightthickness=0, bg=self.parent_bg, cursor="hand2",

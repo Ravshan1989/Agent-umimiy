@@ -30,6 +30,20 @@ dark-themed window. The interface is currently **in Uzbek**.
 
 The app **finds the agents already on your computer by itself** — you don't have to type anything.
 
+## 📸 Screenshots
+
+> Screenshots go into the `docs/screenshots/` folder ([guide](docs/screenshots/README.md)).
+> Once you add the files, uncomment the block below and the images appear.
+
+<!--
+<div align="center">
+<img src="docs/screenshots/main.png" alt="Main window" width="800">
+<br><br>
+<img src="docs/screenshots/settings.png" alt="Settings" width="420">
+<img src="docs/screenshots/phone.png" alt="Phone control" width="240">
+</div>
+-->
+
 ## ✨ Features
 
 | | Feature | Description |

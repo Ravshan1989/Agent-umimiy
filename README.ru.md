@@ -30,6 +30,20 @@
 
 Приложение **само находит** агентов, уже установленных на вашем компьютере — ничего вписывать не нужно.
 
+## 📸 Скриншоты
+
+> Скриншоты добавляются в папку `docs/screenshots/` ([инструкция](docs/screenshots/README.md)).
+> После добавления файлов раскомментируйте блок ниже — и картинки появятся.
+
+<!--
+<div align="center">
+<img src="docs/screenshots/main.png" alt="Главное окно" width="800">
+<br><br>
+<img src="docs/screenshots/settings.png" alt="Настройки" width="420">
+<img src="docs/screenshots/phone.png" alt="Управление с телефона" width="240">
+</div>
+-->
+
 ## ✨ Возможности
 
 | | Возможность | Описание |

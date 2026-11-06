@@ -13,13 +13,13 @@ import webbrowser
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from . import attachments, chatstore, config, detect, gitutil, markdown, theme
+from . import attachments, chatstore, config, detect, gitutil, i18n, markdown, theme
 from . import mcp as mcplib
 from . import remote as remotelib
 from . import skills as skilllib
 from .orchestrator import READ_ONLY_MODES
 from .providers import build_agent
-from .theme import P, Avatar, Pill, color_for, font, label, rrect
+from .theme import Avatar, P, Pill, color_for, font, label, rrect
 
 MODES = {
     "auto": ("✦", "Avtomatik", "Eng mos agentni o'zi tanlaydi"),
@@ -126,28 +126,28 @@ class AgentDialog(tk.Toplevel):
 
     def __init__(self, parent, spec=None):
         super().__init__(parent)
-        self.title("Agent sozlamasi")
+        self.title(i18n.t("Agent sozlamasi"))
         self.configure(bg=P["bg"])
         fit(self, 640, 600)
         self.result = None
         self.transient(parent)
         spec = spec or {}
         bar, f = scroll_body(self)
-        label(f, "Agent sozlamasi", size=14, weight="bold").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
+        label(f, i18n.t("Agent sozlamasi"), size=14, weight="bold").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
         self.vars = {}
         rows = [("name", "Nomi"), ("type", "Turi"), ("model", "Model"), ("api_key", "API kalit"),
                 ("base_url", "Manzil (ixtiyoriy)"), ("command", "Buyruq (CLI uchun)")]
         for i, (k, text) in enumerate(rows, start=1):
-            label(f, text, fg=P["muted"]).grid(row=i, column=0, sticky="w", pady=5)
+            label(f, i18n.t(text), fg=P["muted"]).grid(row=i, column=0, sticky="w", pady=5)
             v = tk.StringVar(value=spec.get(k, ""))
             if k == "type":
-                v.set(TYPE_LABELS.get(spec.get("type", "anthropic"), TYPE_LABELS["anthropic"]))
-                w = ttk.Combobox(f, textvariable=v, values=list(TYPE_LABELS.values()), state="readonly", width=38)
+                v.set(i18n.t(TYPE_LABELS.get(spec.get("type", "anthropic"), TYPE_LABELS["anthropic"])))
+                w = ttk.Combobox(f, textvariable=v, values=[i18n.t(x) for x in TYPE_LABELS.values()], state="readonly", width=38)
                 w.bind("<<ComboboxSelected>>", lambda e: self._type_changed())
             elif k == "model":
                 w = ttk.Combobox(f, textvariable=v, values=[], width=38)
                 self.model_box = w
-                Pill(f, "Ro'yxat", self._load_models, width=70, height=30, size=9, outline=P["line"],
+                Pill(f, i18n.t("Ro'yxat"), self._load_models, width=70, height=30, size=9, outline=P["line"],
                      bg=P["bg"]).grid(row=i, column=2, padx=(8, 0))
             else:
                 w = ttk.Entry(f, textvariable=v, width=40, show="•" if k == "api_key" else "")
@@ -158,13 +158,17 @@ class AgentDialog(tk.Toplevel):
         self._hint()
         btns = tk.Frame(bar, bg=P["bg"])
         btns.pack(anchor="e")
-        Pill(btns, "Bekor", self.destroy, width=90).pack(side="left", padx=4)
-        Pill(btns, "Sinab ko'rish", self._test, width=130, outline=P["line"], bg=P["bg"]).pack(side="left", padx=4)
-        Pill(btns, "Saqlash", self._save, width=110, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(side="left")
+        Pill(btns, i18n.t("Bekor"), self.destroy, width=90).pack(side="left", padx=4)
+        Pill(btns, i18n.t("Sinab ko'rish"), self._test, width=130, outline=P["line"], bg=P["bg"]).pack(side="left", padx=4)
+        Pill(btns, i18n.t("Saqlash"), self._save, width=110, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(side="left")
         self.grab_set()
 
     def _type(self):
-        return LABEL_TO_TYPE.get(self.vars["type"].get(), "anthropic")
+        lbl = self.vars["type"].get()
+        for k, v in TYPE_LABELS.items():
+            if lbl in (v, i18n.t(v)):
+                return k
+        return "anthropic"
 
     def _type_changed(self):
         if self._type() == "freellm":
@@ -177,30 +181,29 @@ class AgentDialog(tk.Toplevel):
         t = REAL_TYPE.get(self._type(), self._type())
         url = self.vars["base_url"].get().strip() or ("https://api.openai.com/v1" if t == "openai" else "")
         if t != "openai" or not url:
-            return messagebox.showinfo("Modellar ro'yxati", "Ro'yxat OpenAI-mos shlyuzlar (FreeLLMAPI, LM Studio, "
-                                       "OpenRouter...) uchun ishlaydi. Boshqalarda model nomini o'zingiz yozing.", parent=self)
+            return messagebox.showinfo(i18n.t("Modellar ro'yxati"), i18n.t("Ro'yxat OpenAI-mos shlyuzlar (FreeLLMAPI, LM Studio, OpenRouter...) uchun ishlaydi. Boshqalarda model nomini o'zingiz yozing."), parent=self)
         self.config(cursor="watch")
         self.update()
         try:
             ids = detect.list_models(url, self.vars["api_key"].get().strip())
         except Exception as exc:
             self.config(cursor="")
-            return messagebox.showerror("Ro'yxat olinmadi", f"{exc}\n\nShlyuz ishlayotganini va API kalit to'g'riligini tekshiring.", parent=self)
+            return messagebox.showerror(i18n.t("Ro'yxat olinmadi"), f"{exc}\n\n" + i18n.t("Shlyuz ishlayotganini va API kalit to'g'riligini tekshiring."), parent=self)
         self.config(cursor="")
         self.model_box["values"] = ids
         if ids and not self.vars["model"].get():
             self.vars["model"].set(ids[0])
-        messagebox.showinfo("Modellar ro'yxati", f"{len(ids)} ta model topildi. Ro'yxatdan tanlang.", parent=self)
+        messagebox.showinfo(i18n.t("Modellar ro'yxati"), f"{len(ids)} " + i18n.t("ta model topildi. Ro'yxatdan tanlang."), parent=self)
 
     def _hint(self):
-        self.hint.config(text={
+        self.hint.config(text=i18n.t({
             "freellm": "Brauzerda localhost:3001 → «Agentlar» bo'limidagi API KEY ni «API kalit» maydoniga qo'ying, so'ng «Ro'yxat» tugmasi bilan modelni tanlang.",
             "anthropic": "Kalitni console.anthropic.com dan oling. Model bo'sh qolsa, standarti ishlatiladi.",
             "openai": "OpenAI, OpenRouter, Groq yoki LM Studio. Lokal bo'lsa manzilni yozing: http://localhost:1234/v1",
             "gemini": "Kalitni aistudio.google.com dan oling.",
             "ollama": "Avval ollama.com dan o'rnating va modelni yuklab oling. Kalit shart emas.",
             "cli": "Masalan: codex exec {prompt}  yoki  claude -p {prompt}",
-        }[self._type()])
+        }[self._type()]))
 
     def _spec(self):
         t = REAL_TYPE.get(self._type(), self._type())
@@ -216,26 +219,26 @@ class AgentDialog(tk.Toplevel):
     def _test(self):
         s = self._spec()
         if not s["name"]:
-            return messagebox.showwarning("Diqqat", "Nomini yozing", parent=self)
+            return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("Nomini yozing"), parent=self)
         if self._type() == "freellm" and not self.vars["model"].get().strip():
-            return messagebox.showwarning("Diqqat", "Avval «Ro'yxat» tugmasi bilan modelni tanlang.", parent=self)
+            return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("Avval «Ro'yxat» tugmasi bilan modelni tanlang."), parent=self)
         self.config(cursor="watch")
         self.update()
         r = build_agent(s).ask("Salom! Bir so'z bilan javob ber.")
         self.config(cursor="")
         if r.ok:
-            messagebox.showinfo("Ishlayapti ✓", r.text[:300], parent=self)
+            messagebox.showinfo(i18n.t("Ishlayapti ✓"), r.text[:300], parent=self)
         else:
-            messagebox.showerror("Xato", r.error, parent=self)
+            messagebox.showerror(i18n.t("Xato"), r.error, parent=self)
 
     def _save(self):
         s = self._spec()
         if not s["name"]:
-            return messagebox.showwarning("Diqqat", "Nomini yozing", parent=self)
+            return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("Nomini yozing"), parent=self)
         if self._type() == "freellm" and not self.vars["model"].get().strip():
-            return messagebox.showwarning("Diqqat", "Avval «Ro'yxat» tugmasi bilan modelni tanlang.", parent=self)
+            return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("Avval «Ro'yxat» tugmasi bilan modelni tanlang."), parent=self)
         if s["type"] == "cli" and not s.get("command"):
-            return messagebox.showwarning("Diqqat", "Buyruqni yozing", parent=self)
+            return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("Buyruqni yozing"), parent=self)
         self.result = s
         self.destroy()
 
@@ -243,59 +246,80 @@ class AgentDialog(tk.Toplevel):
 class Settings(tk.Toplevel):
     def __init__(self, parent, cfg, on_save):
         super().__init__(parent)
-        self.title("Sozlamalar")
+        self.title(i18n.t("Sozlamalar"))
         self.configure(bg=P["bg"])
         self.cfg, self.on_save = cfg, on_save
         fit(self, 720, 760)
         self.transient(parent)
         bar, f = scroll_body(self)
-        label(f, "Agentlaringiz", size=15, weight="bold").pack(anchor="w")
-        label(f, "Qo'shing, tahrirlang yoki vaqtincha o'chirib qo'ying", fg=P["muted"], size=9).pack(anchor="w", pady=(0, 10))
+        label(f, i18n.t("Agentlaringiz"), size=15, weight="bold").pack(anchor="w")
+        label(f, i18n.t("Qo'shing, tahrirlang yoki vaqtincha o'chirib qo'ying"), fg=P["muted"], size=9).pack(anchor="w", pady=(0, 10))
         self.tree = ttk.Treeview(f, columns=("type", "model", "on"), show="headings", height=8)
         for c, t, w in (("type", "Agent", 250), ("model", "Model / buyruq", 220), ("on", "Yoqilgan", 80)):
-            self.tree.heading(c, text=t)
+            self.tree.heading(c, text=i18n.t(t))
             self.tree.column(c, width=w)
         self.tree.pack(fill="both", expand=True)
         row = tk.Frame(f, bg=P["bg"])
         row.pack(fill="x", pady=12)
         for text, cmd, w in (("+ Qo'shish", self.add, 100), ("Tahrirlash", self.edit, 100), ("O'chirish", self.remove, 90),
                              ("Yoq / o'chir", self.toggle, 110), ("Avto-topish", self.autodetect, 110)):
-            Pill(row, text, cmd, width=w, height=34, size=9).pack(side="left", padx=(0, 6))
+            Pill(row, i18n.t(text), cmd, width=w, height=34, size=9).pack(side="left", padx=(0, 6))
         jr = tk.Frame(f, bg=P["bg"])
         jr.pack(fill="x")
-        label(jr, "Kengashda hakam:", fg=P["muted"]).pack(side="left")
+        label(jr, i18n.t("Kengashda hakam:"), fg=P["muted"]).pack(side="left")
         self.judge = tk.StringVar(value=cfg.get("judge", ""))
         self.judge_box = ttk.Combobox(jr, textvariable=self.judge, state="readonly", width=24)
         self.judge_box.pack(side="left", padx=10)
+        lr = tk.Frame(f, bg=P["bg"])
+        lr.pack(fill="x", pady=(12, 0))
+        label(lr, i18n.t("Interfeys tili") + ":", fg=P["muted"]).pack(side="left")
+        self._lang_names = {i18n.LANG_NAMES[c]: c for c in i18n.LANGS}
+        self.lang = tk.StringVar(value=i18n.LANG_NAMES.get(cfg.get("lang", "uz"), i18n.LANG_NAMES["uz"]))
+        ttk.Combobox(lr, textvariable=self.lang, state="readonly", width=16,
+                     values=list(self._lang_names)).pack(side="left", padx=10)
+        tr = tk.Frame(f, bg=P["bg"])
+        tr.pack(fill="x", pady=(10, 0))
+        label(tr, i18n.t("Mavzu") + ":", fg=P["muted"]).pack(side="left")
+        self._theme_names = {i18n.t("Qorong'i"): "dark", i18n.t("Yorug'"): "light"}
+        self.theme_var = tk.StringVar(value=next((k for k, v in self._theme_names.items()
+                                                   if v == cfg.get("theme", "dark")), i18n.t("Qorong'i")))
+        ttk.Combobox(tr, textvariable=self.theme_var, state="readonly", width=14,
+                     values=list(self._theme_names)).pack(side="left", padx=10)
+        label(tr, i18n.t("Urg'u rang") + ":", fg=P["muted"]).pack(side="left", padx=(12, 0))
+        self.accent_var = tk.StringVar(value=cfg.get("accent", "violet"))
+        ttk.Combobox(tr, textvariable=self.accent_var, state="readonly", width=12,
+                     values=list(theme.ACCENTS)).pack(side="left", padx=10)
+        label(f, i18n.t("Til, mavzu va rang o'zgarishi dasturni qayta ishga tushirgandan so'ng qo'llanadi."),
+              fg=P["muted"], size=8).pack(anchor="w", pady=(4, 0))
         self.keep = tk.BooleanVar(value=cfg.get("save_chats", True))
-        tk.Checkbutton(f, text="Suhbatlarni shu kompyuterda saqlash (dastur qayta ochilganda tiklanadi)", variable=self.keep,
+        tk.Checkbutton(f, text=i18n.t("Suhbatlarni shu kompyuterda saqlash (dastur qayta ochilganda tiklanadi)"), variable=self.keep,
                        bg=P["bg"], fg=P["text"], selectcolor=P["card"], activebackground=P["bg"],
                        activeforeground=P["text"], highlightthickness=0, bd=0, font=font(10)).pack(anchor="w", pady=(12, 0))
-        Pill(f, "Suhbatlar tarixini o'chirish", self._wipe, width=210, height=32, size=9, fg=P["err"],
+        Pill(f, i18n.t("Suhbatlar tarixini o'chirish"), self._wipe, width=210, height=32, size=9, fg=P["err"],
              outline=P["line"], bg=P["bg"]).pack(anchor="w", pady=(8, 0))
         self.brow = tk.BooleanVar(value=cfg.get("browser", True))
-        tk.Checkbutton(f, text="Agentlar brauzerni boshqara olsin (sayt ochish, bosish, yozish — har safar ruxsat so'raydi)",
+        tk.Checkbutton(f, text=i18n.t("Agentlar brauzerni boshqara olsin (sayt ochish, bosish, yozish — har safar ruxsat so'raydi)"),
                        variable=self.brow, bg=P["bg"], fg=P["text"], selectcolor=P["card"], activebackground=P["bg"],
                        activeforeground=P["text"], highlightthickness=0, bd=0, font=font(10)).pack(anchor="w", pady=(12, 0))
-        Pill(f, "Telefondan boshqarish (mobil kirish)…", lambda: self.master.open_remote(), width=300, height=32, size=9,
+        Pill(f, i18n.t("Telefondan boshqarish (mobil kirish)…"), lambda: self.master.open_remote(), width=300, height=32, size=9,
              outline=P["line"], bg=P["bg"]).pack(anchor="w", pady=(8, 0))
         self.web = tk.BooleanVar(value=cfg.get("web", True))
-        tk.Checkbutton(f, text="Agentlar internetdan qidira va sahifalarni o'qiy olsin", variable=self.web, bg=P["bg"],
+        tk.Checkbutton(f, text=i18n.t("Agentlar internetdan qidira va sahifalarni o'qiy olsin"), variable=self.web, bg=P["bg"],
                        fg=P["text"], selectcolor=P["card"], activebackground=P["bg"], activeforeground=P["text"],
                        highlightthickness=0, bd=0, font=font(10)).pack(anchor="w", pady=(12, 0))
-        Pill(bar, "Saqlash va yopish", self.save, width=170, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(anchor="e")
+        Pill(bar, i18n.t("Saqlash va yopish"), self.save, width=170, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(anchor="e")
         self.refresh()
 
     def _wipe(self):
-        if messagebox.askyesno("Tarixni o'chirish", "Barcha saqlangan suhbatlar o'chirilsinmi?", parent=self):
+        if messagebox.askyesno(i18n.t("Tarixni o'chirish"), i18n.t("Barcha saqlangan suhbatlar o'chirilsinmi?"), parent=self):
             self.master.clear_history()
 
     def refresh(self):
         self.tree.delete(*self.tree.get_children())
         for i, a in enumerate(self.cfg["agents"]):
             self.tree.insert("", "end", iid=str(i), values=(
-                f"{a['name']}  ·  {SHORT_TYPE.get(a['type'], a['type'])}",
-                a.get("model") or a.get("command", ""), "ha" if a.get("enabled", True) else "yo'q"))
+                f"{a['name']}  ·  {i18n.t(SHORT_TYPE.get(a['type'], a['type']))}",
+                a.get("model") or a.get("command", ""), i18n.t("ha") if a.get("enabled", True) else i18n.t("yo'q")))
         self.judge_box["values"] = [a["name"] for a in self.cfg["agents"]]
 
     def _sel(self):
@@ -322,7 +346,7 @@ class Settings(tk.Toplevel):
 
     def remove(self):
         i = self._sel()
-        if i is not None and messagebox.askyesno("O'chirish", "Bu agent o'chirilsinmi?", parent=self):
+        if i is not None and messagebox.askyesno(i18n.t("O'chirish"), i18n.t("Bu agent o'chirilsinmi?"), parent=self):
             del self.cfg["agents"][i]
             self.refresh()
 
@@ -338,14 +362,18 @@ class Settings(tk.Toplevel):
         new = [a for a in detect.discover() if a["name"] not in have]
         self.cfg["agents"] += new
         self.refresh()
-        messagebox.showinfo("Avto-topish", f"{len(new)} ta yangi agent topildi." if new else
-                            "Yangi agent topilmadi. Ollama/LM Studio ishga tushirilganini tekshiring.", parent=self)
+        messagebox.showinfo(i18n.t("Avto-topish"), f"{len(new)} " + i18n.t("ta yangi agent topildi.") if new else
+                            i18n.t("Yangi agent topilmadi. Ollama/LM Studio ishga tushirilganini tekshiring."), parent=self)
 
     def save(self):
         self.cfg["judge"] = self.judge.get()
         self.cfg["web"] = bool(self.web.get())
         self.cfg["browser"] = bool(self.brow.get())
         self.cfg["save_chats"] = bool(self.keep.get())
+        self.cfg["lang"] = self._lang_names.get(self.lang.get(), "uz")
+        self.cfg["theme"] = self._theme_names.get(self.theme_var.get(), "dark")
+        self.cfg["accent"] = self.accent_var.get() if self.accent_var.get() in theme.ACCENTS else "violet"
+        i18n.set_lang(self.cfg["lang"])
         self.on_save(self.cfg)
         self.destroy()
 
@@ -355,13 +383,13 @@ class ApproveDialog(tk.Toplevel):
 
     def __init__(self, parent, agent, kind, title, detail):
         super().__init__(parent)
-        self.title("Ruxsat kerak")
+        self.title(i18n.t("Ruxsat kerak"))
         self.configure(bg=P["bg"])
         self.transient(parent)
         self.result = "no"
         f = tk.Frame(self, bg=P["bg"], padx=22, pady=18)
         f.pack(fill="both", expand=True)
-        label(f, f"{agent} ruxsat so'ramoqda", fg=P["warn"], size=9, weight="bold").pack(anchor="w")
+        label(f, f"{agent} " + i18n.t("ruxsat so'ramoqda"), fg=P["warn"], size=9, weight="bold").pack(anchor="w")
         label(f, title, size=13, weight="bold", wraplength=560, justify="left").pack(anchor="w", pady=(2, 10))
         box = tk.Text(f, width=76, height=14, bg=P["code"], fg="#c9d1ff", relief="flat", bd=0, font=font(10, mono=True),
                       padx=10, pady=8, wrap="none" if kind == "write" else "word", highlightthickness=0)
@@ -377,11 +405,11 @@ class ApproveDialog(tk.Toplevel):
         box.pack(fill="both", expand=True)
         row = tk.Frame(f, bg=P["bg"])
         row.pack(fill="x", pady=(14, 0))
-        always = ("Shu suhbatda doim ruxsat" if kind == "write" else
-                  "Brauzerda doim ruxsat" if kind.startswith("browser") else
-                  "Bu plaginga doim ruxsat" if kind.startswith("mcp") else "Buyruqlarga doim ruxsat")
-        Pill(row, "Rad etish", lambda: self._done("no"), width=110, fg=P["err"]).pack(side="left")
-        Pill(row, "Ruxsat berish", lambda: self._done("yes"), width=140, bg=P["accent"], hover=P["accent_hi"],
+        always = (i18n.t("Shu suhbatda doim ruxsat") if kind == "write" else
+                  i18n.t("Brauzerda doim ruxsat") if kind.startswith("browser") else
+                  i18n.t("Bu plaginga doim ruxsat") if kind.startswith("mcp") else i18n.t("Buyruqlarga doim ruxsat"))
+        Pill(row, i18n.t("Rad etish"), lambda: self._done("no"), width=110, fg=P["err"]).pack(side="left")
+        Pill(row, i18n.t("Ruxsat berish"), lambda: self._done("yes"), width=140, bg=P["accent"], hover=P["accent_hi"],
              fg="white").pack(side="right")
         Pill(row, always, lambda: self._done("always"), width=190, outline=P["line"], bg=P["bg"]).pack(side="right", padx=8)
         self.protocol("WM_DELETE_WINDOW", lambda: self._done("no"))
@@ -400,7 +428,7 @@ class GitDialog(tk.Toplevel):
     def __init__(self, parent, root):
         super().__init__(parent)
         self.root_dir = root
-        self.title("Git — o'zgarishlar")
+        self.title(i18n.t("Git — o'zgarishlar"))
         self.configure(bg=P["bg"])
         fit(self, 760, 640)
         self.transient(parent)
@@ -411,8 +439,8 @@ class GitDialog(tk.Toplevel):
         self.sub = label(f, "", fg=P["muted"], size=9)
         self.sub.pack(anchor="w", pady=(0, 10))
         self.tree = ttk.Treeview(f, columns=("what", "file"), show="headings", height=6)
-        self.tree.heading("what", text="Holati")
-        self.tree.heading("file", text="Fayl")
+        self.tree.heading("what", text=i18n.t("Holati"))
+        self.tree.heading("file", text=i18n.t("Fayl"))
         self.tree.column("what", width=190)
         self.tree.column("file", width=480)
         self.tree.pack(fill="x")
@@ -423,7 +451,7 @@ class GitDialog(tk.Toplevel):
         self.out.pack(fill="both", expand=True, pady=10)
         msg = tk.Frame(f, bg=P["bg"])
         msg.pack(fill="x")
-        label(msg, "Saqlash izohi:", fg=P["muted"]).pack(side="left")
+        label(msg, i18n.t("Saqlash izohi:"), fg=P["muted"]).pack(side="left")
         self.msg = tk.StringVar()
         ttk.Entry(msg, textvariable=self.msg).pack(side="left", fill="x", expand=True, padx=10)
         self.btns = tk.Frame(f, bg=P["bg"])
@@ -449,22 +477,22 @@ class GitDialog(tk.Toplevel):
     def refresh(self):
         self.tree.delete(*self.tree.get_children())
         if not gitutil.have_git():
-            self.head.config(text="Git o'rnatilmagan")
-            self.sub.config(text="git-scm.com saytidan Git ni o'rnating, so'ng bu oynani qayta oching.")
+            self.head.config(text=i18n.t("Git o'rnatilmagan"))
+            self.sub.config(text=i18n.t("git-scm.com saytidan Git ni o'rnating, so'ng bu oynani qayta oching."))
             return self._buttons([])
         if not gitutil.is_repo(self.root_dir):
-            self.head.config(text="Bu papka hali Git omboriga aylanmagan")
-            self.sub.config(text="Git o'zgarishlaringiz tarixini saqlaydi. Boshlash uchun tugmani bosing.")
-            return self._buttons([("Git omborini yaratish", self.init, True)])
+            self.head.config(text=i18n.t("Bu papka hali Git omboriga aylanmagan"))
+            self.sub.config(text=i18n.t("Git o'zgarishlaringiz tarixini saqlaydi. Boshlash uchun tugmani bosing."))
+            return self._buttons([(i18n.t("Git omborini yaratish"), self.init, True)])
         rows = gitutil.status(self.root_dir)
-        self.head.config(text=f"Shox: {gitutil.branch(self.root_dir) or '—'}")
-        self.sub.config(text=f"{len(rows)} ta fayl o'zgargan" if rows else "Hammasi saqlangan — o'zgarish yo'q")
+        self.head.config(text=i18n.t("Shox:") + f" {gitutil.branch(self.root_dir) or '—'}")
+        self.sub.config(text=f"{len(rows)} " + i18n.t("ta fayl o'zgargan") if rows else i18n.t("Hammasi saqlangan — o'zgarish yo'q"))
         for w, path in rows:
             self.tree.insert("", "end", values=(w, path))
         d = gitutil.diff(self.root_dir) if rows else ""
-        self._show(d if d != "(farq yo'q)" else ("Yangi fayllar «Saqlash» bosilganda qo'shiladi." if rows else ""))
-        self._buttons([("Saqlash (commit)", self.commit, True), ("Yuborish (push)", lambda: self._net("push"), False),
-                       ("Olish (pull)", lambda: self._net("pull"), False), ("Yangilash", self.refresh, False)])
+        self._show(d if d != "(farq yo'q)" else (i18n.t("Yangi fayllar «Saqlash» bosilganda qo'shiladi.") if rows else ""))
+        self._buttons([(i18n.t("Saqlash (commit)"), self.commit, True), (i18n.t("Yuborish (push)"), lambda: self._net("push"), False),
+                       (i18n.t("Olish (pull)"), lambda: self._net("pull"), False), (i18n.t("Yangilash"), self.refresh, False)])
 
     def init(self):
         ok, out = gitutil.run(self.root_dir, "init")
@@ -474,11 +502,11 @@ class GitDialog(tk.Toplevel):
     def commit(self):
         text = self.msg.get().strip()
         if not text:
-            return messagebox.showwarning("Diqqat", "Saqlash izohini yozing (nima o'zgardi?)", parent=self)
+            return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("Saqlash izohini yozing (nima o'zgardi?)"), parent=self)
         ok, out = gitutil.commit_all(self.root_dir, text)
         self.msg.set("")
         self.refresh()
-        self._show(("✓ Saqlandi\n\n" if ok else "Xato:\n") + out)
+        self._show((i18n.t("✓ Saqlandi") + "\n\n" if ok else i18n.t("Xato:") + "\n") + out)
 
     def _net(self, what):
         self.config(cursor="watch")
@@ -486,7 +514,7 @@ class GitDialog(tk.Toplevel):
         ok, out = gitutil.run(self.root_dir, what, timeout=120)
         self.config(cursor="")
         self.refresh()
-        self._show(("✓ Bajarildi\n\n" if ok else "Xato:\n") + out)
+        self._show((i18n.t("✓ Bajarildi") + "\n\n" if ok else i18n.t("Xato:") + "\n") + out)
 
 
 class RemoteDialog(tk.Toplevel):
@@ -495,15 +523,14 @@ class RemoteDialog(tk.Toplevel):
     def __init__(self, app):
         super().__init__(app)
         self.app = app
-        self.title("Telefondan boshqarish")
+        self.title(i18n.t("Telefondan boshqarish"))
         self.configure(bg=P["bg"])
         fit(self, 600, 800)
         self.transient(app)
         bar, f = scroll_body(self, (24, 18))
-        Pill(bar, "Yopish", self.destroy, width=100, height=34, size=9, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(anchor="e")
-        label(f, "Telefondan boshqarish", size=15, weight="bold").pack(anchor="w")
-        label(f, "Telefon va kompyuter bir Wi-Fi tarmog'ida bo'lsin. QR-kodni telefon kamerasi bilan skanerlang: chat telefon brauzerida ochiladi, "
-                 "ruxsat so'rovlari ham telefonda chiqadi.", fg=P["muted"], size=9, wraplength=500, justify="left").pack(anchor="w", pady=(2, 10))
+        Pill(bar, i18n.t("Yopish"), self.destroy, width=100, height=34, size=9, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(anchor="e")
+        label(f, i18n.t("Telefondan boshqarish"), size=15, weight="bold").pack(anchor="w")
+        label(f, i18n.t("Telefon va kompyuter bir Wi-Fi tarmog'ida bo'lsin. QR-kodni telefon kamerasi bilan skanerlang: chat telefon brauzerida ochiladi, ruxsat so'rovlari ham telefonda chiqadi."), fg=P["muted"], size=9, wraplength=500, justify="left").pack(anchor="w", pady=(2, 10))
         self.status = label(f, "", size=11, weight="bold")
         self.status.pack(anchor="w")
         self.qr = tk.Canvas(f, width=230, height=230, bg="white", highlightthickness=0)
@@ -511,7 +538,7 @@ class RemoteDialog(tk.Toplevel):
         self.url_var = tk.StringVar()
         ipr = tk.Frame(f, bg=P["bg"])
         ipr.pack(fill="x", pady=(0, 6))
-        label(ipr, "Kompyuter manzili:", fg=P["muted"], size=9).pack(side="left")
+        label(ipr, i18n.t("Kompyuter manzili:"), fg=P["muted"], size=9).pack(side="left")
         self.ip_var = tk.StringVar()
         self.ip_box = ttk.Combobox(ipr, textvariable=self.ip_var, state="readonly", width=44)
         self.ip_box.pack(side="left", padx=8)
@@ -521,45 +548,38 @@ class RemoteDialog(tk.Toplevel):
         row.pack(fill="x", pady=10)
         self.toggle = Pill(row, "", self._toggle, width=130, height=34, size=9, bg=P["accent"], hover=P["accent_hi"], fg="white")
         self.toggle.pack(side="left", padx=(0, 6))
-        Pill(row, "Manzilni nusxalash", self._copy, width=150, height=34, size=9).pack(side="left", padx=(0, 6))
-        Pill(row, "Yangi kalit", self._renew, width=100, height=34, size=9).pack(side="left")
+        Pill(row, i18n.t("Manzilni nusxalash"), self._copy, width=150, height=34, size=9).pack(side="left", padx=(0, 6))
+        Pill(row, i18n.t("Yangi kalit"), self._renew, width=100, height=34, size=9).pack(side="left")
         fw = tk.Frame(f, bg=P["bg"])
         fw.pack(fill="x", pady=(0, 6))
-        Pill(fw, "Windows devoriga ruxsat berish", self._firewall, width=230, height=34, size=9, outline=P["line"], bg=P["bg"]).pack(side="left")
-        self.fw_lbl = label(fw, "To'suvchi qoidalarni ham o'chiradi", size=9, fg=P["muted"], wraplength=240, justify="left")
+        Pill(fw, i18n.t("Windows devoriga ruxsat berish"), self._firewall, width=230, height=34, size=9, outline=P["line"], bg=P["bg"]).pack(side="left")
+        self.fw_lbl = label(fw, i18n.t("To'suvchi qoidalarni ham o'chiradi"), size=9, fg=P["muted"], wraplength=240, justify="left")
         self.fw_lbl.pack(side="left", padx=10)
-        label(f, "Ulanmasa, tekshiring:\n1) Telefonda mobil internet o'chiq, Wi-Fi yoqilgan va kompyuter bilan BIR XIL tarmoqda (mehmon/guest Wi-Fi emas).\n"
-                 "2) Yuqoridagi «Kompyuter manzili» ni boshqasiga almashtirib ko'ring (Docker/VPN bo'lsa, birinchisi noto'g'ri bo'lishi mumkin).\n"
-                 "3) «Windows devoriga ruxsat berish» tugmasini bosing (administrator so'raydi).\n"
-                 "4) Telefon brauzerida faqat manzilni oching (kalitsiz): http://MANZIL:PORT/ — sahifa ochilsa, tarmoq yaxshi.\n"
-                 "5) Kompyuter boshqa joyda (masalan, Chrome Remote Desktop orqali ulangan «SERVER») bo'lsa, telefon u bilan bir Wi-Fi'da bo'lmaydi: Tailscale ishlating.",
+        label(f, i18n.t("Ulanmasa, tekshiring:\n1) Telefonda mobil internet o'chiq, Wi-Fi yoqilgan va kompyuter bilan BIR XIL tarmoqda (mehmon/guest Wi-Fi emas).\n2) Yuqoridagi «Kompyuter manzili» ni boshqasiga almashtirib ko'ring (Docker/VPN bo'lsa, birinchisi noto'g'ri bo'lishi mumkin).\n3) «Windows devoriga ruxsat berish» tugmasini bosing (administrator so'raydi).\n4) Telefon brauzerida faqat manzilni oching (kalitsiz): http://MANZIL:PORT/ — sahifa ochilsa, tarmoq yaxshi.\n5) Kompyuter boshqa joyda (masalan, Chrome Remote Desktop orqali ulangan «SERVER») bo'lsa, telefon u bilan bir Wi-Fi'da bo'lmaydi: Tailscale ishlating."),
               fg=P["muted"], size=9, wraplength=500, justify="left").pack(anchor="w", pady=(0, 8))
-        label(f, "Xavfsizlik: manzildagi kalit (t=...) parol vazifasini bajaradi: uni hech kimga bermang. Ulanish shifrlanmagan (HTTP), "
-                 "shuning uchun faqat ishonchli uy Wi-Fi'ida ishlating. Boshqa joydan ulanish uchun Tailscale kabi shifrlangan tunnel "
-                 "o'rnating va shu manzildagi IP o'rniga kompyuterning Tailscale IP sini yozing. Kalit boshqaga ko'rinib qolsa, «Yangi kalit» ni bosing. "
-                 "Windows xavfsizlik devori so'rasa, «Ruxsat berish» (shaxsiy tarmoq) ni tanlang.",
+        label(f, i18n.t("Xavfsizlik: manzildagi kalit (t=...) parol vazifasini bajaradi: uni hech kimga bermang. Ulanish shifrlanmagan (HTTP), shuning uchun faqat ishonchli uy Wi-Fi'ida ishlating. Boshqa joydan ulanish uchun Tailscale kabi shifrlangan tunnel o'rnating va shu manzildagi IP o'rniga kompyuterning Tailscale IP sini yozing. Kalit boshqaga ko'rinib qolsa, «Yangi kalit» ni bosing. Windows xavfsizlik devori so'rasa, «Ruxsat berish» (shaxsiy tarmoq) ni tanlang."),
               fg=P["muted"], size=9, wraplength=500, justify="left").pack(anchor="w", pady=(4, 0))
         self.refresh()
 
     def refresh(self):
         app = self.app
         on = app.remote is not None
-        self.toggle.set_text("O'chirish" if on else "Yoqish")
+        self.toggle.set_text(i18n.t("To'xtatish") if on else i18n.t("Yoqish"))
         self.qr.delete("all")
         if not on:
-            self.status.config(text="○ O'chiq", fg=P["muted"])
+            self.status.config(text=i18n.t("○ O'chiq"), fg=P["muted"])
             self.url_var.set("")
-            self.qr.create_text(115, 115, text="Yoqilmagan", fill="#999", font=font(12))
+            self.qr.create_text(115, 115, text=i18n.t("Yoqilmagan"), fill="#999", font=font(12))
             return
         ips = remotelib.local_ips()
-        choices = [f"{o['ip']}  ({o['note']})" for o in ips] or ["127.0.0.1  (faqat shu kompyuter)"]
+        choices = [f"{o['ip']}  ({o['note']})" for o in ips] or [i18n.t("127.0.0.1  (faqat shu kompyuter)")]
         self.ip_box["values"] = choices
         if self.ip_var.get() not in choices:
             self.ip_var.set(choices[0])
         ip = self.ip_var.get().split()[0]
         url = app.remote.url(ip)
         ok, msg = app.remote.selftest(ip)
-        self.status.config(text=("● Yoqilgan. " + ("Server kompyuterda ishlayapti." if ok else "Lekin server javob bermayapti!")), fg=P["ok"] if ok else P["err"])
+        self.status.config(text=(i18n.t("● Yoqilgan.") + " " + (i18n.t("Server kompyuterda ishlayapti.") if ok else i18n.t("Lekin server javob bermayapti!"))), fg=P["ok"] if ok else P["err"])
         self.url_var.set(url)
         try:
             import qrcode
@@ -575,11 +595,11 @@ class RemoteDialog(tk.Toplevel):
                         self.qr.create_rectangle(off + x * cell, off + y * cell, off + (x + 1) * cell, off + (y + 1) * cell,
                                                  fill="black", outline="black")
         except Exception:
-            self.qr.create_text(115, 115, text="QR-kod yaratib bo'lmadi.\nManzilni qo'lda yozing.", fill="#555", font=font(11))
+            self.qr.create_text(115, 115, text=i18n.t("QR-kod yaratib bo'lmadi.\nManzilni qo'lda yozing."), fill="#555", font=font(11))
 
     def _firewall(self):
         if not self.app.remote:
-            return messagebox.showinfo("Devor", "Avval «Yoqish» tugmasini bosing.", parent=self)
+            return messagebox.showinfo(i18n.t("Devor"), i18n.t("Avval «Yoqish» tugmasini bosing."), parent=self)
         ok, msg = remotelib.open_firewall(self.app.remote.port)
         self.fw_lbl.config(text=msg, fg=P["ok"] if ok else P["err"])
         if ok:
@@ -589,9 +609,9 @@ class RemoteDialog(tk.Toplevel):
         if not self.winfo_exists():
             return
         if remotelib.firewall_rule_exists():
-            self.fw_lbl.config(text="✓ Qoida qo'shildi. Endi telefondan qayta urinib ko'ring.", fg=P["ok"])
+            self.fw_lbl.config(text=i18n.t("✓ Qoida qo'shildi. Endi telefondan qayta urinib ko'ring."), fg=P["ok"])
         else:
-            self.fw_lbl.config(text="Qoida topilmadi: administrator so'rovi rad etilgan yoki hali tugamagan.", fg=P["err"])
+            self.fw_lbl.config(text=i18n.t("Qoida topilmadi: administrator so'rovi rad etilgan yoki hali tugamagan."), fg=P["err"])
 
     def _toggle(self):
         if self.app.remote:
@@ -608,7 +628,7 @@ class RemoteDialog(tk.Toplevel):
             self.clipboard_append(self.url_var.get())
 
     def _renew(self):
-        if messagebox.askyesno("Yangi kalit", "Eski manzil ishlamay qoladi, telefonda QR-kodni qayta skanerlash kerak. Davom etilsinmi?", parent=self):
+        if messagebox.askyesno(i18n.t("Yangi kalit"), i18n.t("Eski manzil ishlamay qoladi, telefonda QR-kodni qayta skanerlash kerak. Davom etilsinmi?"), parent=self):
             self.app.new_remote_token()
             self.refresh()
 
@@ -620,53 +640,53 @@ class McpDialog(tk.Toplevel):
 
     def __init__(self, parent, spec=None, taken=()):
         super().__init__(parent)
-        self.title("Plagin sozlamasi")
+        self.title(i18n.t("Plagin sozlamasi"))
         self.configure(bg=P["bg"])
         fit(self, 700, 680)
         self.transient(parent)
         self.result, self.taken = None, set(taken)
         spec = spec or {}
         bar, f = scroll_body(self)
-        label(f, "Plagin sozlamasi", size=14, weight="bold").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+        label(f, i18n.t("Plagin sozlamasi"), size=14, weight="bold").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
         r = 1
         if not spec:
-            label(f, "Shablon", fg=P["muted"]).grid(row=r, column=0, sticky="w", pady=5)
+            label(f, i18n.t("Shablon"), fg=P["muted"]).grid(row=r, column=0, sticky="w", pady=5)
             self.preset = tk.StringVar()
             cb = ttk.Combobox(f, textvariable=self.preset, values=[p["label"] for p in mcplib.PRESETS], state="readonly", width=44)
             cb.grid(row=r, column=1, pady=5, padx=(12, 0))
             cb.bind("<<ComboboxSelected>>", lambda e: self._apply_preset())
             r += 1
         self.v = {k: tk.StringVar(value=spec.get(k, "")) for k in ("name", "command", "url")}
-        self.v["transport"] = tk.StringVar(value=self.TRANSPORTS.get(spec.get("transport", "stdio")))
+        self.v["transport"] = tk.StringVar(value=i18n.t(self.TRANSPORTS.get(spec.get("transport", "stdio"))))
         for key, text in (("name", "Nomi (lotincha, probelsiz)"), ("transport", "Turi"), ("command", "Buyruq"), ("url", "URL")):
-            label(f, text, fg=P["muted"]).grid(row=r, column=0, sticky="w", pady=5)
+            label(f, i18n.t(text), fg=P["muted"]).grid(row=r, column=0, sticky="w", pady=5)
             if key == "transport":
-                w = ttk.Combobox(f, textvariable=self.v[key], values=list(self.TRANSPORTS.values()), state="readonly", width=44)
+                w = ttk.Combobox(f, textvariable=self.v[key], values=[i18n.t(x) for x in self.TRANSPORTS.values()], state="readonly", width=44)
             else:
                 w = ttk.Entry(f, textvariable=self.v[key], width=47)
             w.grid(row=r, column=1, pady=5, padx=(12, 0))
             r += 1
         self.texts = {}
         for key, text in (("env", "Muhit o'zgaruvchilari\n(KALIT=qiymat, har qatorda bittadan)"), ("headers", "Sarlavhalar\n(Authorization: Bearer ..., har qatorda bittadan)")):
-            label(f, text, fg=P["muted"], justify="left").grid(row=r, column=0, sticky="nw", pady=5)
+            label(f, i18n.t(text), fg=P["muted"], justify="left").grid(row=r, column=0, sticky="nw", pady=5)
             t = tk.Text(f, width=47, height=3, bg=P["card"], fg=P["text"], insertbackground=P["text"], relief="flat",
                         highlightthickness=1, highlightbackground=P["line"], font=font(10, mono=True))
             t.insert("1.0", spec.get(key, ""))
             t.grid(row=r, column=1, pady=5, padx=(12, 0))
             self.texts[key] = t
             r += 1
-        self.note = label(f, "Kalitlar faqat shu kompyuterdagi sozlama faylida saqlanadi.", fg=P["muted"], size=9, wraplength=480, justify="left")
+        self.note = label(f, i18n.t("Kalitlar faqat shu kompyuterdagi sozlama faylida saqlanadi."), fg=P["muted"], size=9, wraplength=480, justify="left")
         self.note.grid(row=r, column=0, columnspan=2, sticky="w", pady=(6, 12))
         btns = tk.Frame(bar, bg=P["bg"])
         btns.pack(anchor="e")
-        Pill(btns, "Bekor", self.destroy, width=90).pack(side="left", padx=4)
-        Pill(btns, "Saqlash", self._save, width=110, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(side="left")
+        Pill(btns, i18n.t("Bekor"), self.destroy, width=90).pack(side="left", padx=4)
+        Pill(btns, i18n.t("Saqlash"), self._save, width=110, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(side="left")
         self.grab_set()
 
     def _apply_preset(self):
         p = next(x for x in mcplib.PRESETS if x["label"] == self.preset.get())
         self.v["name"].set(p["name"])
-        self.v["transport"].set(self.TRANSPORTS[p["transport"]])
+        self.v["transport"].set(i18n.t(self.TRANSPORTS[p["transport"]]))
         self.v["command"].set(p.get("command", ""))
         self.v["url"].set(p.get("url", ""))
         for k in ("env", "headers"):
@@ -675,17 +695,16 @@ class McpDialog(tk.Toplevel):
         self.note.config(text=p["note"])
 
     def _save(self):
-        import re
         name = re.sub(r"[^A-Za-z0-9_-]", "_", self.v["name"].get().strip())
-        transport = next(k for k, t in self.TRANSPORTS.items() if t == self.v["transport"].get()) if self.v["transport"].get() else "stdio"
+        transport = next((k for k, t in self.TRANSPORTS.items() if self.v["transport"].get() in (t, i18n.t(t))), "stdio")
         if not name:
-            return messagebox.showwarning("Diqqat", "Nomini yozing (lotin harflarida)", parent=self)
+            return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("Nomini yozing (lotin harflarida)"), parent=self)
         if name in self.taken:
-            return messagebox.showwarning("Diqqat", "Bu nom band", parent=self)
+            return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("Bu nom band"), parent=self)
         if transport == "stdio" and not self.v["command"].get().strip():
-            return messagebox.showwarning("Diqqat", "Buyruqni yozing", parent=self)
+            return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("Buyruqni yozing"), parent=self)
         if transport == "http" and not self.v["url"].get().strip():
-            return messagebox.showwarning("Diqqat", "URL ni yozing", parent=self)
+            return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("URL ni yozing"), parent=self)
         self.result = {"name": name, "transport": transport, "command": self.v["command"].get().strip(),
                        "url": self.v["url"].get().strip(), "env": self.texts["env"].get("1.0", "end").strip(),
                        "headers": self.texts["headers"].get("1.0", "end").strip()}
@@ -697,22 +716,22 @@ class PluginsDialog(tk.Toplevel):
 
     def __init__(self, parent, cfg, manager, on_save):
         super().__init__(parent)
-        self.title("Plaginlar")
+        self.title(i18n.t("Plaginlar"))
         self.configure(bg=P["bg"])
         fit(self, 840, 800)
         self.transient(parent)
         self.cfg, self.manager, self.on_save = cfg, manager, on_save
         self.items: list = [dict(x) for x in cfg.get("mcp", [])]
         bar, f = scroll_body(self)
-        Pill(bar, "Yopish", self.destroy, width=100, height=34, size=9, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(anchor="e")
-        label(f, "Plaginlar", size=15, weight="bold").pack(anchor="w")
-        label(f, "Tayyor xizmatlarni ulang: fayllar, Notion, GitHub, hujjatlar va boshqalar. Agentlar ularning asboblaridan foydalanadi.",
+        Pill(bar, i18n.t("Yopish"), self.destroy, width=100, height=34, size=9, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(anchor="e")
+        label(f, i18n.t("Plaginlar"), size=15, weight="bold").pack(anchor="w")
+        label(f, i18n.t("Tayyor xizmatlarni ulang: fayllar, Notion, GitHub, hujjatlar va boshqalar. Agentlar ularning asboblaridan foydalanadi."),
               fg=P["muted"], size=9, wraplength=760, justify="left").pack(anchor="w", pady=(0, 10))
         self.tree = ttk.Treeview(f, columns=("kind", "status", "tools"), show="tree headings", height=5)
-        self.tree.heading("#0", text="Plagin")
-        self.tree.heading("kind", text="Turi")
-        self.tree.heading("status", text="Holati")
-        self.tree.heading("tools", text="Asboblar")
+        self.tree.heading("#0", text=i18n.t("Plagin"))
+        self.tree.heading("kind", text=i18n.t("Turi"))
+        self.tree.heading("status", text=i18n.t("Holati"))
+        self.tree.heading("tools", text=i18n.t("Asboblar"))
         self.tree.column("#0", width=230)
         self.tree.column("kind", width=90)
         self.tree.column("status", width=280)
@@ -723,36 +742,36 @@ class PluginsDialog(tk.Toplevel):
         row.pack(fill="x", pady=10)
         for text, cmd, w in (("+ Qo'shish", self.add, 100), ("Tahrirlash", self.edit, 100), ("O'chirish", self.remove, 90),
                              ("Yoq / o'chir", self.toggle, 110), ("Qayta ulash", self.reconnect, 110)):
-            Pill(row, text, cmd, width=w, height=34, size=9).pack(side="left", padx=(0, 6))
+            Pill(row, i18n.t(text), cmd, width=w, height=34, size=9).pack(side="left", padx=(0, 6))
         self.detail = tk.Text(f, height=5, bg=P["code"], fg="#c9d1ff", relief="flat", bd=0, font=font(9, mono=True),
                               padx=10, pady=6, wrap="word", highlightthickness=0, state="disabled")
         self.detail.pack(fill="x")
 
-        label(f, "Ko'nikmalar (skills)", size=13, weight="bold").pack(anchor="w", pady=(18, 0))
-        label(f, "Papkaga SKILL.md joylashtiring. Claude ko'nikmalari (~/.claude/skills) va loyihadagi .claude/skills avtomatik topiladi.",
+        label(f, i18n.t("Ko'nikmalar (skills)"), size=13, weight="bold").pack(anchor="w", pady=(18, 0))
+        label(f, i18n.t("Papkaga SKILL.md joylashtiring. Claude ko'nikmalari (~/.claude/skills) va loyihadagi .claude/skills avtomatik topiladi."),
               fg=P["muted"], size=9, wraplength=760, justify="left").pack(anchor="w", pady=(0, 8))
         self.skills = ttk.Treeview(f, columns=("src", "desc"), show="tree headings", height=5)
-        self.skills.heading("#0", text="Ko'nikma")
-        self.skills.heading("src", text="Manba")
-        self.skills.heading("desc", text="Tavsif")
+        self.skills.heading("#0", text=i18n.t("Ko'nikma"))
+        self.skills.heading("src", text=i18n.t("Manba"))
+        self.skills.heading("desc", text=i18n.t("Tavsif"))
         self.skills.column("#0", width=190)
         self.skills.column("src", width=110)
         self.skills.column("desc", width=420)
         self.skills.pack(fill="both", expand=True)
         row2 = tk.Frame(f, bg=P["bg"])
         row2.pack(fill="x", pady=(10, 0))
-        Pill(row2, "Ko'nikmalar papkasini ochish", self.open_skills_dir, width=220, height=34, size=9).pack(side="left", padx=(0, 6))
-        Pill(row2, "Yangilash", self._refresh_skills, width=100, height=34, size=9).pack(side="left")
+        Pill(row2, i18n.t("Ko'nikmalar papkasini ochish"), self.open_skills_dir, width=220, height=34, size=9).pack(side="left", padx=(0, 6))
+        Pill(row2, i18n.t("Yangilash"), self._refresh_skills, width=100, height=34, size=9).pack(side="left")
         self._refresh_skills()
         self._tick()
 
     # -- MCP --
     def _status(self, item):
         if not item.get("enabled", True):
-            return "o'chiq", 0, ""
+            return i18n.t("o'chiq"), 0, ""
         s = self.manager.servers.get(item["name"])
         if not s:
-            return "kutilmoqda", 0, ""
+            return i18n.t("kutilmoqda"), 0, ""
         return s.status, len(s.tools), s.error
 
     def _tick(self):
@@ -764,7 +783,7 @@ class PluginsDialog(tk.Toplevel):
             st, n, _ = self._status(it)
             dot = {"tayyor": "● ", "xato": "✕ ", "ulanmoqda": "… "}.get(st, "○ ")
             self.tree.insert("", "end", iid=str(i), text=it["name"], values=(
-                "HTTP" if it.get("transport") == "http" else "dastur", dot + st, n if st == "tayyor" else ""))
+                "HTTP" if it.get("transport") == "http" else i18n.t("dastur"), dot + i18n.t(st), n if st == "tayyor" else ""))
         if sel and sel[0] in self.tree.get_children():
             self.tree.selection_set(sel[0])
         self._detail()
@@ -781,11 +800,11 @@ class PluginsDialog(tk.Toplevel):
             st, n, err = self._status(self.items[i])
             s = self.manager.servers.get(self.items[i]["name"])
             if err:
-                text = "Xato: " + err
+                text = i18n.t("Xato:") + " " + err
             elif s and s.tools:
-                text = "Asboblar: " + ", ".join(t.get("name", "") for t in s.tools)
+                text = i18n.t("Asboblar:") + " " + ", ".join(t.get("name", "") for t in s.tools)
             elif st == "ulanmoqda":
-                text = "Ulanmoqda… (birinchi marta npx paketni yuklab oladi, 1-2 daqiqa ketishi mumkin)"
+                text = i18n.t("Ulanmoqda… (birinchi marta npx paketni yuklab oladi, 1-2 daqiqa ketishi mumkin)")
         self.detail.config(state="normal")
         self.detail.delete("1.0", "end")
         self.detail.insert("1.0", text)
@@ -814,7 +833,7 @@ class PluginsDialog(tk.Toplevel):
 
     def remove(self):
         i = self._sel()
-        if i is not None and messagebox.askyesno("O'chirish", "Bu plagin o'chirilsinmi?", parent=self):
+        if i is not None and messagebox.askyesno(i18n.t("O'chirish"), i18n.t("Bu plagin o'chirilsinmi?"), parent=self):
             del self.items[i]
             self._commit()
 
@@ -849,7 +868,7 @@ class PluginsDialog(tk.Toplevel):
             else:
                 subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(d)])
         except OSError:
-            messagebox.showinfo("Papka", str(d), parent=self)
+            messagebox.showinfo(i18n.t("Papka"), str(d), parent=self)
 
 
 class ModeRow(tk.Canvas):
@@ -870,11 +889,11 @@ class ModeRow(tk.Canvas):
         w, h = self.winfo_width(), self.winfo_height()
         icon, title, _ = MODES[self.key]
         if self.active:
-            rrect(self, 0, 0, w, h, 12, fill=P["card_hi"], outline=P["accent"])
+            rrect(self, 0, 0, w, h, 14, fill=P["card_hi"], outline=P["accent"])
         elif self.over:
-            rrect(self, 0, 0, w, h, 12, fill=P["card"], outline="")
+            rrect(self, 0, 0, w, h, 14, fill=P["card"], outline="")
         self.create_text(22, h / 2, text=icon, fill=P["accent_hi"] if self.active else P["muted"], font=font(13))
-        self.create_text(46, h / 2, text=title, anchor="w", fill=P["text"] if self.active else P["muted"],
+        self.create_text(46, h / 2, text=i18n.t(title), anchor="w", fill=P["text"] if self.active else P["muted"],
                          font=font(10, "bold" if self.active else "normal"))
 
 
@@ -895,13 +914,13 @@ class AgentRow(tk.Canvas):
         self.delete("all")
         w, h = self.winfo_width(), self.winfo_height()
         if self.over:
-            rrect(self, 0, 0, w, h, 12, fill=P["card"], outline="")
+            rrect(self, 0, 0, w, h, 14, fill=P["card"], outline="")
         c = color_for(self.agent.name)
         self.create_oval(8, h / 2 - 15, 38, h / 2 + 15, fill=c if self.on else P["line"], outline="")
         self.create_text(23, h / 2, text=self.agent.name[:1].upper(), fill="white", font=font(11, "bold"))
         self.create_text(50, h / 2 - 8, text=self.agent.name, anchor="w", font=font(10, "bold"),
                          fill=P["text"] if self.on else P["muted"])
-        self.create_text(50, h / 2 + 9, text=SHORT_TYPE.get(self.agent.kind, self.agent.kind), anchor="w",
+        self.create_text(50, h / 2 + 9, text=i18n.t(SHORT_TYPE.get(self.agent.kind, self.agent.kind)), anchor="w",
                          font=font(8), fill=P["muted"])
         self.create_oval(w - 22, h / 2 - 5, w - 12, h / 2 + 5, fill=P["ok"] if self.on else "", outline=P["ok"] if self.on else P["muted"], width=1)
 
@@ -947,13 +966,14 @@ class TabButton(tk.Canvas):
     def draw(self):
         self.delete("all")
         fill = P["card_hi"] if self.active else (P["card"] if self.over else P["side"])
-        rrect(self, 0, 0, self.W, self.H, 12, fill=fill, outline=P["accent"] if self.active else "")
+        rrect(self, 0, 0, self.W, self.H, 14, fill=fill, outline=P["accent"] if self.active else "")
         c = self.chat
         if c.busy:
             self.create_oval(12, 13, 20, 21, fill=P["accent_hi"], outline="")
         elif c.unread:
             self.create_oval(12, 13, 20, 21, fill=P["ok"], outline="")
-        title = c.title if len(c.title) <= 20 else c.title[:19] + "…"
+        _nm = i18n.t(c.title)
+        title = _nm if len(_nm) <= 20 else _nm[:19] + "…"
         self.create_text(28, self.H / 2, text=title, anchor="w", font=font(9, "bold" if self.active else "normal"),
                          fill=P["text"] if self.active else P["muted"])
         self.create_text(self.W - 16, self.H / 2, text="×", fill=P["err"] if self.over else P["muted"], font=font(13))
@@ -970,10 +990,12 @@ class App(tk.Tk):
 
     def __init__(self, cfg_path: str | None = None):
         super().__init__()
-        theme.setup(self)
         self.cfg_path = cfg_path
         self.inbox: queue.Queue = queue.Queue()
         self.cfg = config.read(cfg_path)
+        i18n.set_lang(self.cfg.get("lang", "uz"))
+        theme.apply_palette(self.cfg.get("theme", "dark"), self.cfg.get("accent", "violet"))
+        theme.setup(self)
         first_run = not config.config_path(cfg_path).exists()
         self.title("Agent Umimiy")
         w, h = fit(self, 1180, 780)
@@ -1020,24 +1042,24 @@ class App(tk.Tk):
         t = tk.Frame(logo, bg=P["side"])
         t.pack(side="left", padx=12)
         label(t, "Agent Umimiy", size=14, weight="bold").pack(anchor="w")
-        label(t, "Barcha AI bir joyda", fg=P["muted"], size=9).pack(anchor="w")
+        label(t, i18n.t("Barcha AI bir joyda"), fg=P["muted"], size=9).pack(anchor="w")
 
-        label(inner, "REJIM", fg=P["muted"], size=8, weight="bold").pack(anchor="w", pady=(2 if c else 4, 4 if c else 6))
+        label(inner, i18n.t("REJIM"), fg=P["muted"], size=8, weight="bold").pack(anchor="w", pady=(2 if c else 4, 4 if c else 6))
         self.mode_rows = {}
         for k in MODES:
             r = ModeRow(inner, k, self.pick_mode, height=32 if c else 40)
             r.pack(fill="x", pady=1)
             self.mode_rows[k] = r
 
-        label(inner, "AGENTLAR", fg=P["muted"], size=8, weight="bold").pack(anchor="w", pady=(8 if c else 18, 4 if c else 6))
+        label(inner, i18n.t("AGENTLAR"), fg=P["muted"], size=8, weight="bold").pack(anchor="w", pady=(8 if c else 18, 4 if c else 6))
         bottom = tk.Frame(inner, bg=P["side"])
         bottom.pack(side="bottom", fill="x")
         bh, gap = (34, 5) if c else (42, 8)
-        Pill(bottom, "＋  Yangi suhbat", lambda: self.new_chat(), bg=P["accent"], hover=P["accent_hi"], fg="white",
+        Pill(bottom, i18n.t("＋  Yangi suhbat"), lambda: self.new_chat(), bg=P["accent"], hover=P["accent_hi"], fg="white",
              height=bh, radius=14).pack(fill="x", pady=(0, gap))
-        Pill(bottom, "⬡   Plaginlar", self.open_plugins, bg=P["card"], hover=P["card_hi"],
+        Pill(bottom, i18n.t("⬡   Plaginlar"), self.open_plugins, bg=P["card"], hover=P["card_hi"],
              height=bh, radius=14).pack(fill="x", pady=(0, gap))
-        Pill(bottom, "⚙   Sozlamalar", self.open_settings, bg=P["card"], hover=P["card_hi"],
+        Pill(bottom, i18n.t("⚙   Sozlamalar"), self.open_settings, bg=P["card"], hover=P["card_hi"],
              height=bh, radius=14).pack(fill="x")
         # agentlar ro'yxati: ko'p bo'lsa aylantiriladi
         holder = tk.Frame(inner, bg=P["side"])
@@ -1151,7 +1173,7 @@ class App(tk.Tk):
         text = self.entry.get("1.0", "end").strip()
         if show and not text:
             self.entry.delete("1.0", "end")
-            self.entry.insert("1.0", "Xabar yozing…   (Enter — yuborish, Shift+Enter — yangi qator)")
+            self.entry.insert("1.0", i18n.t("Xabar yozing…   (Enter — yuborish, Shift+Enter — yangi qator)"))
             self.entry.config(fg=P["muted"])
             self.ph_on = True
         elif not show and self.ph_on:
@@ -1180,9 +1202,9 @@ class App(tk.Tk):
             r.active = k == key
             r.draw()
         _, title, desc = MODES[key]
-        self.title_lbl.config(text=title)
-        note = "  ·  loyihada faqat o'qiydi" if self.project and key in READ_ONLY_MODES else ""
-        self.sub_lbl.config(text=desc + note)
+        self.title_lbl.config(text=i18n.t(title))
+        note = "  ·  " + i18n.t("loyihada faqat o'qiydi") if self.project and key in READ_ONLY_MODES else ""
+        self.sub_lbl.config(text=i18n.t(desc) + note)
 
     def toggle_agent(self, name):
         if name in self.selected and len(self.selected) > 1:
@@ -1195,7 +1217,7 @@ class App(tk.Tk):
         self._count()
 
     def _count(self):
-        self.count_lbl.config(text=f"●  {len(self.selected)} agent faol")
+        self.count_lbl.config(text=f"●  {len(self.selected)} " + i18n.t("agent faol"))
 
     @property
     def _a(self) -> Chat:
@@ -1399,11 +1421,11 @@ class App(tk.Tk):
     def _proj_label(self):
         if self.project:
             name = Path(self.project).name or self.project
-            self.proj_btn.set_text("Loyiha:  " + (name if len(name) < 22 else name[:20] + "…"))
+            self.proj_btn.set_text(i18n.t("Loyiha:") + "  " + (name if len(name) < 22 else name[:20] + "…"))
             if not self.clear_btn.winfo_ismapped():
                 self.clear_btn.pack(side="right", padx=(0, 8), before=self.proj_btn)
         else:
-            self.proj_btn.set_text("Loyiha papkasini tanlash")
+            self.proj_btn.set_text(i18n.t("Loyiha papkasini tanlash"))
             self.clear_btn.pack_forget()
 
     def choose_project(self):
@@ -1428,7 +1450,7 @@ class App(tk.Tk):
 
     def open_git(self):
         if not self.project:
-            return messagebox.showinfo("Git", "Avval «Loyiha papkasini tanlash» tugmasi bilan papkani tanlang.", parent=self)
+            return messagebox.showinfo("Git", i18n.t("Avval «Loyiha papkasini tanlash» tugmasi bilan papkani tanlang."), parent=self)
         GitDialog(self, self.project)
 
     def _confirm_threadsafe(self, chat, agent, kind, title, detail):
@@ -1441,13 +1463,14 @@ class App(tk.Tk):
         found = detect.discover()
         if found:
             names = "\n".join("• " + a["name"] for a in found)
-            if messagebox.askyesno("Xush kelibsiz!", f"Kompyuteringizda quyidagi agentlar topildi:\n\n{names}\n\n"
-                                   "Hammasini qo'shaymi?", parent=self):
+            if messagebox.askyesno(i18n.t("Xush kelibsiz!"), i18n.t("Kompyuteringizda quyidagi agentlar topildi:") +
+                                   f"\n\n{names}\n\n" + i18n.t("Hammasini qo'shaymi?"), parent=self):
                 self.cfg["agents"] += found
                 config.write(self.cfg, self.cfg_path)
                 return self.rebuild()
-        messagebox.showinfo("Xush kelibsiz!", "Boshlash uchun «Sozlamalar» da agent qo'shing "
-                            "(Claude, ChatGPT, Gemini yoki lokal model).", parent=self)
+        messagebox.showinfo(i18n.t("Xush kelibsiz!"),
+                            i18n.t("Boshlash uchun «Sozlamalar» da agent qo'shing (Claude, ChatGPT, Gemini yoki lokal model)."),
+                            parent=self)
         self.open_settings()
 
     # ---------- telefondan boshqarish ----------
@@ -1519,7 +1542,7 @@ class App(tk.Tk):
                     "chat": chat.id, "records": recs, "total": len(chat.records), "reset": reset, "busy": chat.busy,
                     "typing": targets[:1] if self.mode.get() == "single" else targets,
                     "asks": [{k: v for k, v in a.items() if k != "dialog"} for a in self.asks.values()],
-                    "mode": self.mode.get(), "modes": {k: v[1] for k, v in MODES.items()},
+                    "mode": self.mode.get(), "modes": {k: i18n.t(v[1]) for k, v in MODES.items()},
                     "agents": [{"name": n, "on": n in self.selected} for n in chat.orch.agents]}
         if action == "new":
             self.new_chat(show=False)
@@ -1545,7 +1568,7 @@ class App(tk.Tk):
             chat.cancelled = True
             chat.orch.ctx.cancel.set()
             if chat.typing is not None and chat.who is not None:
-                chat.who.config(text="  To'xtatilmoqda…")
+                chat.who.config(text="  " + i18n.t("To'xtatilmoqda…"))
             return {"ok": True}
         if action == "close":
             self.close_chat(chat)
@@ -1565,8 +1588,6 @@ class App(tk.Tk):
 
     def _remote_attachment(self, f):
         import base64
-        import re
-        import time
         name = re.sub(r"[^\w.\- ]", "_", str(f.get("name", "fayl")))[-80:] or "fayl"
         d = config.user_dir() / "uploads"
         d.mkdir(parents=True, exist_ok=True)
@@ -1610,13 +1631,13 @@ class App(tk.Tk):
         rrect(c, 0, 0, 72, 72, 22, fill=P["accent"], outline="")
         c.create_text(36, 36, text="A", fill="white", font=font(30, "bold"))
         c.pack()
-        label(box, "Qanday yordam bera olaman?", size=22, weight="bold").pack(pady=(18, 4))
-        label(box, "Agent sozlanmagan — chap pastdagi «Sozlamalar» orqali qo'shing." if demo else
-              (f"Loyiha: {self.project}\nAgentlar fayllarni o'qiydi va ruxsatingiz bilan o'zgartiradi." if self.project else
-               "Savolingizni yozing — agentlaringiz birgalikda javob beradi."), fg=P["muted"], size=11).pack()
+        label(box, i18n.t("Qanday yordam bera olaman?"), size=22, weight="bold").pack(pady=(18, 4))
+        label(box, i18n.t("Agent sozlanmagan — chap pastdagi «Sozlamalar» orqali qo'shing.") if demo else
+              (i18n.t("Loyiha:") + f" {self.project}\n" + i18n.t("Agentlar fayllarni o'qiydi va ruxsatingiz bilan o'zgartiradi.") if self.project else
+               i18n.t("Savolingizni yozing — agentlaringiz birgalikda javob beradi.")), fg=P["muted"], size=11).pack()
         chips = tk.Frame(box, bg=P["bg"])
         chips.pack(pady=26)
-        for i, s in enumerate(PROJECT_SUGGESTIONS if self.project else SUGGESTIONS):
+        for i, s in enumerate(i18n.t(x) for x in (PROJECT_SUGGESTIONS if self.project else SUGGESTIONS)):
             Pill(chips, s, lambda s=s: self._use_suggestion(s), width=290, height=44, radius=16, size=10,
                  weight="normal", outline=P["line"]).grid(row=i // 2, column=i % 2, padx=6, pady=6)
         self.empty = box
@@ -1726,9 +1747,9 @@ class App(tk.Tk):
         self._bubble(col, text, "#2a1519" if err else P["card"], P["err"] if err else P["text"],
                      outline="#5b2530" if err else P["line"]).pack(anchor="w", pady=(5, 0))
         if not err:
-            cp = label(col, "Nusxalash", fg=P["muted"], size=8, cursor="hand2")
+            cp = label(col, i18n.t("Nusxalash"), fg=P["muted"], size=8, cursor="hand2")
             cp.pack(anchor="w", pady=(3, 0))
-            cp.bind("<Button-1>", lambda e, t=text, w=cp: (self._copy(t), w.config(text="Nusxalandi ✓", fg=P["ok"])))
+            cp.bind("<Button-1>", lambda e, t=text, w=cp: (self._copy(t), w.config(text=i18n.t("Nusxalandi ✓"), fg=P["ok"])))
         self._scroll()
 
     def _todo_card(self, text):
@@ -1801,7 +1822,7 @@ class App(tk.Tk):
         self.cancelled = True
         self.orch.ctx.cancel.set()
         if self.typing is not None:
-            self.who.config(text="  To'xtatilmoqda…")
+            self.who.config(text="  " + i18n.t("To'xtatilmoqda…"))
 
     def send(self):
         if self.busy:

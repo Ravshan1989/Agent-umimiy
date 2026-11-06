@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 INLINE = re.compile(r"(\*\*.+?\*\*|`[^`\n]+`|\[[^\]\n]+\]\(https?://[^)\s]+\))")
-FENCE = re.compile(r"```[\w+-]*\n?(.*?)```", re.S)
+FENCE = re.compile(r"```[\w+-]*\n?(.*?)```", re.DOTALL)
 
 
 def inline(s: str, base: tuple = ()) -> list[tuple[str, tuple]]:
