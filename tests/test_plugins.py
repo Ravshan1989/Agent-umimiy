@@ -102,6 +102,7 @@ class McpToolboxTests(unittest.TestCase):
         a = build_agent({"name": "c", "type": "anthropic", "api_key": "k", "base_url": f"http://127.0.0.1:{srv.server_port}"})
         o = Orchestrator([a])
         o.ctx.mcp, o.ctx.skills = self.m, False
+        o.ctx.confirm = lambda *args: "yes"
         r = o.run("echo ishlat", "single")[0]
         self.assertEqual(r.text, "tayyor")
         self.assertIn("fake__echo", [t["name"] for t in seen[0]["tools"]])
