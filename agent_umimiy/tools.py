@@ -511,7 +511,7 @@ class Toolbox:
         return self._browser(lambda b: b.snapshot(), say="Brauzer sahifasini o'qidi")
 
     def t_browser_click(self, id: int) -> str:
-        url = self._browser(lambda b: b.js("location.href"))
+        url = self._browser(lambda b: (b.ensure(), b.js("location.href"))[1])
         host = urllib.parse.urlparse(url or "").hostname or "noma'lum sayt"
         self._approve("browser_action:" + host, f"Brauzerda element bosiladi: {host}",
                       f"Sahifa: {url}\nElement raqami: {id}. Bosish sahifadagi amalni bajarishi yoki ma'lumot yuborishi mumkin.")
