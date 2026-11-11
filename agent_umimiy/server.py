@@ -14,6 +14,7 @@ import threading
 import time
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import attachments, config, remote
@@ -24,6 +25,15 @@ MAX_BODY = 40 * 1024 * 1024
 MAX_FILES = 6
 TITLE_LEN = 40
 LOCAL_ONLY = ("cli",)  # serverda buyruq ishga tushiradigan agent turlari: veb-foydalanuvchilarga berilmaydi
+STATIC_DIR = Path(__file__).parent / "static"
+ICONS = {"/icon-192.png": 192, "/icon-512.png": 512, "/apple-touch-icon.png": 180}
+# Telefonda «Bosh ekranga qo'shish» orqali ilova kabi ochilishi uchun (PWA)
+MANIFEST = json.dumps({
+    "name": "Agent Umimiy", "short_name": "Agent Umimiy", "lang": "uz", "start_url": "/", "scope": "/",
+    "display": "standalone", "background_color": "#0d0f16", "theme_color": "#0d0f16",
+    "icons": [{"src": path, "sizes": f"{size}x{size}", "type": "image/png", "purpose": "any maskable"}
+              for path, size in ICONS.items() if size != 180],
+}).encode()
 
 
 class Refused(Exception):
@@ -217,6 +227,20 @@ def make_handler(app: App):
         def _json(self, code: int, obj, cookie: str = ""):
             self._send(code, json.dumps(obj, ensure_ascii=False).encode(), cookie=cookie)
 
+        # ---- proksi ortida ----
+        def _forwarded(self, header: str) -> str:
+            """Proksi qo'shgan sarlavha; faqat so'rov shu kompyuterdagi proksidan kelganda ishoniladi."""
+            if self.client_address[0] in ("127.0.0.1", "::1"):
+                return self.headers.get(header, "").split(",")[0].strip()
+            return ""
+
+        def _ip(self) -> str:
+            return self._forwarded("X-Forwarded-For") or self.client_address[0]
+
+        def _cookie(self, value: str, age: int) -> str:
+            secure = "; Secure" if self._forwarded("X-Forwarded-Proto") == "https" else ""
+            return f"session={value}; Path=/; Max-Age={age}; HttpOnly; SameSite=Strict{secure}"
+
         # ---- kirish ----
         def _token(self) -> str:
             morsel = SimpleCookie(self.headers.get("Cookie", "")).get("session")
@@ -243,6 +267,10 @@ def make_handler(app: App):
             try:
                 if url.path == "/":
                     return self._send(200, PAGE.encode(), "text/html; charset=utf-8")
+                if url.path == "/manifest.webmanifest":
+                    return self._send(200, MANIFEST, "application/manifest+json")
+                if url.path in ICONS:
+                    return self._send(200, (STATIC_DIR / url.path[1:]).read_bytes(), "image/png")
                 if url.path == "/api/me":
                     user_id, name = self._user()
                     return self._json(200, {"user": name, "agents": app.agents(), "chats": store.chats(user_id)})
@@ -282,7 +310,7 @@ def make_handler(app: App):
 
         def _post(self, path: str, body: dict) -> tuple[dict, str]:
             """So'rovni bajaradi: (javob, o'rnatiladigan cookie)."""
-            ip = self.client_address[0]
+            ip = self._ip()
             if path in ("/api/login", "/api/register"):
                 if throttle.locked(ip):
                     raise Refused("Juda ko'p noto'g'ri urinish. 10 daqiqadan keyin qayta urining.", 429)
@@ -297,11 +325,10 @@ def make_handler(app: App):
                     if user_id is None:
                         throttle.fail(ip)
                         raise Refused("Ism yoki parol noto'g'ri.", 403)
-                return {"user": name.strip()}, (f"session={store.new_session(user_id)}; Path=/; "
-                                                f"Max-Age={SESSION_DAYS * 86400}; HttpOnly; SameSite=Strict")
+                return {"user": name.strip()}, self._cookie(store.new_session(user_id), SESSION_DAYS * 86400)
             if path == "/api/logout":
                 store.drop_session(self._token())
-                return {"ok": True}, "session=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict"
+                return {"ok": True}, self._cookie("", 0)
             user_id, _ = self._user()
             if path == "/api/chat/new":
                 return {"id": store.new_chat(user_id)}, ""

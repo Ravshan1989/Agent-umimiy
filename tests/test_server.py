@@ -76,6 +76,25 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(c.call("/api/me")[0], 401)
         self.assertEqual(c.call("/api/chat/new", {})[0], 401)
 
+    def test_installable_as_phone_app(self):
+        with urllib.request.urlopen(self.base + "/") as r:
+            self.assertIn(b'rel="manifest" href="/manifest.webmanifest"', r.read())
+        with urllib.request.urlopen(self.base + "/manifest.webmanifest") as r:
+            manifest = json.loads(r.read())
+        self.assertEqual((manifest["display"], manifest["start_url"]), ("standalone", "/"))
+        for icon in [i["src"] for i in manifest["icons"]] + ["/apple-touch-icon.png"]:
+            with urllib.request.urlopen(self.base + icon) as r:
+                self.assertEqual((r.headers["Content-Type"], r.read()[:4]), ("image/png", b"\x89PNG"))
+
+    def test_https_proxy_on_same_machine_is_trusted(self):
+        def register(name, headers):
+            req = urllib.request.Request(self.base + "/api/register", headers={"Content-Type": "application/json", **headers},
+                                         data=json.dumps({"name": name, "password": PASSWORD, "invite": self.store.invite()}).encode())
+            with urllib.request.urlopen(req) as r:
+                return r.headers["Set-Cookie"]
+        self.assertNotIn("Secure", register("Ali", {}))
+        self.assertIn("; Secure", register("Vali", {"X-Forwarded-Proto": "https"}))
+
     def test_register_needs_invite_and_login_checks_password(self):
         c = Client(self.base)
         self.assertEqual(c.call("/api/register", {"name": "Ali", "password": PASSWORD, "invite": "XATO"})[0], 403)
