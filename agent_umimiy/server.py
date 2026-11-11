@@ -293,16 +293,27 @@ def make_handler(app: App):
             # JSON turi talab qilinadi: boshqa saytdagi forma bunday so'rov yubora olmaydi (CSRF himoyasi)
             if not self.headers.get("Content-Type", "").startswith("application/json"):
                 raise Refused("Noto'g'ri so'rov.", 415)
+            raw_size = self.headers.get("Content-Length")
+            if raw_size is None:
+                raise Refused("Content-Length sarlavhasi yo'q.")
             try:
-                size = int(self.headers.get("Content-Length", "0"))
-            except ValueError:
+                size = int(raw_size)
+            except (TypeError, ValueError):
+                raise Refused("Noto'g'ri so'rov.")
+            # Manfiy uzunlik rfile.read(-1) ni ulanish EOF bo'lguncha kutishga majbur
+            # qilishi mumkin; juda katta uzunlik esa xotirani tugatishi mumkin.
+            if size < 0:
                 raise Refused("Noto'g'ri so'rov.")
             if size > MAX_BODY:
                 self.close_connection = True
                 raise Refused("Hajm juda katta.", 413)
             try:
-                body = json.loads(self.rfile.read(size) or b"{}")
-            except ValueError:
+                raw_body = self.rfile.read(size)
+                if len(raw_body) != size:
+                    self.close_connection = True
+                    raise Refused("So'rov tanasi to'liq kelmadi.")
+                body = json.loads(raw_body or b"{}")
+            except (ValueError, UnicodeDecodeError):
                 raise Refused("JSON noto'g'ri.")
             if not isinstance(body, dict):
                 raise Refused("JSON noto'g'ri.")
