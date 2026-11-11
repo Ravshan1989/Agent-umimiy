@@ -8,7 +8,6 @@ Ulanish oddiy HTTP: ishonchli lokal tarmoqda ishlating yoki oldiga HTTPS beruvch
 from __future__ import annotations
 
 import json
-import mimetypes
 import queue
 import shutil
 import socketserver
@@ -28,6 +27,13 @@ MAX_FILES = 6
 TITLE_LEN = 40
 LOCAL_ONLY = ("cli",)  # serverda buyruq ishga tushiradigan agent turlari: veb-foydalanuvchilarga berilmaydi
 STATIC_DIR = Path(__file__).parent / "static"
+# Yaratiladigan fayl turlari (tizim sozlamasiga bog'liq bo'lmasligi uchun aniq ro'yxat)
+FILE_TYPES = {
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".csv": "text/csv; charset=utf-8", ".json": "application/json; charset=utf-8",
+    ".txt": "text/plain; charset=utf-8", ".md": "text/plain; charset=utf-8",
+}
 ICONS = {"/icon-192.png": 192, "/icon-512.png": 512, "/apple-touch-icon.png": 180}
 # Telefonda «Bosh ekranga qo'shish» orqali ilova kabi ochilishi uchun (PWA)
 MANIFEST = json.dumps({
@@ -368,7 +374,7 @@ def make_handler(app: App):
             path = app.files_dir(chat_id) / name
             if not name or name != Path(name).name or not path.is_file():
                 raise Refused("Fayl topilmadi.", 404)
-            ctype = mimetypes.guess_type(name)[0] or "application/octet-stream"
+            ctype = FILE_TYPES.get(path.suffix.lower(), "application/octet-stream")  # .html ham faqat yuklab olinadi
             self._send(200, path.read_bytes(), ctype, download=name)
 
         def _stream(self, chat_id: int):
