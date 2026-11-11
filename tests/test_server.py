@@ -139,6 +139,32 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(ali.call("/api/send", {"chat": chat, "text": "x", "agent": "buyruq"})[0], 400)
         self.assertEqual(ali.call("/api/chat/new", {}, ctype="text/plain")[0], 415)  # boshqa saytdagi forma
 
+    def test_negative_content_length_is_rejected(self):
+        # Noto'g'ri uzunlik rfile.read(-1) ga o'tib, so'rovni EOF gacha osiltirib qo'ymasligi kerak.
+        class FakeRequest:
+            headers = {"Content-Type": "application/json", "Content-Length": "-1"}
+            close_connection = False
+            def __init__(self):
+                self.rfile = mock.Mock()
+        handler = object.__new__(server.make_handler(server.App(self.store)))
+        handler.headers = FakeRequest.headers
+        handler.close_connection = False
+        handler.rfile = mock.Mock()
+        with self.assertRaises(server.Refused):
+            handler._body()
+        handler.rfile.read.assert_not_called()
+
+    def test_oversized_content_length_is_rejected(self):
+        handler = object.__new__(server.make_handler(server.App(self.store)))
+        handler.headers = {"Content-Type": "application/json", "Content-Length": str(server.MAX_BODY + 1)}
+        handler.close_connection = False
+        handler.rfile = mock.Mock()
+        with self.assertRaises(server.Refused) as caught:
+            handler._body()
+        self.assertEqual(caught.exception.code, 413)
+        self.assertTrue(handler.close_connection)
+        handler.rfile.read.assert_not_called()
+
     def test_wrong_passwords_get_locked_out(self):
         self.user("Ali")
         c = Client(self.base)
