@@ -4,6 +4,13 @@ PAGE = r"""<!doctype html>
 <html lang="uz"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d0f16">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Agent Umimiy">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>Agent Umimiy</title>
 <style>
 :root{--bg:#0d0f16;--side:#121521;--card:#1a1e2e;--hi:#232842;--line:#2a3047;--fg:#e8eaf4;--mut:#8b92ab;--acc:#7c6cff;--acc2:#9a8dff;--user:#5a49ee;--ok:#34d399;--err:#f87171;--warn:#fbbf24;--code:#080a10}
@@ -20,7 +27,7 @@ button,select,input,textarea{font:inherit;color:inherit}button{cursor:pointer}
 #aerr{color:var(--err);font-size:13px;min-height:18px}
 #app{height:100%;display:flex}
 aside{width:270px;flex:none;background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column}
-aside .top{padding:14px;display:flex;flex-direction:column;gap:10px}
+aside .top{padding:calc(14px + env(safe-area-inset-top)) 14px 14px;display:flex;flex-direction:column;gap:10px}
 aside h2{margin:0;font-size:16px}
 #new{background:var(--acc);border:0;border-radius:10px;padding:10px;color:#fff;font-weight:600}
 #chats{flex:1;overflow-y:auto;padding:0 8px}
@@ -28,11 +35,11 @@ aside h2{margin:0;font-size:16px}
 .chat:hover,.chat.on{background:var(--hi);color:var(--fg)}
 .chat span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:9px 0;cursor:pointer}
 .chat button{background:none;border:0;color:var(--mut);padding:6px 8px;visibility:hidden}.chat:hover button,.chat.on button{visibility:visible}
-aside .me{padding:12px 14px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;font-size:13px;gap:8px}
+aside .me{padding:12px 14px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;font-size:13px;gap:8px}
 #user{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #out{background:none;border:1px solid var(--line);border-radius:8px;padding:5px 10px;color:var(--mut);flex:none}
 main{flex:1;min-width:0;display:flex;flex-direction:column}
-main header{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line)}
+main header{display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;border-bottom:1px solid var(--line)}
 #menu{display:none;background:none;border:1px solid var(--line);border-radius:9px;padding:6px 11px}
 #agent{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px;max-width:100%}
 #msgs{flex:1;overflow-y:auto;padding:18px 16px 6px}

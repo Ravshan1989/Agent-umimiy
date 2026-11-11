@@ -10,6 +10,12 @@ dependencies = ["pypdf", "qrcode", "pillow"]
 [project.scripts]
 agent-umimiy = "agent_umimiy.__main__:main"
 
+[tool.setuptools]
+packages = ["agent_umimiy"]
+
+[tool.setuptools.package-data]
+agent_umimiy = ["static/*.png"]
+
 [tool.ruff]
 target-version = "py39"
 line-length = 120
