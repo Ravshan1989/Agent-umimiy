@@ -525,7 +525,7 @@ class Toolbox:
 
     def t_browser_press(self, key: str) -> str:
         if key == "Enter":
-            url = self._browser(lambda b: b.js("location.href"))
+            url = self._browser(lambda b: (b.ensure(), b.js("location.href"))[1])
             host = urllib.parse.urlparse(url or "").hostname or "noma'lum sayt"
             self._approve("browser_action:" + host, f"Brauzerda Enter bosiladi: {host}",
                           f"Sahifa: {url}\nEnter tugmasi formani yuborishi yoki amalni tasdiqlashi mumkin.")
