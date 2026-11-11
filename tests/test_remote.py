@@ -1,5 +1,5 @@
-import sys
 import json
+import sys
 import unittest
 import urllib.error
 import urllib.request
