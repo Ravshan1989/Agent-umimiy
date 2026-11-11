@@ -15,6 +15,7 @@ from tkinter import filedialog, messagebox, ttk
 from . import attachments, chatstore, config, detect, gitutil, i18n, markdown, theme
 from . import mcp as mcplib
 from . import remote as remotelib
+from . import server as serverlib
 from . import skills as skilllib
 from .orchestrator import READ_ONLY_MODES
 from .providers import build_agent
@@ -302,6 +303,8 @@ class Settings(tk.Toplevel):
                        activeforeground=P["text"], highlightthickness=0, bd=0, font=font(10)).pack(anchor="w", pady=(12, 0))
         Pill(f, i18n.t("Telefondan boshqarish (mobil kirish)…"), lambda: self.master.open_remote(), width=300, height=32, size=9,
              outline=P["line"], bg=P["bg"]).pack(anchor="w", pady=(8, 0))
+        Pill(f, i18n.t("Veb-server (boshqalar brauzerdan ishlatadi)…"), lambda: self.master.open_server(), width=300, height=32,
+             size=9, outline=P["line"], bg=P["bg"]).pack(anchor="w", pady=(8, 0))
         self.web = tk.BooleanVar(value=cfg.get("web", True))
         tk.Checkbutton(f, text=i18n.t("Agentlar internetdan qidira va sahifalarni o'qiy olsin"), variable=self.web, bg=P["bg"],
                        fg=P["text"], selectcolor=P["card"], activebackground=P["bg"], activeforeground=P["text"],
@@ -630,6 +633,75 @@ class RemoteDialog(tk.Toplevel):
         if messagebox.askyesno(i18n.t("Yangi kalit"), i18n.t("Eski manzil ishlamay qoladi, telefonda QR-kodni qayta skanerlash kerak. Davom etilsinmi?"), parent=self):
             self.app.new_remote_token()
             self.refresh()
+
+
+class ServerDialog(tk.Toplevel):
+    """Veb-server: yoqish/o'chirish, manzillar va taklif kodi."""
+
+    def __init__(self, app):
+        super().__init__(app)
+        self.app = app
+        self.title(i18n.t("Veb-server"))
+        self.configure(bg=P["bg"])
+        fit(self, 600, 620)
+        self.transient(app)
+        bar, f = scroll_body(self, (24, 18))
+        Pill(bar, i18n.t("Yopish"), self.destroy, width=100, height=34, size=9, bg=P["accent"], hover=P["accent_hi"], fg="white").pack(anchor="e")
+        label(f, i18n.t("Veb-server"), size=15, weight="bold").pack(anchor="w")
+        label(f, i18n.t("Lokal tarmoqdagi odamlar brauzerdan kirib, o'z suhbatlarida agentlaringizdan foydalanadi. Yoqilgan bo'lsa, dastur har ochilganda server o'zi ishga tushadi. Dastur yopilsa, server ham to'xtaydi."),
+              fg=P["muted"], size=9, wraplength=500, justify="left").pack(anchor="w", pady=(2, 10))
+        self.status = label(f, "", size=11, weight="bold")
+        self.status.pack(anchor="w")
+        label(f, i18n.t("Manzillar (odamlarga shulardan birini bering):"), fg=P["muted"], size=9).pack(anchor="w", pady=(10, 2))
+        self.urls = tk.Text(f, height=4, wrap="none", bg=P["card"], fg=P["text"], relief="flat", bd=0, highlightthickness=0,
+                            font=font(10, mono=True), padx=8, pady=6)
+        self.urls.pack(fill="x")
+        label(f, i18n.t("Taklif kodi (ro'yxatdan o'tish uchun):"), fg=P["muted"], size=9).pack(anchor="w", pady=(10, 2))
+        self.invite_var = tk.StringVar()
+        ttk.Entry(f, textvariable=self.invite_var, state="readonly", font=font(14, mono=True)).pack(fill="x")
+        row = tk.Frame(f, bg=P["bg"])
+        row.pack(fill="x", pady=10)
+        self.toggle = Pill(row, "", self._toggle, width=130, height=34, size=9, bg=P["accent"], hover=P["accent_hi"], fg="white")
+        self.toggle.pack(side="left", padx=(0, 6))
+        Pill(row, i18n.t("Yangi taklif kodi"), self._renew, width=150, height=34, size=9).pack(side="left", padx=(0, 6))
+        Pill(row, i18n.t("Windows devoriga ruxsat berish"), self._firewall, width=230, height=34, size=9).pack(side="left")
+        self.fw_lbl = label(f, "", size=9, fg=P["muted"], wraplength=500, justify="left")
+        self.fw_lbl.pack(anchor="w")
+        label(f, i18n.t("Hamma sizning API kalitlaringiz va limitingizdan foydalanadi. Veb-foydalanuvchilar uchun agentlar kompyuteringizdagi fayllarga, buyruqlarga, brauzerga va plaginlarga tegmaydi. Ulanish shifrlanmagan (HTTP): faqat ishonchli tarmoqda ishlating yoki Tailscale o'rnating."),
+              fg=P["muted"], size=9, wraplength=500, justify="left").pack(anchor="w", pady=(8, 0))
+        self.refresh()
+
+    def refresh(self):
+        httpd = self.app.web_server
+        self.toggle.set_text(i18n.t("To'xtatish") if httpd else i18n.t("Yoqish"))
+        self.status.config(text=i18n.t("● Yoqilgan.") if httpd else i18n.t("○ O'chiq"), fg=P["ok"] if httpd else P["muted"])
+        self.urls.config(state="normal")
+        self.urls.delete("1.0", "end")
+        self.urls.insert("1.0", "\n".join(serverlib.urls(httpd)) if httpd else "")
+        self.urls.config(state="disabled")
+        self.invite_var.set(httpd.store.invite() if httpd else "")
+
+    def _toggle(self):
+        if self.app.web_server:
+            self.app.stop_server()
+            self.app.cfg["server"] = False
+            config.write(self.app.cfg, self.app.cfg_path)
+        else:
+            self.app.start_server()
+        self.refresh()
+
+    def _renew(self):
+        httpd = self.app.web_server
+        if httpd and messagebox.askyesno(i18n.t("Yangi taklif kodi"), i18n.t("Eski kod ishlamay qoladi. Ro'yxatdan o'tib bo'lganlarga ta'sir qilmaydi. Davom etilsinmi?"), parent=self):
+            httpd.store.new_invite()
+            self.refresh()
+
+    def _firewall(self):
+        httpd = self.app.web_server
+        if not httpd:
+            return messagebox.showinfo(i18n.t("Devor"), i18n.t("Avval «Yoqish» tugmasini bosing."), parent=self)
+        ok, msg = remotelib.open_firewall(httpd.server_port)
+        self.fw_lbl.config(text=msg, fg=P["ok"] if ok else P["err"])
 
 
 class McpDialog(tk.Toplevel):
@@ -1015,12 +1087,15 @@ class App(tk.Tk):
         self._ask_ids = itertools.count(1)
         self.remote = None
         self.remote_cmds: queue.Queue = queue.Queue()
+        self.web_server = None
         self._restore_chats()
         self.rebuild()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.after(120, self._remote_poll)
         if self.cfg.get("remote"):
             self.after(500, self.start_remote)
+        if self.cfg.get("server"):
+            self.after(600, self.start_server)
         if first_run:
             self.after(400, self.first_run)
 
@@ -1285,6 +1360,7 @@ class App(tk.Tk):
         browser.shutdown()
         self.mcp.shutdown()
         self.stop_remote()
+        self.stop_server()
         self._save_chats()
         self.destroy()
 
@@ -1521,6 +1597,26 @@ class App(tk.Tk):
 
     def open_remote(self):
         RemoteDialog(self)
+
+    # ---------- veb-server ----------
+    def start_server(self):
+        """Veb-serverni yoqadi va sozlamaga yozadi: keyingi safar dastur ochilganda o'zi ishga tushadi."""
+        if self.web_server:
+            return
+        self.cfg["server"] = True
+        config.write(self.cfg, self.cfg_path)
+        try:
+            self.web_server = serverlib.start("0.0.0.0", int(self.cfg.get("server_port", 8080)), self.cfg_path)
+        except OSError as exc:
+            messagebox.showerror(i18n.t("Veb-server"), f"{i18n.t('Server ochilmadi:')} {exc}", parent=self)
+
+    def stop_server(self):
+        if self.web_server:
+            serverlib.stop(self.web_server)
+            self.web_server = None
+
+    def open_server(self):
+        ServerDialog(self)
 
     def _remote_call(self, action, payload):
         """Server oqimidan chaqiriladi: amalni asosiy (Tk) oqimda bajartirib, natijani kutadi."""
