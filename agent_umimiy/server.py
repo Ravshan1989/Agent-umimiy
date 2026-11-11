@@ -374,6 +374,7 @@ def make_handler(app: App):
 
 class Server(ThreadingHTTPServer):
     daemon_threads = True
+    store: Store
 
     def server_bind(self):  # standart usul socket.getfqdn() ni chaqiradi: Windows'da soniyalab qotib qolishi mumkin
         socketserver.TCPServer.server_bind(self)
@@ -381,18 +382,48 @@ class Server(ThreadingHTTPServer):
 
 
 def create(store: Store, host: str = "127.0.0.1", port: int = 0, config_file: str | None = None) -> Server:
-    return Server((host, port), make_handler(App(store, config_file)))
+    httpd = Server((host, port), make_handler(App(store, config_file)))
+    httpd.store = store
+    return httpd
+
+
+def open_default(host: str, port: int, config_file: str | None = None) -> Server:
+    """Foydalanuvchi papkasidagi `server.db` bilan serverni ochadi (hali so'rov qabul qilmaydi)."""
+    config.user_dir().mkdir(parents=True, exist_ok=True)
+    store = Store(config.user_dir() / "server.db")
+    try:
+        return create(store, host, port, config_file)
+    except OSError:
+        store.close()
+        raise
+
+
+def start(host: str, port: int, config_file: str | None = None) -> Server:
+    """Serverni fon oqimida ishga tushiradi (dastur oynasi ichidan)."""
+    httpd = open_default(host, port, config_file)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    return httpd
+
+
+def stop(httpd: Server) -> None:
+    httpd.shutdown()
+    httpd.server_close()
+    httpd.store.close()
+
+
+def urls(httpd: Server) -> list[str]:
+    """Server ochiq bo'lgan manzillar (lokal tarmoqdagilar oldinda)."""
+    host, port = httpd.server_address[0], httpd.server_port
+    hosts = [o["ip"] for o in remote.local_ips()] if host == "0.0.0.0" else [host]
+    return [f"http://{h}:{port}/" for h in hosts or ["127.0.0.1"]]
 
 
 def run(host: str, port: int, config_file: str | None = None) -> None:
-    config.user_dir().mkdir(parents=True, exist_ok=True)
-    store = Store(config.user_dir() / "server.db")
-    httpd = create(store, host, port, config_file)
-    hosts = [o["ip"] for o in remote.local_ips()] if host == "0.0.0.0" else [host]
+    httpd = open_default(host, port, config_file)
     print("Agent Umimiy veb-server ishga tushdi. Brauzerda oching:")
-    for h in hosts or ["127.0.0.1"]:
-        print(f"  http://{h}:{httpd.server_port}/")
-    print(f"Ro'yxatdan o'tish uchun taklif kodi: {store.invite()}")
+    for url in urls(httpd):
+        print("  " + url)
+    print(f"Ro'yxatdan o'tish uchun taklif kodi: {httpd.store.invite()}")
     print("To'xtatish: Ctrl+C")
     try:
         httpd.serve_forever()
@@ -400,3 +431,4 @@ def run(host: str, port: int, config_file: str | None = None) -> None:
         pass
     finally:
         httpd.server_close()
+        httpd.store.close()

@@ -200,7 +200,11 @@ closes itself.
 
 ### Web server: many people on the local network
 
-Run the app on one computer or server and people on the network use it from a browser (nothing to install):
+Run the app on one computer or server and people on the network use it from a browser (nothing to install).
+
+**From the app window:** Settings → **"Web server"** → **Turn on**. The window shows the addresses and the invite code. Once turned on, the server starts by itself every time the app opens.
+
+**Without a window (on a server):**
 
 ```bash
 python -m agent_umimiy --serve            # default: all interfaces, port 8080

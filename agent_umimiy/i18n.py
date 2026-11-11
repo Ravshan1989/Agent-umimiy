@@ -142,6 +142,23 @@ TR: dict[str, dict[str, str]] = {
     "Agentlar brauzerni boshqara olsin (sayt ochish, bosish, yozish — har safar ruxsat so'raydi)":
         {"ru": "Разрешить агентам управлять браузером (открытие сайтов, клики, ввод — каждый раз спрашивает)",
          "en": "Let agents control the browser (open sites, click, type — asks each time)"},
+    "Veb-server (boshqalar brauzerdan ishlatadi)…":
+        {"ru": "Веб-сервер (другие работают через браузер)…", "en": "Web server (others use it from a browser)…"},
+    "Veb-server": {"ru": "Веб-сервер", "en": "Web server"},
+    "Lokal tarmoqdagi odamlar brauzerdan kirib, o'z suhbatlarida agentlaringizdan foydalanadi. Yoqilgan bo'lsa, dastur har ochilganda server o'zi ishga tushadi. Dastur yopilsa, server ham to'xtaydi.":
+        {"ru": "Люди в локальной сети заходят через браузер и пользуются вашими агентами в своих беседах. Если включено, сервер запускается сам при каждом открытии программы. При закрытии программы сервер останавливается.",
+         "en": "People on the local network sign in from a browser and use your agents in their own conversations. When turned on, the server starts by itself every time the app opens. Closing the app stops the server."},
+    "Manzillar (odamlarga shulardan birini bering):":
+        {"ru": "Адреса (дайте людям один из них):", "en": "Addresses (give people one of these):"},
+    "Taklif kodi (ro'yxatdan o'tish uchun):": {"ru": "Код приглашения (для регистрации):", "en": "Invite code (for sign-up):"},
+    "Yangi taklif kodi": {"ru": "Новый код приглашения", "en": "New invite code"},
+    "Eski kod ishlamay qoladi. Ro'yxatdan o'tib bo'lganlarga ta'sir qilmaydi. Davom etilsinmi?":
+        {"ru": "Старый код перестанет работать. Уже зарегистрированных это не затронет. Продолжить?",
+         "en": "The old code will stop working. People who already signed up are not affected. Continue?"},
+    "Hamma sizning API kalitlaringiz va limitingizdan foydalanadi. Veb-foydalanuvchilar uchun agentlar kompyuteringizdagi fayllarga, buyruqlarga, brauzerga va plaginlarga tegmaydi. Ulanish shifrlanmagan (HTTP): faqat ishonchli tarmoqda ishlating yoki Tailscale o'rnating.":
+        {"ru": "Все используют ваши API-ключи и лимиты. Для веб-пользователей агенты не трогают файлы, команды, браузер и плагины вашего компьютера. Соединение не шифруется (HTTP): используйте только в доверенной сети или установите Tailscale.",
+         "en": "Everyone uses your API keys and limits. For web users, agents cannot touch your computer's files, commands, browser or plugins. The connection is not encrypted (HTTP): use it only on a trusted network or set up Tailscale."},
+    "Server ochilmadi:": {"ru": "Сервер не запустился:", "en": "The server did not start:"},
     "Telefondan boshqarish (mobil kirish)…":
         {"ru": "Управление с телефона (мобильный доступ)…", "en": "Phone control (mobile access)…"},
     "Agentlar internetdan qidira va sahifalarni o'qiy olsin":
