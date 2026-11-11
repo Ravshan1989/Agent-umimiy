@@ -66,22 +66,28 @@ class McpToolboxTests(unittest.TestCase):
                            emit=lambda *a: None)
         self.tb = Toolbox(self.ctx, "t")
 
-    def test_read_only_runs_without_asking_and_write_asks(self):
+    def test_all_mcp_tools_require_approval_even_when_marked_read_only(self):
+        # MCP readOnlyHint is only a hint; it must never bypass user consent.
+        echo = next(t for t in self.m.tools() if t.name == "fake__echo")
+        self.assertTrue(echo.read_only)
         out, err = self.tb.run("fake__echo", {"text": "x"})
         self.assertEqual((out, err), ("echo: x", False))
-        self.assertEqual(self.asked, [])
+        self.assertEqual(self.asked[0][1], "mcp:fake")
+        self.assertIn('"text": "x"', self.asked[0][3])
         out, err = self.tb.run("fake__save-note", {"note": "n"})
         self.assertFalse(err)
-        self.assertEqual(self.asked[0][1], "mcp:fake")
-        self.assertIn('"note": "n"', self.asked[0][3])
+        self.assertEqual(self.asked[1][1], "mcp:fake")
+        self.assertIn('"note": "n"', self.asked[1][3])
 
-    def test_denied_and_readonly_mode(self):
+    def test_denied_and_readonly_mode_hides_all_mcp_tools(self):
         self.answer = "no"
-        self.assertTrue(self.tb.run("fake__save-note", {"note": "n"})[1])
+        self.assertTrue(self.tb.run("fake__echo", {"text": "n"})[1])
+        self.assertEqual(len(self.asked), 1)
         self.ctx.readonly = True
         names = [t.name for t in self.tb.tools()]
-        self.assertIn("fake__echo", names)
+        self.assertNotIn("fake__echo", names)
         self.assertNotIn("fake__save-note", names)
+        self.assertTrue(self.tb.run("fake__echo", {"text": "n"})[1])
 
     def test_tool_error_is_reported(self):
         out, err = self.tb.run("fake__boom", {})
