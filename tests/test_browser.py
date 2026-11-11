@@ -119,16 +119,29 @@ class BrowserToolTests(unittest.TestCase):
         self.ctx = Context(confirm=lambda *a: (self.asked.append(a), self.answer)[1], emit=lambda *a: None)
         self.tb = Toolbox(self.ctx, "t")
 
-    def test_site_permission_asked_once_and_typing_asks_each_time(self):
+    def test_site_and_click_permissions_and_typing_asks_each_time(self):
         out, err = self.tb.run("browser_open", {"url": self.url})
         self.assertFalse(err, out)
         self.assertEqual(self.asked[0][1], "browser:127.0.0.1")
         self.tb.run("browser_open", {"url": self.url})
         self.assertEqual(len(self.asked), 1)  # shu sayt uchun qayta so'ralmaydi
+        btn = next(l.split(".")[0] for l in out.splitlines() if "Yuborish" in l)
+        self.tb.run("browser_click", {"id": int(btn)})
+        self.assertEqual(self.asked[-1][1], "browser_action:127.0.0.1")
         n = next(l.split(".")[0] for l in out.splitlines() if "Ismingiz" in l)
         self.tb.run("browser_type", {"id": int(n), "text": "a"})
         self.tb.run("browser_type", {"id": int(n), "text": "b"})
         self.assertEqual([a[1] for a in self.asked].count("browser_type"), 2)
+
+    def test_denied_click_does_not_execute_page_action(self):
+        out, err = self.tb.run("browser_open", {"url": self.url})
+        self.assertFalse(err, out)
+        btn = next(l.split(".")[0] for l in out.splitlines() if "Yuborish" in l)
+        self.answer = "no"
+        self.assertTrue(self.tb.run("browser_click", {"id": int(btn)})[1])
+        page, err = self.tb.run("browser_read", {})
+        self.assertFalse(err, page)
+        self.assertIn("hali yo'q", page)
 
     def test_denied_does_not_start_browser(self):
         self.answer = "no"
