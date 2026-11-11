@@ -6,6 +6,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from agent_umimiy import detect
 from agent_umimiy.orchestrator import Orchestrator
 from agent_umimiy.providers import build_agent
+from tests.test_tools import as_stream
 
 
 def gateway(need_key=True, chat_status=200):
@@ -37,7 +38,7 @@ def gateway(need_key=True, chat_status=200):
                 out = b'{"error":"tools unsupported"}'
                 self.send_response(chat_status)
             else:
-                out = json.dumps({"choices": [{"message": {"role": "assistant", "content": "Salom shlyuzdan"}}]}).encode()
+                out = as_stream({"choices": [{"message": {"role": "assistant", "content": "Salom shlyuzdan"}}]})
                 self.send_response(200)
             self.send_header("Content-Length", str(len(out)))
             self.end_headers()

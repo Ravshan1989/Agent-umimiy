@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import base64
+import binascii
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -78,6 +80,20 @@ def load(path: str) -> Attachment:
     if b"\x00" in raw[:4096]:
         raise AttachError(f"{p.name}: bu fayl turini o'qib bo'lmaydi (rasm, PDF, Word yoki matn fayl tanlang).")
     return Attachment(p.name, str(p), "text", "text/plain", text=raw.decode("utf-8", errors="replace")[:MAX_TEXT])
+
+
+def save_upload(save_dir: Path, name: str, data_b64: str) -> Attachment:
+    """Brauzerdan yuborilgan (base64) faylni saqlab, biriktirma qiladi."""
+    name = re.sub(r"[^\w.\- ]", "_", str(name))[-80:] or "fayl"
+    try:
+        data = base64.b64decode(data_b64, validate=True)
+    except (binascii.Error, ValueError):
+        raise AttachError(f"{name}: fayl buzilgan holda keldi.")
+    path = Path(save_dir) / f"{time.time_ns() // 1_000_000}_{name}"
+    path.write_bytes(data)
+    att = load(str(path))
+    att.name = name  # vaqt belgisisiz asl nom ko'rinsin
+    return att
 
 
 def from_clipboard(save_dir: Path) -> list[Attachment]:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 from .orchestrator import Orchestrator
@@ -20,6 +21,19 @@ def user_dir() -> Path:
     else:
         base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
     return base / "AgentUmimiy"
+
+
+def upload_dir() -> Path:
+    """Yuklangan fayllar (telefon, veb, skrinshot) papkasi; 7 kundan eski fayllar tozalanadi."""
+    d = user_dir() / "uploads"
+    d.mkdir(parents=True, exist_ok=True)
+    for old in d.glob("*"):
+        try:
+            if time.time() - old.stat().st_mtime > 7 * 86400:
+                old.unlink()
+        except OSError:
+            pass
+    return d
 
 
 def config_path(path: str | None = None) -> Path:

@@ -7,6 +7,10 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 ## [Nashr qilinmagan] / [Unreleased]
 
 ### Qo'shildi / Added
+- **Oqimli javoblar (streaming)**: Claude, OpenAI-mos, Gemini va Ollama agentlarida matn yozilishi bilan ko'rinadi;
+  to'xtatish javob o'rtasida ham darhol ishlaydi.
+- **Veb-server rejimi** (`--serve`): lokal tarmoqdagi odamlar brauzerdan kirib ishlatadi. Foydalanuvchilar
+  (taklif kodi bilan ro'yxatdan o'tish), alohida suhbatlar, oqimli chat, fayl va skrinshot biriktirish.
 - Skrinshotni chatga **Ctrl+V** bilan qo'yish (clipboard'dagi rasm yoki nusxalangan fayllar biriktiriladi).
 - README ingliz (`README.en.md`) va rus (`README.ru.md`) tillarida; har uch faylda til almashtirgich.
 - "Claude for Open Source" bo'limi va dastur havolasi.
