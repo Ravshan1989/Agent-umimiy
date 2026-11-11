@@ -191,6 +191,21 @@ closes itself.
   networks). To use it away from home, set up an encrypted tunnel like Tailscale.
 - If the Windows firewall asks the first time, allow it for "Private networks". Off by default.
 
+### Web server: many people on the local network
+
+Run the app on one computer or server and people on the network use it from a browser (nothing to install):
+
+```bash
+python -m agent_umimiy --serve            # default: all interfaces, port 8080
+python -m agent_umimiy --serve --port 9000 --host 192.168.1.10
+```
+
+The app prints the address and an **invite code**. People open the address and register with a name, a password and that code. Everyone has their own conversations, answers appear as they are written, and files and screenshots (Ctrl+V) can be attached.
+- Agents and API keys come from `agents.json` on that computer: everyone uses **your keys and your limits**.
+- For safety, agents in web mode **cannot touch** the server's files, commands, browser or plugins; CLI agents (`claude`, `codex`...) are not listed. Chat, file analysis and web search work.
+- Data is stored in `server.db` (SQLite) in the settings folder. Passwords are stored hashed.
+- The connection is **not encrypted (HTTP)**: use it only on a trusted local network. To expose it to the internet, put an HTTPS proxy (Caddy, nginx) in front. On Windows, allow the port if the firewall asks.
+
 ### Plugins (MCP) and skills
 
 **Plugins.** The **Plugins** button in the left panel: "Add" → pick a ready template (Files, Memory,
@@ -269,12 +284,12 @@ The key is stored only in the settings file on your computer. If a model doesn't
 
 ### Running from source
 
-Python 3.9+ required. Optional libraries: `pypdf` (reading PDFs) and `qrcode` (QR code for phone).
+Python 3.9+ required. Optional libraries: `pypdf` (reading PDFs), `qrcode` (QR code for phone) and `pillow` (pasting screenshots with Ctrl+V).
 
 ```bash
 git clone https://github.com/Ravshan1989/Agent-umimiy.git
 cd Agent-umimiy
-pip install pypdf qrcode
+pip install pypdf qrcode pillow
 python app.py                              # window
 python app.py --cli -m broadcast "hello"   # terminal
 python -m unittest discover -s tests -t .  # tests
@@ -286,6 +301,8 @@ python -m unittest discover -s tests -t .  # tests
 |---|---|
 | `gui.py`, `theme.py` | window and design (Tkinter) |
 | `providers.py` | Claude, OpenAI, Gemini, Ollama, CLI agents |
+| `stream.py` | reading streamed responses |
+| `server.py`, `server_page.py`, `store.py` | web server mode: HTTP, page, SQLite |
 | `agentic.py`, `tools.py` | the agent loop and tools (files, commands, search) |
 | `orchestrator.py` | modes and agent-to-agent help |
 | `browser.py` | browser control (CDP) |

@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import json
 import time
-import urllib.error
-import urllib.request
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -33,12 +30,22 @@ class Agent(ABC):
         self.name = name
         self.description = description
         self.options = options
+        self.ctx: Context | None = None
+        self._files: list = []
 
     @abstractmethod
     def _ask(self, prompt: str, history: list[dict]) -> str: ...
 
     def _ask_tools(self, prompt: str, history: list[dict], tb: Toolbox) -> str:
         return self._ask(prompt, history)
+
+    def _on_text(self, text: str) -> None:
+        """Oqimli javobning navbatdagi bo'lagi: to'xtatish tekshiriladi va matn hodisa sifatida uzatiladi."""
+        ctx = self.ctx
+        if ctx and ctx.cancel.is_set():
+            raise Cancelled()
+        if ctx and ctx.emit:
+            ctx.emit(self.name, "delta", text)
 
     def ask(self, prompt: str, history: list[dict] | None = None, ctx: Context | None = None, files=None) -> Result:
         start = time.monotonic()
@@ -66,18 +73,3 @@ class Agent(ABC):
         except Exception as exc:  # agent xatosi butun tizimni to'xtatmasligi kerak
             return Result(self.name, "", False, time.monotonic() - start, str(exc))
 
-
-def http_json(url: str, payload: dict, headers: dict, timeout: float = 120) -> dict:
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json", **headers},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read())
-    except urllib.error.HTTPError as exc:
-        raise AgentError(f"HTTP {exc.code}: {exc.read().decode(errors='replace')[:500]}") from exc
-    except urllib.error.URLError as exc:
-        raise AgentError(f"Ulanish xatosi: {exc.reason}") from exc

@@ -11,15 +11,47 @@ from agent_umimiy.providers import build_agent
 from agent_umimiy.tools import Context, Toolbox
 
 
+def _sse(events) -> bytes:
+    return "".join(f"data: {json.dumps(e)}\n\n" for e in events).encode()
+
+
+def as_stream(resp: dict) -> bytes:
+    """Tayyor javobni provayder oqimiga aylantiradi: matn ikki bo'lakda, asbob argumentlari ham bo'laklab keladi."""
+    def halves(x):
+        return [x[:len(x) // 2], x[len(x) // 2:]]
+
+    if "content" in resp:  # Anthropic
+        ev = [{"type": "message_start", "message": {"role": "assistant", "content": []}}]
+        for i, b in enumerate(resp["content"]):
+            if b["type"] == "text":
+                ev.append({"type": "content_block_start", "index": i, "content_block": {"type": "text", "text": ""}})
+                ev += [{"type": "content_block_delta", "index": i, "delta": {"type": "text_delta", "text": h}} for h in halves(b["text"])]
+            else:
+                ev.append({"type": "content_block_start", "index": i, "content_block": {**b, "input": {}}})
+                ev += [{"type": "content_block_delta", "index": i, "delta": {"type": "input_json_delta", "partial_json": h}}
+                       for h in halves(json.dumps(b["input"]))]
+            ev.append({"type": "content_block_stop", "index": i})
+        return _sse(ev + [{"type": "message_stop"}])
+    msg = resp["choices"][0]["message"]  # OpenAI-mos
+    ev = [{"choices": [{"delta": {"role": "assistant", "content": h}}]} for h in halves(msg.get("content") or "")]
+    for i, c in enumerate(msg.get("tool_calls") or []):
+        ev.append({"choices": [{"delta": {"tool_calls": [{"index": i, "id": c["id"], "type": "function",
+                                                         "function": {"name": c["function"]["name"], "arguments": ""}}]}}]})
+        ev += [{"choices": [{"delta": {"tool_calls": [{"index": i, "function": {"arguments": h}}]}}]}
+               for h in halves(c["function"]["arguments"])]
+    return _sse(ev) + b"data: [DONE]\n\n"
+
+
 def serve(script):
-    """Soxta API: har so'rovga ketma-ket 'script' dagi javobni beradi."""
+    """Soxta API: har so'rovga ketma-ket 'script' dagi javobni oqim (streaming) ko'rinishida beradi."""
     seen = []
 
     class H(BaseHTTPRequestHandler):
         def do_POST(self):
             seen.append(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
-            out = json.dumps(script[min(len(seen) - 1, len(script) - 1)]).encode()
+            out = as_stream(script[min(len(seen) - 1, len(script) - 1)])
             self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
             self.send_header("Content-Length", str(len(out)))
             self.end_headers()
             self.wfile.write(out)

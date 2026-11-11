@@ -7,7 +7,6 @@ import json
 import queue
 import re
 import threading
-import time
 import tkinter as tk
 import webbrowser
 from pathlib import Path
@@ -942,6 +941,8 @@ class Chat:
         self.records: list[dict] = []  # ko'rinadigan xabarlar (saqlash va tiklash uchun)
         self.replayed = True
         self.todo = None  # vazifalar kartasi
+        self.stream: dict[str, str] = {}  # agent -> hozir yozilayotgan (oqimli) matn
+        self.live: dict = {}  # agent -> shu matn ko'rsatilayotgan vaqtinchalik qator
 
 
 class TabButton(tk.Canvas):
@@ -1122,6 +1123,7 @@ class App(tk.Tk):
         self.send_btn.bind("<Leave>", lambda e: self._send_draw(False))
         self.wrap.bind("<Configure>", lambda e: self._layout_input())
         self.entry.bind("<Return>", self._enter)
+        self.entry.bind("<<Paste>>", self._paste)
         self.entry.bind("<KeyRelease>", lambda e: self._grow())
         self.entry.bind("<FocusIn>", lambda e: self._ph(False))
         self.entry.bind("<FocusOut>", lambda e: self._ph(True))
@@ -1399,6 +1401,24 @@ class App(tk.Tk):
         self._render_chips()
         self.entry.focus_set()
 
+    def _paste(self, e):
+        """Ctrl+V: clipboard'da matn bo'lsa odatdagidek qo'yiladi, aks holda skrinshot/fayl biriktiriladi."""
+        try:
+            if self.clipboard_get():
+                return None
+        except tk.TclError:
+            pass
+        try:
+            atts = attachments.from_clipboard(config.upload_dir())
+        except attachments.AttachError as exc:
+            messagebox.showwarning("Fayl biriktirilmadi", str(exc), parent=self)
+            return "break"
+        if not atts:
+            return None
+        self.cur.pending.extend(atts)
+        self._render_chips()
+        return "break"
+
     def _remove_attachment(self, a):
         self.cur.pending.remove(a)
         self._render_chips()
@@ -1587,24 +1607,10 @@ class App(tk.Tk):
         raise ValueError("Noma'lum amal")
 
     def _remote_attachment(self, f):
-        import base64
-        name = re.sub(r"[^\w.\- ]", "_", str(f.get("name", "fayl")))[-80:] or "fayl"
-        d = config.user_dir() / "uploads"
-        d.mkdir(parents=True, exist_ok=True)
-        for old in d.glob("*"):  # 7 kundan eski yuklamalarni tozalash
-            try:
-                if time.time() - old.stat().st_mtime > 7 * 86400:
-                    old.unlink()
-            except OSError:
-                pass
-        path = d / f"{int(time.time() * 1000)}_{name}"
-        path.write_bytes(base64.b64decode(f.get("data", "")))
         try:
-            att = attachments.load(str(path))
+            return attachments.save_upload(config.upload_dir(), f.get("name", "fayl"), f.get("data", ""))
         except attachments.AttachError as exc:
             raise ValueError(str(exc))
-        att.name = name  # vaqt belgisisiz asl nom ko'rinsin
-        return att
 
     def open_plugins(self):
         PluginsDialog(self, self.cfg, self.mcp, self._save_plugins)
@@ -1868,6 +1874,7 @@ class App(tk.Tk):
         self.inbox.put(("done", chat, res, err))
 
     def _poll(self):
+        streamed = []  # oqimli matni o'zgargan suhbatlar: navbat bo'shagach bir marta chiziladi
         while True:
             try:
                 item = self.inbox.get_nowait()
@@ -1880,7 +1887,11 @@ class App(tk.Tk):
                     item[-1].set()
                 continue
             with self._as(chat):
-                if item[0] == "event":
+                if item[0] == "event" and item[3] in ("delta", "turn"):
+                    chat.stream[item[2]] = "" if item[3] == "turn" else chat.stream.get(item[2], "") + item[4]
+                    if chat not in streamed:
+                        streamed.append(chat)
+                elif item[0] == "event":
                     self.add_activity(*item[2:])
                 elif item[0] == "ask":
                     _, _, agent, kind, title, detail, box, evt = item
@@ -1897,13 +1908,43 @@ class App(tk.Tk):
                     evt.set()
                 else:
                     self._done(item[2], item[3])
+        for chat in streamed:
+            if chat in self.chats:
+                with self._as(chat):
+                    self._render_live()
         if any(c.busy for c in self.chats):
             self.after(100, self._poll)
         else:
             self._polling = False
 
+    def _render_live(self):
+        """Oqimli javob: matn kelishi bilan vaqtinchalik qatorda ko'rsatiladi; yakuniy javob uni almashtiradi."""
+        chat = self._a
+        for agent, text in chat.stream.items():
+            row = chat.live.get(agent)
+            if not text:
+                if row is not None:
+                    row.destroy()
+                    del chat.live[agent]
+                continue
+            if row is None:
+                self._clear_empty()
+                row = chat.live[agent] = tk.Frame(chat.inner, bg=P["bg"])
+                row.pack(fill="x", padx=28, pady=8)
+                Avatar(row, agent).pack(side="left", anchor="n", padx=(0, 12))
+                row.body = label(row, "", size=11, wraplength=self._max_w(), justify="left")
+                row.body.pack(side="left", anchor="w")
+            row.body.config(text=text)
+        if chat.typing is not None:
+            chat.typing.pack_forget()
+            chat.typing.pack(fill="x", padx=28, pady=8)
+        self._scroll()
+
     def _done(self, results, error):
         chat = self._a
+        for row in chat.live.values():
+            row.destroy()
+        chat.stream, chat.live = {}, {}
         if self.typing is not None:
             self.typing.destroy()
             self.typing = None

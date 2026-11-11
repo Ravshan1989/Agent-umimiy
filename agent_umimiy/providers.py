@@ -6,9 +6,9 @@ import shutil
 import subprocess
 import sys
 
-from . import agentic, proc
+from . import agentic, proc, stream
 from . import attachments as att
-from .base import Agent, AgentError, http_json
+from .base import Agent, AgentError
 from .detect import cli_health
 
 
@@ -29,7 +29,7 @@ class AnthropicAgent(Agent):
 
     def _ask(self, prompt, history):
         o = self.options
-        data = http_json(
+        content = stream.anthropic(
             o.get("base_url", "https://api.anthropic.com") + "/v1/messages",
             {
                 "model": o.get("model", "claude-sonnet-5-5"),
@@ -37,8 +37,9 @@ class AnthropicAgent(Agent):
                 "messages": history + [{"role": "user", "content": att.anthropic_content(prompt, self._files)}],
             },
             {"x-api-key": _key(o, "ANTHROPIC_API_KEY"), "anthropic-version": "2023-06-01"},
+            self._on_text,
         )
-        return "".join(b.get("text", "") for b in data.get("content", []))
+        return "".join(b.get("text", "") for b in content)
 
 
 class OpenAIAgent(Agent):
@@ -52,15 +53,16 @@ class OpenAIAgent(Agent):
 
     def _ask(self, prompt, history):
         o = self.options
-        data = http_json(
+        msg = stream.openai(
             o.get("base_url", "https://api.openai.com/v1") + "/chat/completions",
             {
                 "model": o.get("model", "gpt-4o"),
                 "messages": history + [{"role": "user", "content": att.openai_content(prompt, self._files)}],
             },
             {"Authorization": "Bearer " + _key(o, "OPENAI_API_KEY")},
+            self._on_text,
         )
-        return data["choices"][0]["message"]["content"]
+        return msg["content"] or ""
 
 
 class GeminiAgent(Agent):
@@ -73,12 +75,13 @@ class GeminiAgent(Agent):
             for m in history
         ] + [{"role": "user", "parts": att.gemini_parts(prompt, self._files)}]
         model = o.get("model", "gemini-2.0-flash")
-        data = http_json(
-            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+        return stream.gemini(
+            o.get("base_url", "https://generativelanguage.googleapis.com")
+            + f"/v1beta/models/{model}:streamGenerateContent?alt=sse",
             {"contents": contents},
             {"x-goog-api-key": _key(o, "GEMINI_API_KEY")},
+            self._on_text,
         )
-        return "".join(p.get("text", "") for p in data["candidates"][0]["content"]["parts"])
 
 
 class OllamaAgent(Agent):
@@ -92,16 +95,12 @@ class OllamaAgent(Agent):
 
     def _ask(self, prompt, history):
         o = self.options
-        data = http_json(
+        msg = stream.ollama(
             o.get("base_url", "http://localhost:11434") + "/api/chat",
-            {
-                "model": o.get("model", "llama3"),
-                "messages": history + [att.ollama_message(prompt, self._files)],
-                "stream": False,
-            },
-            {},
+            {"model": o.get("model", "llama3"), "messages": history + [att.ollama_message(prompt, self._files)]},
+            self._on_text,
         )
-        return data["message"]["content"]
+        return msg["content"]
 
 
 class CLIAgent(Agent):

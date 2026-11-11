@@ -166,6 +166,21 @@ Saytlarda tugma bosish va forma to'ldirish uchun pastdagi «Agent brauzerda ishl
 - Ulanish **shifrlanmagan (HTTP)**: faqat ishonchli uy Wi-Fi'ida ishlating (kafe/ommaviy tarmoqda emas). Uydan tashqarida ishlatish uchun Tailscale kabi shifrlangan tunnel o'rnating.
 - Windows xavfsizlik devori birinchi marta so'rasa, «Shaxsiy tarmoqlar» uchun ruxsat bering. Sukut bo'yicha o'chiq.
 
+### Veb-server: lokal tarmoqda ko'p kishi ishlatadi
+
+Dasturni bitta kompyuter yoki serverda ishga tushirasiz, tarmoqdagi odamlar brauzerdan kirib ishlatadi (o'rnatish shart emas):
+
+```bash
+python -m agent_umimiy --serve            # standart: barcha tarmoqlar, 8080-port
+python -m agent_umimiy --serve --port 9000 --host 192.168.1.10
+```
+
+Dastur manzilni va **taklif kodini** chiqaradi. Odamlar manzilni brauzerda ochib, ism, parol va shu kod bilan ro'yxatdan o'tadi. Har kimning o'z suhbatlari bor, javoblar yozilishi bilan ko'rinadi, fayl va skrinshot (Ctrl+V) biriktirish mumkin.
+- Agentlar va API kalitlar kompyuterdagi `agents.json` dan olinadi: hamma **sizning kalitlaringiz va limitingizdan** foydalanadi.
+- Xavfsizlik uchun veb-rejimda agentlar serverdagi fayllarga, buyruqlarga, brauzerga va plaginlarga **tegmaydi**; CLI agentlar (`claude`, `codex`...) ro'yxatda ko'rinmaydi. Suhbat, fayl tahlili va veb-qidiruv ishlaydi.
+- Ma'lumotlar `server.db` (SQLite) faylida, sozlamalar papkasida saqlanadi. Parollar xeshlangan holda turadi.
+- Ulanish **shifrlanmagan (HTTP)**: faqat ishonchli lokal tarmoqda ishlating. Internetga ochish uchun oldiga HTTPS beruvchi proksi (Caddy, nginx) qo'ying. Windows'da devor (firewall) portga ruxsat so'rasa, ruxsat bering.
+
 ### Plaginlar (MCP) va ko'nikmalar (skills)
 
 **Plaginlar.** Chap paneldagi **Plaginlar** tugmasi: «Qo'shish» → tayyor shablonni tanlang (Fayllar, Xotira, Hujjatlar/Context7, Notion, Playwright, GitHub...) yoki istalgan MCP serverni o'zingiz kiriting (buyruq yoki URL, kerak bo'lsa kalit). Dastur serverni ishga tushiradi va uning asboblarini barcha agentlarga beradi.
@@ -222,12 +237,12 @@ Kalit faqat sizning kompyuteringizdagi sozlama faylida saqlanadi. Model fayl asb
 
 ### Manba koddan ishga tushirish
 
-Python 3.9+ kerak. Qo'shimcha kutubxonalar ixtiyoriy: `pypdf` (PDF o'qish) va `qrcode` (telefon uchun QR-kod).
+Python 3.9+ kerak. Qo'shimcha kutubxonalar ixtiyoriy: `pypdf` (PDF o'qish), `qrcode` (telefon uchun QR-kod) va `pillow` (skrinshotni Ctrl+V bilan qo'yish).
 
 ```bash
 git clone https://github.com/Ravshan1989/Agent-umimiy.git
 cd Agent-umimiy
-pip install pypdf qrcode
+pip install pypdf qrcode pillow
 python app.py                              # oyna
 python app.py --cli -m broadcast "salom"   # terminal
 python -m unittest discover -s tests -t .  # testlar
@@ -239,6 +254,8 @@ python -m unittest discover -s tests -t .  # testlar
 |---|---|
 | `gui.py`, `theme.py` | oyna va dizayn (Tkinter) |
 | `providers.py` | Claude, OpenAI, Gemini, Ollama, CLI agentlar |
+| `stream.py` | oqimli (streaming) javoblarni o'qish |
+| `server.py`, `server_page.py`, `store.py` | veb-server rejimi: HTTP, sahifa, SQLite |
 | `agentic.py`, `tools.py` | agent sikli va asboblar (fayl, buyruq, qidiruv) |
 | `orchestrator.py` | rejimlar va agentlararo yordam |
 | `browser.py` | brauzerni boshqarish (CDP) |
