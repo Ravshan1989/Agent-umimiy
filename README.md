@@ -175,7 +175,11 @@ Saytlarda tugma bosish va forma to'ldirish uchun pastdagi «Agent brauzerda ishl
 
 ### Veb-server: lokal tarmoqda ko'p kishi ishlatadi
 
-Dasturni bitta kompyuter yoki serverda ishga tushirasiz, tarmoqdagi odamlar brauzerdan kirib ishlatadi (o'rnatish shart emas):
+Dasturni bitta kompyuter yoki serverda ishga tushirasiz, tarmoqdagi odamlar brauzerdan kirib ishlatadi (o'rnatish shart emas).
+
+**Dastur oynasidan:** Sozlamalar → **«Veb-server»** → **Yoqish**. Oynada manzillar va taklif kodi ko'rinadi. Bir marta yoqilgach, dastur har ochilganda server o'zi ishga tushadi.
+
+**Oynasiz (server kompyuterda):**
 
 ```bash
 python -m agent_umimiy --serve            # standart: barcha tarmoqlar, 8080-port
