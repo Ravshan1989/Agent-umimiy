@@ -6,6 +6,8 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 
 ## [Nashr qilinmagan] / [Unreleased]
 
+## [0.2.0] — 2026-11-11
+
 ### Qo'shildi / Added
 - **Oqimli javoblar (streaming)**: Claude, OpenAI-mos, Gemini va Ollama agentlarida matn yozilishi bilan ko'rinadi;
   to'xtatish javob o'rtasida ham darhol ishlaydi.
@@ -15,6 +17,12 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 - README ingliz (`README.en.md`) va rus (`README.ru.md`) tillarida; har uch faylda til almashtirgich.
 - "Claude for Open Source" bo'limi va dastur havolasi.
 - Loyiha hujjatlari: `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md` va issue shablonlari.
+
+### O'zgardi / Changed
+- Windows dasturi endi repodagi zip o'rnida **Releases** sahifasidan (`AgentUmimiy-Setup.exe`) tarqatiladi.
+
+### Tuzatildi / Fixed
+- Windows'da yiqiladigan ikki test tuzatildi: shu sabab `v0.1.0` uchun o'rnatuvchi yig'ilmagan edi.
 
 ## [0.1.0] — 2026-10-24
 

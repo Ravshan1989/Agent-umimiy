@@ -1,4 +1,5 @@
 import json
+import sys
 import tempfile
 import threading
 import unittest
@@ -183,7 +184,6 @@ class LoopTests(unittest.TestCase):
         self.assertTrue(seen[1]["messages"][-1]["content"][0]["is_error"])
 
     def test_cli_agent_uses_project_as_cwd(self):
-        import sys
         a = build_agent({"name": "cli", "type": "cli",
                          "command": f"{sys.executable} -c \"import os;print(os.getcwd())\""})
         r = self._orch(a).run("x", "single")[0]
@@ -201,8 +201,11 @@ class CliResolveTests(unittest.TestCase):
         import os
         import stat
         d = Path(tempfile.mkdtemp())
-        shim = d / "fakeclaude.cmd"  # Windows'dagi npm shimini taqlid qiladi
-        shim.write_text("#!/bin/sh\necho \"ARGS:$#\"\ncat\n")
+        shim = d / "fakeclaude.cmd"  # Windows'dagi npm shimini taqlid qiladi: argumentlar sonini va stdin'ni chiqaradi
+        if sys.platform == "win32":
+            shim.write_text('@echo off\nset n=0\nfor %%a in (%*) do set /a n+=1\necho ARGS:%n%\nfindstr "^"\n')
+        else:
+            shim.write_text("#!/bin/sh\necho \"ARGS:$#\"\ncat\n")
         shim.chmod(shim.stat().st_mode | stat.S_IEXEC)
         old = os.environ["PATH"]
         os.environ["PATH"] = f"{d}{os.pathsep}{old}"

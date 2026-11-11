@@ -1,6 +1,6 @@
 [project]
 name = "agent-umimiy"
-version = "0.1.0"
+version = "0.2.0"
 description = "Barcha AI agentlarni birlashtiruvchi desktop ilova"
 requires-python = ">=3.9"
 license = {text = "MIT"}
