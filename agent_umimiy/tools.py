@@ -150,8 +150,10 @@ def available(ctx: Context) -> list[Tool]:
         out = [t for t in out if t.name != "list_agents"]
     if not ctx.delegate or len(ctx.roster) < 2:
         out = [t for t in out if t.name != "ask_agent"]
-    if ctx.mcp:
-        out += [t for t in ctx.mcp.tools() if not ctx.readonly or t.read_only]
+    if ctx.mcp and not ctx.readonly:
+        # MCP readOnlyHint is server-supplied metadata, not a security boundary.
+        # In read-only orchestration modes, expose no remote tools at all.
+        out += ctx.mcp.tools()
     return out
 
 
@@ -460,9 +462,10 @@ class Toolbox:
     # ---- plaginlar (MCP) va ko'nikmalar ----
     def _call_mcp(self, tool: Tool, args: dict) -> str:
         from .mcp import McpError
-        if not tool.read_only:  # faqat o'qiydigan asboblar ruxsatsiz; qolganlari so'raydi
-            self._approve("mcp:" + tool.server, f"Plagin amali: {tool.server} → {tool.remote_name}",
-                          json.dumps(args, indent=2, ensure_ascii=False)[:2500] or "(argumentsiz)")
+        # MCP annotations (including readOnlyHint) are untrusted server claims.
+        # Require explicit user approval for every remote tool invocation.
+        self._approve("mcp:" + tool.server, f"Plagin amali: {tool.server} → {tool.remote_name}",
+                      json.dumps(args, indent=2, ensure_ascii=False)[:2500] or "(argumentsiz)")
         self._say("mcp", f"Plagin «{tool.server}»: {tool.remote_name}")
         try:
             return _clip(self.ctx.mcp.call(tool.server, tool.remote_name, args), 14000)
