@@ -511,6 +511,10 @@ class Toolbox:
         return self._browser(lambda b: b.snapshot(), say="Brauzer sahifasini o'qidi")
 
     def t_browser_click(self, id: int) -> str:
+        url = self._browser(lambda b: b.js("location.href"))
+        host = urllib.parse.urlparse(url or "").hostname or "noma'lum sayt"
+        self._approve("browser_action:" + host, f"Brauzerda element bosiladi: {host}",
+                      f"Sahifa: {url}\nElement raqami: {id}. Bosish sahifadagi amalni bajarishi yoki ma'lumot yuborishi mumkin.")
         return self._browser(lambda b, i: b.click(i), id, say=f"Brauzerda {id}-elementni bosdi")
 
     def t_browser_type(self, id: int, text: str, submit: bool = False) -> str:
@@ -520,6 +524,11 @@ class Toolbox:
                              say=f"Brauzerda {id}-maydonga yozdi{' va yubordi' if submit else ''}")
 
     def t_browser_press(self, key: str) -> str:
+        if key == "Enter":
+            url = self._browser(lambda b: b.js("location.href"))
+            host = urllib.parse.urlparse(url or "").hostname or "noma'lum sayt"
+            self._approve("browser_action:" + host, f"Brauzerda Enter bosiladi: {host}",
+                          f"Sahifa: {url}\nEnter tugmasi formani yuborishi yoki amalni tasdiqlashi mumkin.")
         return self._browser(lambda b, k: b.press(k), key, say=f"Brauzerda {key} bosdi")
 
     def t_browser_scroll(self, direction: str) -> str:
