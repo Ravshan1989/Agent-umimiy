@@ -2,8 +2,16 @@ name: Windows .exe
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Mavjud nashr tegi (masalan v0.2.0): o'rnatuvchi shu nashrga biriktiriladi. Bo'sh qolsa faqat yig'iladi."
+        required: false
+        default: ""
   push:
     tags: ["v*"]
+
+permissions:
+  contents: write  # o'rnatuvchini nashrga (Releases) biriktirish uchun
 
 jobs:
   build:
@@ -24,7 +32,8 @@ jobs:
           path: |
             dist/AgentUmimiy-Setup.exe
             dist/AgentUmimiy/
-      - if: startsWith(github.ref, 'refs/tags/v')
+      - if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
           files: dist/AgentUmimiy-Setup.exe
