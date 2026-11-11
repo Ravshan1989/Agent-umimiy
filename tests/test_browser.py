@@ -125,10 +125,10 @@ class BrowserToolTests(unittest.TestCase):
         self.assertEqual(self.asked[0][1], "browser:127.0.0.1")
         self.tb.run("browser_open", {"url": self.url})
         self.assertEqual(len(self.asked), 1)  # shu sayt uchun qayta so'ralmaydi
-        btn = next(l.split(".")[0] for l in out.splitlines() if "Yuborish" in l)
+        btn = next(l.split(". <", 1)[0].strip() for l in out.splitlines() if ". <button>" in l and "Yuborish" in l)
         self.tb.run("browser_click", {"id": int(btn)})
         self.assertEqual(self.asked[-1][1], "browser_action:127.0.0.1")
-        n = next(l.split(".")[0] for l in out.splitlines() if "Ismingiz" in l)
+        n = next(l.split(". <", 1)[0].strip() for l in out.splitlines() if ". <input" in l and "Ismingiz" in l)
         self.tb.run("browser_type", {"id": int(n), "text": "a"})
         self.tb.run("browser_type", {"id": int(n), "text": "b"})
         self.assertEqual([a[1] for a in self.asked].count("browser_type"), 2)
