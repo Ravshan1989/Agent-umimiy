@@ -8,7 +8,7 @@
 агенты читают и редактируют ваши файлы, управляют браузером и помогают друг другу.
 
 ![Платформа](https://img.shields.io/badge/платформа-Windows-0078D6?logo=windows&logoColor=white)
-![Версия](https://img.shields.io/badge/версия-0.1.0-orange)
+![Версия](https://img.shields.io/badge/версия-0.2.0-orange)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Лицензия](https://img.shields.io/badge/лицензия-MIT-green)
 ![Интерфейс](https://img.shields.io/badge/интерфейс-узбекский-1EB53A)
@@ -65,11 +65,10 @@
 
 > Пока только для **Windows 10/11 (64-бит)**.
 
-1. Скачайте из этого репозитория файл **[`AgentUmimiy-Windows.zip`](AgentUmimiy-Windows.zip)**
-   (или установщик `AgentUmimiy-Setup.exe` из раздела **Releases** / **Actions → Artifacts**).
-2. Распакуйте zip: правая кнопка → **«Извлечь все»**.
-3. Дважды щёлкните **`AgentUmimiy.exe`**.
-4. Если Windows предупредит: **«Подробнее»** → **«Выполнить в любом случае»**.
+1. Скачайте **`AgentUmimiy-Setup.exe`** со страницы
+   **[последнего выпуска](https://github.com/Ravshan1989/Agent-umimiy/releases/latest)**.
+2. Дважды щёлкните файл и установите: на рабочем столе появится ярлык «Agent Umimiy».
+3. Если Windows предупредит: **«Подробнее»** → **«Выполнить в любом случае»**.
 
 > [!NOTE]
 > Предупреждение Windows появляется потому, что приложение не подписано цифровой подписью — это обычное

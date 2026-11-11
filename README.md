@@ -8,7 +8,7 @@ Claude, ChatGPT, Gemini, Ollama va boshqa modellar bilan bitta oynada ishlang:
 agentlar fayllaringizni o'qiydi, tahrirlaydi, brauzerni boshqaradi va bir-biriga yordam beradi.
 
 ![Platforma](https://img.shields.io/badge/platforma-Windows-0078D6?logo=windows&logoColor=white)
-![Versiya](https://img.shields.io/badge/versiya-0.1.0-orange)
+![Versiya](https://img.shields.io/badge/versiya-0.2.0-orange)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Litsenziya](https://img.shields.io/badge/litsenziya-MIT-green)
 ![Til](https://img.shields.io/badge/interfeys-o'zbek%20tilida-1EB53A)
@@ -65,11 +65,10 @@ Ilova kompyuteringizdagi mavjud agentlarni **o'zi topadi** — hech narsa yozib 
 
 > Hozircha faqat **Windows 10/11 (64-bit)** uchun.
 
-1. Ushbu repodagi **[`AgentUmimiy-Windows.zip`](AgentUmimiy-Windows.zip)** faylini yuklab oling
-   (yoki o'rnatuvchi `AgentUmimiy-Setup.exe` ni **Releases** / **Actions → Artifacts** bo'limidan).
-2. Zip faylni oching: o'ng tugma → **«Hammasini chiqarish»**.
-3. **`AgentUmimiy.exe`** ni ikki marta bosing.
-4. Windows ogohlantirsa: **«Qo'shimcha ma'lumot»** → **«Baribir ishga tushirish»**.
+1. **[Oxirgi nashr (Releases)](https://github.com/Ravshan1989/Agent-umimiy/releases/latest)** sahifasidan
+   **`AgentUmimiy-Setup.exe`** faylini yuklab oling.
+2. Faylni ikki marta bosing va o'rnating: ish stolida «Agent Umimiy» yorlig'i paydo bo'ladi.
+3. Windows ogohlantirsa: **«Qo'shimcha ma'lumot»** → **«Baribir ishga tushirish»**.
 
 > [!NOTE]
 > Windows ogohlantirishi dastur raqamli imzo bilan imzolanmaganligi uchun chiqadi — bu yangi va

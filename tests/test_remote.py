@@ -1,4 +1,5 @@
 import json
+import sys
 import unittest
 import urllib.error
 import urllib.request
@@ -132,7 +133,10 @@ class NetworkHelpersTests(unittest.TestCase):
         self.assertIn("profile=any", a)
         self.assertTrue(a.endswith('program="C:\\Apps\\AgentUmimiy.exe"'))
         self.assertNotIn("program=", remote.firewall_args(8765))
-        ok, msg = remote.open_firewall(8765)  # Linux'da: xavfsiz rad etiladi
+
+    @unittest.skipIf(sys.platform == "win32", "Windows'da haqiqiy devor qoidasini o'zgartiradi")
+    def test_firewall_refused_outside_windows(self):
+        ok, msg = remote.open_firewall(8765)
         self.assertFalse(ok)
         self.assertFalse(remote.firewall_rule_exists())
 
