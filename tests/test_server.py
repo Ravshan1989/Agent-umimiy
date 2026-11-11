@@ -5,6 +5,7 @@ import threading
 import time
 import unittest
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from unittest import mock
@@ -138,6 +139,25 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(ali.call("/api/send", {"chat": chat, "text": " ", "agent": "aks"})[0], 400)
         self.assertEqual(ali.call("/api/send", {"chat": chat, "text": "x", "agent": "buyruq"})[0], 400)
         self.assertEqual(ali.call("/api/chat/new", {}, ctype="text/plain")[0], 415)  # boshqa saytdagi forma
+
+    def test_created_file_download_is_private(self):
+        ali, vali = self.user("Ali"), self.user("Vali")
+        chat = ali.call("/api/chat/new", {})[1]["id"]
+        folder = self.d / "files" / str(chat)
+        folder.mkdir(parents=True)
+        (folder / "Ҳисобот 1.docx").write_bytes(b"PK-fayl")
+        url = f"/api/file?chat={chat}&name=" + urllib.parse.quote("Ҳисобот 1.docx")
+        req = urllib.request.Request(self.base + url, headers={"Cookie": ali.cookie})
+        with urllib.request.urlopen(req) as r:
+            self.assertEqual(r.read(), b"PK-fayl")
+            self.assertIn("attachment", r.headers["Content-Disposition"])
+            self.assertIn("wordprocessingml", r.headers["Content-Type"])
+        self.assertEqual(vali.call(url)[0], 404)  # begona suhbat
+        self.assertEqual(Client(self.base).call(url)[0], 401)
+        for name in ("../server.db", "..%2Fserver.db", "yoq.docx", ""):
+            self.assertEqual(ali.call(f"/api/file?chat={chat}&name={name}")[0], 404, name)
+        self.assertEqual(ali.call("/api/chat/delete", {"chat": chat})[0], 200)
+        self.assertFalse(folder.exists())  # suhbat bilan birga fayllari ham o'chadi
 
     def test_wrong_passwords_get_locked_out(self):
         self.user("Ali")

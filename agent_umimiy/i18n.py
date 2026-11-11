@@ -145,6 +145,8 @@ TR: dict[str, dict[str, str]] = {
     "Veb-server (boshqalar brauzerdan ishlatadi)…":
         {"ru": "Веб-сервер (другие работают через браузер)…", "en": "Web server (others use it from a browser)…"},
     "Veb-server": {"ru": "Веб-сервер", "en": "Web server"},
+    "Ochish": {"ru": "Открыть", "en": "Open"},
+    "Papkani ochish": {"ru": "Открыть папку", "en": "Open folder"},
     "Lokal tarmoqdagi odamlar brauzerdan kirib, o'z suhbatlarida agentlaringizdan foydalanadi. Yoqilgan bo'lsa, dastur har ochilganda server o'zi ishga tushadi. Dastur yopilsa, server ham to'xtaydi.":
         {"ru": "Люди в локальной сети заходят через браузер и пользуются вашими агентами в своих беседах. Если включено, сервер запускается сам при каждом открытии программы. При закрытии программы сервер останавливается.",
          "en": "People on the local network sign in from a browser and use your agents in their own conversations. When turned on, the server starts by itself every time the app opens. Closing the app stops the server."},

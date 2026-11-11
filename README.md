@@ -153,6 +153,14 @@ Loyiha papkasidagi katta jadvallar uchun agent maxsus asboblardan foydalanadi: *
 
 Yozish maydonidagi **＋** tugmasi bilan **rasm** (PNG, JPG, GIF, WebP), **PDF**, **Word (.docx)** yoki **matn fayl** biriktiring — agent ularni ko'rib javob beradi. Rasmlarni Claude, ChatGPT-mos modellar, Gemini va ko'rish qobiliyatli Ollama modellari ko'ra oladi. PDF matni boshqa modellarga ham yuboriladi. Cheklov: rasm ≤ 5 MB, PDF ≤ 20 MB.
 
+### Fayl yaratish (Word, Excel)
+
+Agentdan hujjat yoki jadval so'rang: «Shu ma'lumotdan Excel jadval qilib ber», «Word'da xat yozib ber». Agent tayyor **.docx** yoki **.xlsx** fayl yaratadi (matn fayllari ham: .txt, .md, .csv, .html) va chatda ko'rsatadi.
+- **Dastur oynasida:** fayl `Hujjatlar\Agent Umimiy` papkasiga saqlanadi; chatdagi qatorni bossangiz ochiladi.
+- **Veb-serverda:** chatda «Yuklab olish» havolasi chiqadi; faylni faqat shu suhbat egasi ola oladi.
+- Mavjud fayl hech qachon almashtirilmaydi: nom band bo'lsa, raqam qo'shiladi.
+- Asboblarni qo'llaydigan agentlarda ishlaydi (Claude, OpenAI-mos, Ollama); Gemini va CLI agentlarda hozircha yo'q.
+
 ### Internet
 
 Agentlar **internetdan qidirishi** (DuckDuckGo) va **sahifalarni o'qishi** mumkin, kerak bo'lsa sahifani **sizning brauzeringizda ochish**ni (ruxsat bilan) taklif qiladi. Sozlamalarda o'chirib qo'yish mumkin. Xavfsizlik: kompyuter va ichki tarmoq manzillariga (localhost, 192.168.x.x va h.k.) kirish taqiqlangan; sahifadagi matn «buyruq» emas, faqat ma'lumot sifatida qaraladi.
@@ -256,12 +264,12 @@ Kalit faqat sizning kompyuteringizdagi sozlama faylida saqlanadi. Model fayl asb
 
 ### Manba koddan ishga tushirish
 
-Python 3.9+ kerak. Qo'shimcha kutubxonalar ixtiyoriy: `pypdf` (PDF o'qish), `qrcode` (telefon uchun QR-kod) va `pillow` (skrinshotni Ctrl+V bilan qo'yish).
+Python 3.9+ kerak. Qo'shimcha kutubxonalar ixtiyoriy: `pypdf` (PDF o'qish), `qrcode` (telefon uchun QR-kod) `pillow` (skrinshotni Ctrl+V bilan qo'yish), `python-docx` va `openpyxl` (Word va Excel fayl yaratish).
 
 ```bash
 git clone https://github.com/Ravshan1989/Agent-umimiy.git
 cd Agent-umimiy
-pip install pypdf qrcode pillow
+pip install pypdf qrcode pillow python-docx openpyxl
 python app.py                              # oyna
 python app.py --cli -m broadcast "salom"   # terminal
 python -m unittest discover -s tests -t .  # testlar
@@ -274,6 +282,7 @@ python -m unittest discover -s tests -t .  # testlar
 | `gui.py`, `theme.py` | oyna va dizayn (Tkinter) |
 | `providers.py` | Claude, OpenAI, Gemini, Ollama, CLI agentlar |
 | `stream.py` | oqimli (streaming) javoblarni o'qish |
+| `writer.py` | Word, Excel va matn fayllarini yaratish |
 | `server.py`, `server_page.py`, `store.py` | veb-server rejimi: HTTP, sahifa, SQLite |
 | `agentic.py`, `tools.py` | agent sikli va asboblar (fayl, buyruq, qidiruv) |
 | `orchestrator.py` | rejimlar va agentlararo yordam |

@@ -54,6 +54,8 @@ main header{display:flex;align-items:center;gap:10px;padding:calc(10px + env(saf
 .b h1,.b h2,.b h3{margin:8px 0 4px;font-size:16px}.b a{color:var(--acc2)}.b ul{margin:4px 0;padding-left:22px}
 .cp{background:none;border:0;color:var(--mut);font-size:12px;padding:3px 0}
 .act{font-size:12.5px;margin:3px auto;padding-left:42px;color:var(--mut)}.act.info{color:var(--err)}.act.agent,.act.skill{color:var(--ok)}
+.act.file{padding-left:42px}.act.file a{display:inline-block;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 14px;color:var(--fg);text-decoration:none;font-size:14px}
+.act.file a:hover{border-color:var(--acc)}.act.file small{color:var(--mut);margin-left:8px}
 .files{font-size:12px;color:var(--mut);text-align:right;margin-bottom:3px}
 .typing{color:var(--mut);font-size:13px;padding-left:42px;margin:8px auto}
 .empty{text-align:center;color:var(--mut);margin-top:22vh}.empty div{font-size:40px}
@@ -150,6 +152,7 @@ function rec(r){
   add('<div class="col">'+f+'<div class="b">'+md(r.text)+'</div></div>','row u')}
  else if(r.k==='agent'){var row=agentRow(r.name,r.meta,md(r.text),r.err);
   if(!r.err){var b=document.createElement('button');b.className='cp';b.textContent='Nusxalash';b.onclick=function(){copy(r.text,b)};row.querySelector('.col').appendChild(b)}}
+ else if(r.k==='act'&&r.kind==='file')add('<a href="/api/file?chat='+cur+'&name='+encodeURIComponent(r.text)+'" download>📄 '+esc(r.text)+'<small>Yuklab olish</small></a>','act file')
  else if(r.k==='act'&&r.kind!=='todo')add(esc((r.agent||'')+': '+r.text),'act '+esc(r.kind))}
 function setLive(agent,text){var l=live[agent];
  if(!l)l=live[agent]={text:'',el:agentRow(agent,'','',false)};

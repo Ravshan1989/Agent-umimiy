@@ -7,6 +7,8 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 ## [Nashr qilinmagan] / [Unreleased]
 
 ### Qo'shildi / Added
+- **Fayl yaratish**: agent tayyor Word (.docx), Excel (.xlsx) va matn fayllarini yaratadi (`create_document`,
+  `create_spreadsheet`); oynada bosib ochiladi, veb-serverda yuklab olinadi.
 - **Telefonda ilova kabi (PWA)**: veb-server sahifasini iPhone va Android'da bosh ekranga qo'shish mumkin
   (belgi, to'liq ekran). HTTPS proksi ortida ishlash: `X-Forwarded-*` sarlavhalari, `Secure` cookie.
 - **Veb-server dastur bilan birga**: Sozlamalar → «Veb-server» da yoqiladi (manzillar, taklif kodi, yangi kod);
