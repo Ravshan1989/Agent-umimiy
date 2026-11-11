@@ -107,11 +107,13 @@ def http_mcp(sse: bool, key="Bearer sir"):
 
     class H(BaseHTTPRequestHandler):
         def do_POST(self):
+            raw = self.rfile.read(int(self.headers["Content-Length"]))  # avval o'qiladi: aks holda Windows ulanishni uzadi
             if self.headers.get("Authorization") != key:
                 self.send_response(401)
+                self.send_header("Content-Length", "0")
                 self.end_headers()
                 return
-            msg = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            msg = json.loads(raw)
             if "id" not in msg:
                 self.send_response(202)
                 self.end_headers()
