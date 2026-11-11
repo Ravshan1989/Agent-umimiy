@@ -1,4 +1,5 @@
 """Oynaning tutun sinovi: haqiqiy Tk oynasi ochiladi (ekran bo'lmasa o'tkazib yuboriladi; CI'da xvfb ostida ishlaydi)."""
+import gc
 import json
 import tempfile
 import time
@@ -29,13 +30,19 @@ class GuiSmokeTests(unittest.TestCase):
         patch = mock.patch.object(config, "user_dir", return_value=self.d)
         patch.start()
         self.addCleanup(patch.stop)
+        # Tk obyektlari faqat asosiy oqimda yo'q qilinishi kerak: boshqa testlarning fon oqimlari axlat yig'ishni
+        # ishga tushirsa, Tcl dasturni yiqitadi. Shuning uchun yig'ish o'chiriladi va oxirida shu oqimda bajariladi.
+        gc.disable()
+        self.addCleanup(gc.enable)
         self.app = gui.App(str(self.cfg))
         self.addCleanup(self._close)
         self.app.update()
 
     def _close(self):
-        if self.app.winfo_exists():
+        if self.app is not None:
             self.app._on_close()
+            self.app = None
+        gc.collect()
 
     def pump(self, until, seconds=10):
         end = time.time() + seconds
@@ -93,6 +100,7 @@ class GuiSmokeTests(unittest.TestCase):
         self.assertIsNone(self.app.web_server)
         self.assertFalse(json.loads(self.cfg.read_text())["server"])
         dialog.destroy()
+        del dialog
 
     def test_server_starts_with_the_app_when_enabled(self):
         self._close()
