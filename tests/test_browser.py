@@ -136,7 +136,7 @@ class BrowserToolTests(unittest.TestCase):
     def test_denied_click_does_not_execute_page_action(self):
         out, err = self.tb.run("browser_open", {"url": self.url})
         self.assertFalse(err, out)
-        btn = next(l.split(".")[0] for l in out.splitlines() if "Yuborish" in l)
+        btn = next(l.split(". <", 1)[0].strip() for l in out.splitlines() if ". <button>" in l and "Yuborish" in l)
         self.answer = "no"
         self.assertTrue(self.tb.run("browser_click", {"id": int(btn)})[1])
         page, err = self.tb.run("browser_read", {})
