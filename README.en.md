@@ -63,7 +63,7 @@ The app **finds the agents already on your computer by itself** — you don't ha
 
 ## 📥 Installation
 
-> For now, **Windows 10/11 (64-bit)** only.
+**Windows 10/11 (64-bit)**
 
 1. Download **`AgentUmimiy-Setup.exe`** from the
    **[latest release](https://github.com/Ravshan1989/Agent-umimiy/releases/latest)**.
@@ -73,6 +73,14 @@ The app **finds the agents already on your computer by itself** — you don't ha
 > [!NOTE]
 > The Windows warning appears because the app is not code-signed — this is normal for new and
 > independent apps.
+
+**Linux (64-bit)**
+
+1. Download **`AgentUmimiy-Linux-x86_64.tar.gz`** from the **[latest release](https://github.com/Ravshan1989/Agent-umimiy/releases/latest)**.
+2. Unpack and run: `tar -xzf AgentUmimiy-Linux-x86_64.tar.gz && ./AgentUmimiy/AgentUmimiy`
+3. To paste screenshots with Ctrl+V, install `xclip` (X11) or `wl-clipboard` (Wayland).
+
+**Phone (iPhone, Android)**: there is no separate app. Start the [web server](#web-server-many-people-on-the-local-network) on a computer or server and use it on the phone like an app.
 
 ## ⚙️ Setup
 
@@ -205,6 +213,14 @@ The app prints the address and an **invite code**. People open the address and r
 - Data is stored in `server.db` (SQLite) in the settings folder. Passwords are stored hashed.
 - The connection is **not encrypted (HTTP)**: use it only on a trusted local network. To expose it to the internet, put an HTTPS proxy (Caddy, nginx) in front. On Windows, allow the port if the firewall asks.
 
+**Like an app on the phone (PWA).** Open the server address in the phone browser and add it to the home screen:
+- **iPhone (Safari):** Share button → **"Add to Home Screen"**.
+- **Android (Chrome):** menu (⋮) → **"Install app"** or **"Add to Home screen"**.
+
+An Agent Umimiy icon appears and opens full screen. On Android, full-screen mode works only on an **HTTPS** address; on a plain `http://192.168...` address the icon opens a browser tab.
+
+**HTTPS and use away from home.** The easiest way is [Tailscale](https://tailscale.com) (free). Install it on the server and the phones, then run `tailscale serve --bg 8080` on the server: you get a secure `https://...ts.net` address that is open only to your own devices.
+
 ### Plugins (MCP) and skills
 
 **Plugins.** The **Plugins** button in the left panel: "Add" → pick a ready template (Files, Memory,
@@ -314,7 +330,7 @@ New agent type: subclass `Agent` in `providers.py` and add it to `KINDS`.
 
 ### Building the .exe
 
-- **GitHub Actions:** Actions → "Windows .exe" → Run workflow. Result: `AgentUmimiy-Setup.exe`.
+- **GitHub Actions:** Actions → "Dastur yig'ish / Build" → Run workflow. Result: `AgentUmimiy-Setup.exe` (Windows) and `AgentUmimiy-Linux-x86_64.tar.gz` (Linux).
 - **Manually (Windows):** `packaging\build_windows.bat` (needs Python and, optionally, Inno Setup).
 
 ## ❓ Frequently asked questions
@@ -335,8 +351,8 @@ For cloud models — yes. Local models with Ollama/LM Studio work without the in
 <details>
 <summary><b>Does it work on Mac or Linux?</b></summary>
 
-The ready `.exe` is Windows-only for now. On macOS and Linux you can try running from source
-(`python app.py`), but it hasn't been fully tested there.
+Ready packages exist for Windows and Linux (see Installation above). On macOS you can try running
+from source (`python app.py`), but it hasn't been tested there.
 </details>
 
 ## 💜 Claude for Open Source
@@ -359,7 +375,8 @@ contributors can use the **Claude Ultra** plan **free for 6 months**.
 
 - [x] Open-source the code
 - [x] Documentation (README) in English and Russian
-- [ ] macOS and Linux versions
+- [x] Linux version
+- [ ] macOS version
 - [ ] English and Russian app interface
 - [ ] Automatic updates
 

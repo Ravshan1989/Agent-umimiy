@@ -6,6 +6,12 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 
 ## [Nashr qilinmagan] / [Unreleased]
 
+### Qo'shildi / Added
+- **Telefonda ilova kabi (PWA)**: veb-server sahifasini iPhone va Android'da bosh ekranga qo'shish mumkin
+  (belgi, to'liq ekran). HTTPS proksi ortida ishlash: `X-Forwarded-*` sarlavhalari, `Secure` cookie.
+- **Linux paketi**: `AgentUmimiy-Linux-x86_64.tar.gz` har nashrda Windows o'rnatuvchisi bilan birga yig'iladi.
+- Yig'ilgan dastur har build'da veb-server rejimida ishga tushirib sinaladi.
+
 ## [0.2.0] — 2026-11-11
 
 ### Qo'shildi / Added

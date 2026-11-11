@@ -63,7 +63,7 @@ Ilova kompyuteringizdagi mavjud agentlarni **o'zi topadi** — hech narsa yozib 
 
 ## 📥 O'rnatish
 
-> Hozircha faqat **Windows 10/11 (64-bit)** uchun.
+**Windows 10/11 (64-bit)**
 
 1. **[Oxirgi nashr (Releases)](https://github.com/Ravshan1989/Agent-umimiy/releases/latest)** sahifasidan
    **`AgentUmimiy-Setup.exe`** faylini yuklab oling.
@@ -73,6 +73,14 @@ Ilova kompyuteringizdagi mavjud agentlarni **o'zi topadi** — hech narsa yozib 
 > [!NOTE]
 > Windows ogohlantirishi dastur raqamli imzo bilan imzolanmaganligi uchun chiqadi — bu yangi va
 > mustaqil dasturlar uchun odatiy holat.
+
+**Linux (64-bit)**
+
+1. **[Oxirgi nashr](https://github.com/Ravshan1989/Agent-umimiy/releases/latest)** sahifasidan **`AgentUmimiy-Linux-x86_64.tar.gz`** ni yuklab oling.
+2. Oching va ishga tushiring: `tar -xzf AgentUmimiy-Linux-x86_64.tar.gz && ./AgentUmimiy/AgentUmimiy`
+3. Skrinshotni Ctrl+V bilan qo'yish uchun `xclip` (X11) yoki `wl-clipboard` (Wayland) o'rnatilgan bo'lsin.
+
+**Telefon (iPhone, Android)**: alohida ilova yo'q. Kompyuter yoki serverda [veb-server](#veb-server-lokal-tarmoqda-kop-kishi-ishlatadi) ni yoqib, telefonda ilova kabi ishlatasiz.
 
 ## ⚙️ Sozlash
 
@@ -180,6 +188,14 @@ Dastur manzilni va **taklif kodini** chiqaradi. Odamlar manzilni brauzerda ochib
 - Ma'lumotlar `server.db` (SQLite) faylida, sozlamalar papkasida saqlanadi. Parollar xeshlangan holda turadi.
 - Ulanish **shifrlanmagan (HTTP)**: faqat ishonchli lokal tarmoqda ishlating. Internetga ochish uchun oldiga HTTPS beruvchi proksi (Caddy, nginx) qo'ying. Windows'da devor (firewall) portga ruxsat so'rasa, ruxsat bering.
 
+**Telefonda ilova kabi (PWA).** Server manzilini telefon brauzerida oching va bosh ekranga qo'shing:
+- **iPhone (Safari):** «Ulashish» tugmasi → **«Bosh ekranga qo'shish»**.
+- **Android (Chrome):** menyu (⋮) → **«Ilovani o'rnatish»** yoki **«Bosh ekranga qo'shish»**.
+
+Ekranda Agent Umimiy belgisi paydo bo'ladi va u to'liq ekranda ochiladi. Android'da to'liq ekran rejimi faqat **HTTPS** manzilda ishlaydi; oddiy `http://192.168...` manzilda belgi brauzer oynasini ochadi.
+
+**HTTPS va uydan tashqarida ishlatish.** Eng oson yo'l: [Tailscale](https://tailscale.com) (bepul). Server va telefonlarga o'rnating, so'ng serverda `tailscale serve --bg 8080` buyrug'ini bering: `https://...ts.net` ko'rinishidagi xavfsiz manzil paydo bo'ladi va u faqat sizning qurilmalaringizga ochiq bo'ladi.
+
 ### Plaginlar (MCP) va ko'nikmalar (skills)
 
 **Plaginlar.** Chap paneldagi **Plaginlar** tugmasi: «Qo'shish» → tayyor shablonni tanlang (Fayllar, Xotira, Hujjatlar/Context7, Notion, Playwright, GitHub...) yoki istalgan MCP serverni o'zingiz kiriting (buyruq yoki URL, kerak bo'lsa kalit). Dastur serverni ishga tushiradi va uning asboblarini barcha agentlarga beradi.
@@ -267,7 +283,7 @@ Yangi agent turi: `providers.py` da `Agent` ni meros qilib, `KINDS` ga qo'shing.
 
 ### .exe ni yig'ish
 
-- **GitHub Actions:** Actions → "Windows .exe" → Run workflow. Natija: `AgentUmimiy-Setup.exe`.
+- **GitHub Actions:** Actions → "Dastur yig'ish / Build" → Run workflow. Natija: `AgentUmimiy-Setup.exe` (Windows) va `AgentUmimiy-Linux-x86_64.tar.gz` (Linux).
 - **Qo'lda (Windows):** `packaging\build_windows.bat` (Python va ixtiyoriy ravishda Inno Setup kerak).
 
 ## ❓ Ko'p beriladigan savollar
@@ -288,14 +304,15 @@ Bulut modellari uchun — ha. Ollama/LM Studio bilan lokal modellar internetsiz 
 <details>
 <summary><b>Mac yoki Linux'da ishlaydimi?</b></summary>
 
-Tayyor `.exe` hozircha faqat Windows uchun. macOS va Linux'da manba koddan (`python app.py`) ishga tushirib ko'rish mumkin, lekin u yerda to'liq sinovdan o'tmagan.
+Windows va Linux uchun tayyor paket bor (yuqoridagi «O'rnatish» bo'limi). macOS'da manba koddan (`python app.py`) ishga tushirib ko'rish mumkin, lekin u yerda sinovdan o'tmagan.
 </details>
 
 ## 🗺 Reja
 
 - [x] Manba kodini ochiq qilish
 - [x] Hujjatlar (README) ingliz va rus tillarida
-- [ ] macOS va Linux versiyalari
+- [x] Linux versiyasi
+- [ ] macOS versiyasi
 - [ ] Ingliz va rus tillaridagi ilova interfeysi
 - [ ] Avtomatik yangilanish
 
