@@ -269,12 +269,12 @@ The key is stored only in the settings file on your computer. If a model doesn't
 
 ### Running from source
 
-Python 3.9+ required. Optional libraries: `pypdf` (reading PDFs) and `qrcode` (QR code for phone).
+Python 3.9+ required. Optional libraries: `pypdf` (reading PDFs), `qrcode` (QR code for phone) and `pillow` (pasting screenshots with Ctrl+V).
 
 ```bash
 git clone https://github.com/Ravshan1989/Agent-umimiy.git
 cd Agent-umimiy
-pip install pypdf qrcode
+pip install pypdf qrcode pillow
 python app.py                              # window
 python app.py --cli -m broadcast "hello"   # terminal
 python -m unittest discover -s tests -t .  # tests

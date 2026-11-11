@@ -272,13 +272,13 @@ Claude и `.claude/skills` в проекте. Агент сам загружае
 
 ### Запуск из исходного кода
 
-Нужен Python 3.9+. Дополнительные библиотеки по желанию: `pypdf` (чтение PDF) и `qrcode` (QR-код для
-телефона).
+Нужен Python 3.9+. Дополнительные библиотеки по желанию: `pypdf` (чтение PDF), `qrcode` (QR-код для
+телефона) и `pillow` (вставка скриншотов через Ctrl+V).
 
 ```bash
 git clone https://github.com/Ravshan1989/Agent-umimiy.git
 cd Agent-umimiy
-pip install pypdf qrcode
+pip install pypdf qrcode pillow
 python app.py                              # окно
 python app.py --cli -m broadcast "привет"  # терминал
 python -m unittest discover -s tests -t .  # тесты

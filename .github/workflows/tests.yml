@@ -28,7 +28,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Ixtiyoriy kutubxonalar
-        run: python -m pip install --upgrade pip && pip install pypdf qrcode
+        run: python -m pip install --upgrade pip && pip install pypdf qrcode pillow
 
       - name: Testlar
         run: python -m unittest discover -s tests -t . -v

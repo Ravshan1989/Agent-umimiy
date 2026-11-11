@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -77,6 +78,29 @@ def load(path: str) -> Attachment:
     if b"\x00" in raw[:4096]:
         raise AttachError(f"{p.name}: bu fayl turini o'qib bo'lmaydi (rasm, PDF, Word yoki matn fayl tanlang).")
     return Attachment(p.name, str(p), "text", "text/plain", text=raw.decode("utf-8", errors="replace")[:MAX_TEXT])
+
+
+def from_clipboard(save_dir: Path) -> list[Attachment]:
+    """Clipboard'dagi skrinshot (rasm) yoki nusxalangan fayllarni biriktirma qiladi; mos narsa bo'lmasa []."""
+    try:
+        from PIL import Image, ImageGrab
+    except ImportError:
+        raise AttachError("Skrinshot qo'yish uchun Pillow kerak (pip install pillow).")
+    try:
+        grab = ImageGrab.grabclipboard()
+    except Exception:  # Linux'da xclip/wl-paste yo'q yoki clipboard band
+        return []
+    if isinstance(grab, list):  # Explorer'da nusxalangan fayllar
+        return [load(str(f)) for f in grab if Path(str(f)).is_file()]
+    if not isinstance(grab, Image.Image):
+        return []
+    path = Path(save_dir) / f"skrinshot-{time.strftime('%Y%m%d-%H%M%S')}.png"
+    grab.save(path, "PNG")
+    if path.stat().st_size > MAX_IMAGE:  # juda katta ekran: JPEG ixchamroq
+        path.unlink()
+        path = path.with_suffix(".jpg")
+        grab.convert("RGB").save(path, "JPEG", quality=85)
+    return [load(str(path))]
 
 
 def note(atts: list[Attachment]) -> str:

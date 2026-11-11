@@ -222,12 +222,12 @@ Kalit faqat sizning kompyuteringizdagi sozlama faylida saqlanadi. Model fayl asb
 
 ### Manba koddan ishga tushirish
 
-Python 3.9+ kerak. Qo'shimcha kutubxonalar ixtiyoriy: `pypdf` (PDF o'qish) va `qrcode` (telefon uchun QR-kod).
+Python 3.9+ kerak. Qo'shimcha kutubxonalar ixtiyoriy: `pypdf` (PDF o'qish), `qrcode` (telefon uchun QR-kod) va `pillow` (skrinshotni Ctrl+V bilan qo'yish).
 
 ```bash
 git clone https://github.com/Ravshan1989/Agent-umimiy.git
 cd Agent-umimiy
-pip install pypdf qrcode
+pip install pypdf qrcode pillow
 python app.py                              # oyna
 python app.py --cli -m broadcast "salom"   # terminal
 python -m unittest discover -s tests -t .  # testlar

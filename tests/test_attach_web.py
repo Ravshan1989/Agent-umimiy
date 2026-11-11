@@ -6,6 +6,7 @@ import unittest
 import zipfile
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from unittest import mock
 
 from agent_umimiy import attachments as att
 from agent_umimiy.orchestrator import Orchestrator
@@ -30,6 +31,36 @@ def make_pdf(text: str) -> bytes:
     out += f"xref\n0 {len(objs) + 1}\n0000000000 65535 f \n".encode()
     out += b"".join(f"{o:010d} 00000 n \n".encode() for o in offs)
     return out + f"trailer\n<< /Size {len(objs) + 1} /Root 1 0 R >>\nstartxref\n{x}\n%%EOF".encode()
+
+
+class ClipboardTests(unittest.TestCase):
+    def setUp(self):
+        self.d = Path(tempfile.mkdtemp())
+
+    def grab(self, value):
+        return mock.patch("PIL.ImageGrab.grabclipboard", return_value=value)
+
+    def test_screenshot_becomes_image_attachment(self):
+        from PIL import Image
+        with self.grab(Image.new("RGB", (40, 30), "red")):
+            (a,) = att.from_clipboard(self.d)
+        self.assertEqual((a.kind, a.mime), ("image", "image/png"))
+        self.assertTrue(a.name.startswith("skrinshot-"))
+        self.assertEqual(Path(a.path).read_bytes(), a.data)
+
+    def test_huge_screenshot_falls_back_to_jpeg(self):
+        from PIL import Image
+        with self.grab(Image.new("RGB", (40, 30), "red")), mock.patch.object(att, "MAX_IMAGE", 50):
+            with self.assertRaises(att.AttachError):  # 50 baytga JPEG ham sig'maydi
+                att.from_clipboard(self.d)
+        self.assertEqual([p.suffix for p in self.d.iterdir()], [".jpg"])
+
+    def test_copied_files_and_empty_clipboard(self):
+        (self.d / "a.png").write_bytes(PNG)
+        with self.grab([str(self.d / "a.png"), str(self.d / "yoq.txt")]):
+            self.assertEqual([a.name for a in att.from_clipboard(self.d)], ["a.png"])
+        with self.grab(None):
+            self.assertEqual(att.from_clipboard(self.d), [])
 
 
 class AttachTests(unittest.TestCase):

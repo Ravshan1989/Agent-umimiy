@@ -28,12 +28,12 @@ mamnuniyat bilan qabul qilinadi.
 
 ## Manba koddan ishga tushirish
 
-Python 3.9+ kerak. Ixtiyoriy kutubxonalar: `pypdf` (PDF), `qrcode` (telefon QR).
+Python 3.9+ kerak. Ixtiyoriy kutubxonalar: `pypdf` (PDF), `qrcode` (telefon QR), `pillow` (skrinshot qo'yish).
 
 ```bash
 git clone https://github.com/Ravshan1989/Agent-umimiy.git
 cd Agent-umimiy
-pip install pypdf qrcode
+pip install pypdf qrcode pillow
 python app.py                              # oyna
 python app.py --cli -m broadcast "salom"   # terminal
 ```

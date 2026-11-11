@@ -1122,6 +1122,7 @@ class App(tk.Tk):
         self.send_btn.bind("<Leave>", lambda e: self._send_draw(False))
         self.wrap.bind("<Configure>", lambda e: self._layout_input())
         self.entry.bind("<Return>", self._enter)
+        self.entry.bind("<<Paste>>", self._paste)
         self.entry.bind("<KeyRelease>", lambda e: self._grow())
         self.entry.bind("<FocusIn>", lambda e: self._ph(False))
         self.entry.bind("<FocusOut>", lambda e: self._ph(True))
@@ -1399,6 +1400,35 @@ class App(tk.Tk):
         self._render_chips()
         self.entry.focus_set()
 
+    def _paste(self, e):
+        """Ctrl+V: clipboard'da matn bo'lsa odatdagidek qo'yiladi, aks holda skrinshot/fayl biriktiriladi."""
+        try:
+            if self.clipboard_get():
+                return None
+        except tk.TclError:
+            pass
+        try:
+            atts = attachments.from_clipboard(self._upload_dir())
+        except attachments.AttachError as exc:
+            messagebox.showwarning("Fayl biriktirilmadi", str(exc), parent=self)
+            return "break"
+        if not atts:
+            return None
+        self.cur.pending.extend(atts)
+        self._render_chips()
+        return "break"
+
+    def _upload_dir(self) -> Path:
+        d = config.user_dir() / "uploads"
+        d.mkdir(parents=True, exist_ok=True)
+        for old in d.glob("*"):  # 7 kundan eski yuklamalarni tozalash
+            try:
+                if time.time() - old.stat().st_mtime > 7 * 86400:
+                    old.unlink()
+            except OSError:
+                pass
+        return d
+
     def _remove_attachment(self, a):
         self.cur.pending.remove(a)
         self._render_chips()
@@ -1589,15 +1619,7 @@ class App(tk.Tk):
     def _remote_attachment(self, f):
         import base64
         name = re.sub(r"[^\w.\- ]", "_", str(f.get("name", "fayl")))[-80:] or "fayl"
-        d = config.user_dir() / "uploads"
-        d.mkdir(parents=True, exist_ok=True)
-        for old in d.glob("*"):  # 7 kundan eski yuklamalarni tozalash
-            try:
-                if time.time() - old.stat().st_mtime > 7 * 86400:
-                    old.unlink()
-            except OSError:
-                pass
-        path = d / f"{int(time.time() * 1000)}_{name}"
+        path = self._upload_dir() / f"{int(time.time() * 1000)}_{name}"
         path.write_bytes(base64.b64decode(f.get("data", "")))
         try:
             att = attachments.load(str(path))

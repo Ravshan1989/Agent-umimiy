@@ -7,6 +7,7 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 ## [Nashr qilinmagan] / [Unreleased]
 
 ### Qo'shildi / Added
+- Skrinshotni chatga **Ctrl+V** bilan qo'yish (clipboard'dagi rasm yoki nusxalangan fayllar biriktiriladi).
 - README ingliz (`README.en.md`) va rus (`README.ru.md`) tillarida; har uch faylda til almashtirgich.
 - "Claude for Open Source" bo'limi va dastur havolasi.
 - Loyiha hujjatlari: `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md` va issue shablonlari.
