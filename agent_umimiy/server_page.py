@@ -96,7 +96,7 @@ textarea{flex:1;resize:none;background:var(--card);border:1px solid var(--line);
    <textarea id="t" rows="1" placeholder="Xabar yozing…"></textarea>
    <button type="submit" class="rb send" id="go" title="Yuborish">↑</button></form></main>
  <section id="pv" hidden><header><span id="pvt"></span><a id="pvd" download>Yuklab olish</a><button id="pvx" aria-label="Yopish">✕</button></header>
-  <iframe id="pvf" sandbox="allow-scripts allow-popups" title="Ko'rinish"></iframe></section>
+  <iframe id="pvf" sandbox="allow-scripts" title="Ko'rinish"></iframe></section>
 </div>
 <script>
 (function(){
