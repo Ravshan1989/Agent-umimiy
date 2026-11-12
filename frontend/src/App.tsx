@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";\nimport type { FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent } from "react";
 import {
   Activity, Bot, Check, ChevronDown, Clock3, Database, Download,
   FileSpreadsheet, FileText, Folder, Globe2, LayoutDashboard, Loader2,
@@ -173,7 +174,7 @@ function App() {
     setAttachments((current) => [...current, ...accepted].slice(0, 6));
   }
 
-  async function sendMessage(event?: React.FormEvent) {
+  async function sendMessage(event?: FormEvent) {
     event?.preventDefault();
     if (busy) {
       if (chatId !== null) void api("/api/stop", { chat: chatId }).catch((e) => toast.error((e as Error).message));
