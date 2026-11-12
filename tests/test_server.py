@@ -10,7 +10,7 @@ import urllib.request
 from pathlib import Path
 from unittest import mock
 
-from agent_umimiy import config, server
+from agent_umimiy import config, server, store as store_module
 from agent_umimiy.store import Store, StoreError
 
 PASSWORD = "parol12345"
@@ -140,6 +140,24 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(ali.call("/api/send", {"chat": chat, "text": " ", "agent": "aks"})[0], 400)
         self.assertEqual(ali.call("/api/send", {"chat": chat, "text": "x", "agent": "buyruq"})[0], 400)
         self.assertEqual(ali.call("/api/chat/new", {}, ctype="text/plain")[0], 415)  # boshqa saytdagi forma
+
+    def test_web_input_limits_and_file_count(self):
+        user_id = self.store.add_user("Ali", PASSWORD)
+        chat = self.store.new_chat(user_id)
+        app = server.App(self.store, str(self.d / "agents.json"))
+        with self.assertRaises(server.Refused):
+            app.send(chat, "x", "aks", [{}] * (server.MAX_FILES + 1))
+        with self.assertRaises(server.Refused):
+            app.send(chat, "x" * (server.MAX_PROMPT + 1), "aks", [])
+        self.assertEqual(self.store.records(chat), [])
+
+    def test_chat_records_are_capped(self):
+        user_id = self.store.add_user("Ali", PASSWORD)
+        chat = self.store.new_chat(user_id)
+        with mock.patch.object(store_module, "MAX_RECORDS_PER_CHAT", 5):
+            for i in range(8):
+                self.store.add_record(chat, {"n": i})
+        self.assertEqual([r["n"] for r in self.store.records(chat)], [3, 4, 5, 6, 7])
 
     def test_created_file_download_is_private(self):
         ali, vali = self.user("Ali"), self.user("Vali")
