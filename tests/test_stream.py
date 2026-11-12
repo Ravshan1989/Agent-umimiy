@@ -1,8 +1,8 @@
 import json
 import threading
 import unittest
-from unittest import mock
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from unittest import mock
 
 from agent_umimiy import stream
 from agent_umimiy.base import AgentError
