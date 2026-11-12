@@ -24,6 +24,39 @@ class Tests(unittest.TestCase):
         self.assertEqual(make().run("kod yoz", "auto")[0].agent, "b")
         self.assertEqual(make().run("salom", "auto")[0].agent, "a")
 
+    def test_readonly_modes_exclude_cli_agents(self):
+        import tempfile
+        from pathlib import Path
+
+        root = Path(tempfile.mkdtemp())
+        command = (f"{sys.executable} -c \"from pathlib import Path; "
+                   "Path('cli-ran.txt').write_text('ran')\"")
+        cli = CLIAgent("cli", command=command)
+        api = EchoAgent("api")
+        o = Orchestrator([cli, api], judge="cli")
+        o.ctx.root = str(root)
+        broadcast = o.run("x", "broadcast")
+        self.assertEqual([r.agent for r in broadcast], ["api"])
+        consensus = o.run("x", "consensus")
+        self.assertEqual([r.agent for r in consensus if r.ok][-1], "api (yakuniy)")
+        self.assertFalse((root / "cli-ran.txt").exists())
+        with self.assertRaises(ValueError):
+            o.run("x", "broadcast", targets=["cli"])
+
+    def test_delegate_refuses_cli_agent(self):
+        cli = CLIAgent("cli", command=f"{sys.executable} -c \"print('bad')\"")
+        o = Orchestrator([EchoAgent("api"), cli])
+        with self.assertRaises(ValueError):
+            o._delegate("cli", "run this", "api")
+
+    def test_duplicate_targets_are_deduplicated(self):
+        o = Orchestrator([EchoAgent("api")])
+        self.assertEqual(len(o.run("x", "broadcast", targets=["api", "api"])), 1)
+
+    def test_agent_count_is_bounded(self):
+        with self.assertRaises(ValueError):
+            Orchestrator([EchoAgent(f"a{i}") for i in range(Orchestrator.__module__ and 17)])
+
     def test_broadcast(self):
         self.assertEqual({r.agent for r in make().run("x", "broadcast")}, {"a", "b"})
 
