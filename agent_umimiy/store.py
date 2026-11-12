@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 
 SESSION_DAYS = 30
+MAX_RECORDS_PER_CHAT = 5000
 INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # adashtiradigan 0/O, 1/I harflarsiz
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -153,6 +154,9 @@ class Store:
 
     def add_record(self, chat_id: int, record: dict) -> None:
         self._run("INSERT INTO records (chat_id, body) VALUES (?, ?)", (chat_id, json.dumps(record, ensure_ascii=False)))
+        self._run("DELETE FROM records WHERE chat_id = ? AND id NOT IN "
+                  "(SELECT id FROM records WHERE chat_id = ? ORDER BY id DESC LIMIT ?)",
+                  (chat_id, chat_id, MAX_RECORDS_PER_CHAT))
 
     def records(self, chat_id: int) -> list[dict]:
         return [json.loads(r[0]) for r in self._all("SELECT body FROM records WHERE chat_id = ? ORDER BY id", (chat_id,))]
