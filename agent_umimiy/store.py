@@ -98,6 +98,8 @@ class Store:
             raise StoreError("Bu ism band. Boshqa ism tanlang.")
 
     def check_user(self, name: str, password: str) -> int | None:
+        if not isinstance(name, str) or not isinstance(password, str) or not 2 <= len(name.strip()) <= 32 or len(password) > 1024:
+            return None
         rows = self._all("SELECT id, salt, hash FROM users WHERE name = ?", (name.strip(),))
         if rows and hmac.compare_digest(_hash(password, rows[0][1]), rows[0][2]):
             return rows[0][0]
