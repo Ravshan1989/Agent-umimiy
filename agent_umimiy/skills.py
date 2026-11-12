@@ -4,11 +4,25 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from itertools import islice
 from pathlib import Path
 
 from . import config
 
+MAX_SKILLS = 200
+MAX_SKILL_BYTES = 1024 * 1024
+MAX_SCAN_FILES = 500
 _cache: dict = {}
+
+
+def _read_limited(path: Path) -> str:
+    if path.stat().st_size > MAX_SKILL_BYTES:
+        raise ValueError("Ko'nikma fayli 1 MB dan katta.")
+    with path.open("rb") as fh:
+        raw = fh.read(MAX_SKILL_BYTES + 1)
+    if len(raw) > MAX_SKILL_BYTES:
+        raise ValueError("Ko'nikma fayli 1 MB dan katta.")
+    return raw.decode("utf-8", errors="replace")
 
 
 @dataclass
@@ -54,19 +68,25 @@ def discover(project: str | None = None, ttl: float = 5.0) -> list[Skill]:
     files = []
     for root, src in _roots(project):
         if root.is_dir():
-            files += [(f, src) for f in sorted(root.glob("*/SKILL.md"))]
+            remaining = MAX_SKILLS - len(files)
+            if remaining <= 0:
+                break
+            files += [(f, src) for f in islice(sorted(root.glob("*/SKILL.md")), remaining)]
     plug = Path.home() / ".claude" / "plugins"
-    if plug.is_dir():
-        files += [(f, "Claude plagin") for f in sorted(plug.glob("**/skills/*/SKILL.md"))[:200]]
+    if plug.is_dir() and len(files) < MAX_SKILLS:
+        files += [(f, "Claude plagin") for f in islice(plug.glob("**/skills/*/SKILL.md"), MAX_SKILLS - len(files))]
     for f, src in files:
         try:
-            meta, _ = parse(f.read_text(encoding="utf-8", errors="replace")[:4000])
+            with f.open("rb") as fh:
+                meta, _ = parse(fh.read(4000).decode("utf-8", errors="replace"))
         except OSError:
             continue
         name = meta.get("name") or f.parent.name
         if name not in found:  # birinchi topilgan (loyiha > o'zimizniki > Claude) ustun
             found[name] = Skill(name, (meta.get("description") or "")[:400], f.parent, src)
     result = list(found.values())
+    if len(_cache) >= 64:
+        _cache.pop(next(iter(_cache)))
     _cache[key] = (time.time(), result)
     return result
 
@@ -78,8 +98,9 @@ def load(name: str, project: str | None = None, file: str = "") -> str:
     if file:
         target = (sk.path / file).resolve()
         target.relative_to(sk.path.resolve())  # papkadan tashqariga chiqishni to'sadi (ValueError)
-        return target.read_text(encoding="utf-8", errors="replace")
-    _, body = parse((sk.path / "SKILL.md").read_text(encoding="utf-8", errors="replace"))
-    others = [str(p.relative_to(sk.path)) for p in sorted(sk.path.rglob("*")) if p.is_file() and p.name != "SKILL.md"][:40]
+        return _read_limited(target)
+    _, body = parse(_read_limited(sk.path / "SKILL.md"))
+    others = [str(p.relative_to(sk.path)) for p in islice(sk.path.rglob("*"), MAX_SCAN_FILES)
+              if p.is_file() and p.name != "SKILL.md"][:40]
     extra = ("\n\n[Bu ko'nikma papkasidagi boshqa fayllar (use_skill(name, file=...) bilan o'qing): " + ", ".join(others) + "]") if others else ""
     return body + extra
