@@ -56,6 +56,8 @@ def _prune_failures(fails: dict[str, list[float]], now: float, window: float = 6
     if len(fails) >= cap:
         for address in list(fails)[:max(1, cap // 16)]:
             fails.pop(address, None)
+
+
 ACTIONS = {"/api/send": "send", "/api/stop": "stop", "/api/approve": "approve", "/api/new": "new",
            "/api/close": "close", "/api/mode": "mode"}
 
