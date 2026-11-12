@@ -39,7 +39,10 @@ class PreviewTests(unittest.TestCase):
         self.assertIsNone(preview.page(writer.docx(self.d, "xat", "# Salom")))
 
     def test_sandbox_policy_blocks_app_access(self):
-        self.assertTrue(preview.CSP.startswith("sandbox allow-scripts"))
+        self.assertTrue(preview.CSP.startswith("sandbox allow-scripts;"))
+        self.assertNotIn("https://", preview.CSP)
+        self.assertIn("form-action 'none'", preview.CSP)
+        self.assertIn("base-uri 'none'", preview.CSP)
         self.assertNotIn("allow-same-origin", preview.CSP)
         self.assertIn("default-src 'none'", preview.CSP)
         self.assertNotIn("connect-src", preview.CSP)  # default-src 'none': sahifa hech qayerga so'rov yubora olmaydi
