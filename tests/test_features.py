@@ -168,6 +168,16 @@ class RosterTests(unittest.TestCase):
         self.assertIsNone(seen["ctx"].delegate)
 
 class MemoryApprovalTests(unittest.TestCase):
+    def test_user_data_directory_is_private_on_posix(self):
+        import os
+        import stat
+        if os.name == "nt":
+            self.skipTest("POSIX file mode is not applicable on Windows")
+        home = Path(tempfile.mkdtemp())
+        with mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": str(home)}):
+            path = config.user_dir()
+        self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o700)
+
     def test_memory_mutations_require_one_time_confirmation(self):
         from agent_umimiy import config, memory
         home = Path(tempfile.mkdtemp())
