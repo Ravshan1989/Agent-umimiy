@@ -3,8 +3,7 @@
 Rahmat! **Agent Umimiy** ochiq loyiha — har qanday yordam (kod, hujjat, xato xabari, g'oya)
 mamnuniyat bilan qabul qilinadi.
 
-> 🇬🇧 English note: contributions are welcome. The project interface is in Uzbek; issues and
-> pull requests may be written in Uzbek, Russian or English.
+> 🇬🇧 English note: contributions are welcome. The desktop interface includes Uzbek, Russian and English translations; some labels may fall back to Uzbek. The phone and web interfaces are currently Uzbek-only. Issues and pull requests may be written in Uzbek, Russian or English.
 
 ## Xato yoki taklif
 
@@ -41,8 +40,9 @@ python app.py --cli -m broadcast "salom"   # terminal
 ## Uslub
 
 - Kod Python standartlariga (PEP 8) yaqin bo'lsin; mavjud fayllardagi uslubga ergashing.
-- Foydalanuvchiga ko'rinadigan matnlar hozircha **o'zbek tilida** (interfeys tili loyiha rejasida
-  kengaytiriladi).
+- Foydalanuvchiga ko'rinadigan matnlar uchun `agent_umimiy/i18n.py` dagi `i18n.t()` dan foydalaning.
+- Hozircha desktop interfeysida o'zbek, rus va ingliz tillari qisman qo'llanadi; tarjima topilmagan matn o'zbekcha ko'rinadi. Telefon va veb interfeyslarida til tanlash hali yo'q.
+- Yangi yoki o'zgartirilgan UI matnlari uchun `TR` lug'atiga ruscha va inglizcha tarjimalarni qo'shing. Interfeys tilini almashtirish testlarini ham yangilang.
 - Yangi agent turi: `providers.py` da `Agent` ni meros qilib, `KINDS` ga qo'shing.
 
 ## Litsenziya
