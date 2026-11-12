@@ -149,6 +149,21 @@ class ServerTests(unittest.TestCase):
         self.assertFalse(throttle.allow_send(10))
         self.assertTrue(throttle.allow_send(11))
 
+    def test_safe_file_path_rejects_symlink_escape(self):
+        import os
+        base = self.d / "chat-files"
+        base.mkdir()
+        outside = self.d / "secret.txt"
+        outside.write_text("secret")
+        link = base / "leak.txt"
+        try:
+            os.symlink(outside, link)
+        except (OSError, NotImplementedError):
+            self.skipTest("Symlink yaratish huquqi yo'q")
+        self.assertIsNone(server.safe_file_path(base, "leak.txt"))
+        self.assertIsNone(server.safe_file_path(base, "../secret.txt"))
+        self.assertIsNone(server.safe_file_path(base, "missing.txt"))
+
     def test_web_input_limits_and_file_count(self):
         user_id = self.store.add_user("Ali", PASSWORD)
         chat = self.store.new_chat(user_id)
