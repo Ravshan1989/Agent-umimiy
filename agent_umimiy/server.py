@@ -24,6 +24,7 @@ from .store import SESSION_DAYS, Store, StoreError
 
 MAX_BODY = 40 * 1024 * 1024
 MAX_FILES = 6
+MAX_PROMPT = 100_000
 TITLE_LEN = 40
 LOCAL_ONLY = ("cli",)  # serverda buyruq ishga tushiradigan agent turlari: veb-foydalanuvchilarga berilmaydi
 STATIC_DIR = Path(__file__).parent / "static"
@@ -141,12 +142,18 @@ class App:
         if agent != "auto" and agent not in orch.agents:
             raise Refused("Bu agent mavjud emas. Sahifani yangilang.")
         orch.ctx.files_dir = str(self.files_dir(chat_id))
+        if len(files) > MAX_FILES:
+            raise Refused(f"Bir xabarda ko'pi bilan {MAX_FILES} ta fayl yuborish mumkin.")
+        if not isinstance(text, str):
+            raise Refused("Xabar matni noto'g'ri.")
+        text = text.strip()
+        if len(text) > MAX_PROMPT:
+            raise Refused(f"Xabar {MAX_PROMPT} belgidan oshmasin.")
         try:
             atts = [attachments.save_upload(config.upload_dir(), f.get("name", "fayl"), f.get("data", ""))
-                    for f in files[:MAX_FILES]]
+                    for f in files]
         except attachments.AttachError as exc:
             raise Refused(str(exc))
-        text = text.strip()
         if not text and not atts:
             raise Refused("Xabar bo'sh.")
         prompt = text or "Biriktirilgan fayl(lar)ni ko'rib chiq va qisqacha tushuntir."
@@ -211,14 +218,27 @@ class Throttle:
         self.fails: dict[str, list[float]] = {}
         self.lock = threading.Lock()
 
+    def _prune(self, now: float) -> None:
+        for address, attempts in list(self.fails.items()):
+            active = [stamp for stamp in attempts if now - stamp < self.WINDOW]
+            if active:
+                self.fails[address] = active
+            else:
+                self.fails.pop(address, None)
+        if len(self.fails) >= 4096:
+            for address in list(self.fails)[:256]:
+                self.fails.pop(address, None)
+
     def fail(self, ip: str) -> None:
         with self.lock:
             now = time.time()
+            self._prune(now)
             self.fails[ip] = [t for t in self.fails.get(ip, []) if now - t < self.WINDOW] + [now]
 
     def locked(self, ip: str) -> bool:
         with self.lock:
             now = time.time()
+            self._prune(now)
             return len([t for t in self.fails.get(ip, []) if now - t < self.WINDOW]) >= self.LIMIT
 
 
@@ -321,15 +341,14 @@ def make_handler(app: App):
 
         def _body(self) -> dict:
             # JSON turi talab qilinadi: boshqa saytdagi forma bunday so'rov yubora olmaydi (CSRF himoyasi)
-            if not self.headers.get("Content-Type", "").startswith("application/json"):
+            if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
                 raise Refused("Noto'g'ri so'rov.", 415)
             raw_size = self.headers.get("Content-Length")
             if raw_size is None:
                 raise Refused("Content-Length sarlavhasi yo'q.")
-            try:
-                size = int(raw_size)
-            except (TypeError, ValueError):
+            if not str(raw_size).isdigit():
                 raise Refused("Noto'g'ri so'rov.")
+            size = int(raw_size)
             # Manfiy uzunlik rfile.read(-1) ni ulanish EOF bo'lguncha kutishga majbur
             # qilishi mumkin; juda katta uzunlik esa xotirani tugatishi mumkin.
             if size < 0:
