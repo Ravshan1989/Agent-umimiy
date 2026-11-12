@@ -164,24 +164,45 @@ class App:
         text = text.strip()
         if len(text) > MAX_PROMPT:
             raise Refused(f"Xabar {MAX_PROMPT} belgidan oshmasin.")
-        try:
-            atts = [attachments.save_upload(config.upload_dir(), f.get("name", "fayl"), f.get("data", ""))
-                    for f in files]
-        except attachments.AttachError as exc:
-            raise Refused(str(exc))
-        if not text and not atts:
-            raise Refused("Xabar bo'sh.")
-        prompt = text or "Biriktirilgan fayl(lar)ni ko'rib chiq va qisqacha tushuntir."
+        # Suhbatni oldindan band qilamiz: band chatga kelgan fayllar diskka yozilmaydi.
         with self.lock:
             ch = self._channel(chat_id)
             if ch.busy:
                 raise Refused("Agent hozir band. To'xtatib, qayta urining.")
-            ch.busy, ch.cancel, ch.live = True, orch.ctx.cancel, {}
-        if not self.store.title(chat_id):
-            self.store.set_title(chat_id, prompt.replace("\n", " ")[:TITLE_LEN])
-        self._record(chat_id, {"k": "user", "text": prompt, "files": [a.name for a in atts]})
-        self._publish(chat_id, {"type": "busy", "agent": agent})
-        threading.Thread(target=self._work, args=(chat_id, orch, prompt, agent, atts), daemon=True).start()
+            try:
+                self.store.title(chat_id)
+            except IndexError:
+                raise Refused("Suhbat topilmadi.", 404)
+            ch.busy, ch.cancel, ch.live = True, None, {}
+        atts = []
+        try:
+            for f in files:
+                try:
+                    atts.append(attachments.save_upload(config.upload_dir(), f.get("name", "fayl"), f.get("data", "")))
+                except attachments.AttachError as exc:
+                    raise Refused(str(exc))
+            if not text and not atts:
+                raise Refused("Xabar bo'sh.")
+            prompt = text or "Biriktirilgan fayl(lar)ni ko'rib chiq va qisqacha tushuntir."
+            if not self.store.title(chat_id):
+                self.store.set_title(chat_id, prompt.replace("\n", " ")[:TITLE_LEN])
+            self._record(chat_id, {"k": "user", "text": prompt, "files": [a.name for a in atts]})
+            self._publish(chat_id, {"type": "busy", "agent": agent})
+            with self.lock:
+                ch = self._channel(chat_id)
+                ch.cancel = orch.ctx.cancel
+            threading.Thread(target=self._work, args=(chat_id, orch, prompt, agent, atts), daemon=True).start()
+        except Exception:
+            for att in atts:
+                try:
+                    Path(att.path).unlink(missing_ok=True)
+                except OSError:
+                    pass
+            with self.lock:
+                ch = self.channels.get(chat_id)
+                if ch:
+                    ch.busy, ch.cancel, ch.live = False, None, {}
+            raise
 
     def _work(self, chat_id: int, orch, prompt: str, agent: str, atts: list) -> None:
         try:
