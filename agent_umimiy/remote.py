@@ -111,8 +111,8 @@ FIREWALL_RULE = "Agent Umimiy"
 
 
 def firewall_script(port: int, exe: str | None = None) -> str:
-    """Administrator sifatida bajariladigan .bat: avval shu dastur uchun Windows o'zi yaratgan to'suvchi qoidalar
-    (ruxsat oynasida «Bekor» bosilganda paydo bo'ladi, ular ruxsat qoidasidan ustun!) o'chiriladi, so'ng ruxsat qo'shiladi."""
+    """Administrator .bat: faqat Agent Umimiy nomli avvalgi qoidani yangilaydi va yangi ruxsat qo'shadi.
+    Boshqa dastur yoki foydalanuvchi yaratgan firewall qoidalariga tegmaydi."""
     if not 1 <= port <= 65535:
         raise ValueError("Firewall porti 1 dan 65535 gacha bo'lishi kerak.")
     lines = ["@echo off", f'netsh advfirewall firewall delete rule name="{FIREWALL_RULE}" >nul 2>&1']
