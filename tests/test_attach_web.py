@@ -154,6 +154,18 @@ class WebTests(unittest.TestCase):
         self.assertTrue(tb2.run("web_fetch", {"url": "file:///etc/passwd"})[1])
         self.assertTrue(tb2.run("web_fetch", {"url": "http://localhost:1/"})[1])
 
+    def test_uploaded_file_size_and_failed_file_cleanup(self):
+        import base64
+        from agent_umimiy import attachments
+        folder = Path(tempfile.mkdtemp())
+        with mock.patch.object(attachments, "MAX_UPLOAD", 3):
+            with self.assertRaises(attachments.AttachError):
+                attachments.save_upload(folder, "large.txt", base64.b64encode(b"four").decode())
+        self.assertEqual(list(folder.iterdir()), [])
+        with self.assertRaises(attachments.AttachError):
+            attachments.save_upload(folder, "bad.txt", base64.b64encode(b"\\x00bad").decode())
+        self.assertEqual(list(folder.iterdir()), [])
+
     def test_redirect_to_private_blocked(self):
         srv = page_server({})
         tb = Toolbox(Context(allow_private=False), "t")
