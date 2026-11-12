@@ -28,5 +28,9 @@ Iloji boricha quyidagilarni qo'shing: zaiflik tavsifi, takrorlash qadamlari, ta'
 - **Ichki fayl asboblari** tanlangan loyiha papkasidan tashqariga chiqishni bloklaydi; shell/CLI/MCP uchun bu kafolat yo'q.
 - **HTML ko'rinish oynasi** tashqi resurs yuklashini CSP bilan cheklaydi va sandbox ichida ishlaydi. Biroq iframe navigatsiyasini barcha brauzerlarda to'liq bloklash kafolatlanmagan; maxfiy ma'lumotli ishonchsiz HTML'ni ochmang.
 - **Masofaviy veb-server** login/sessiya bilan himoyalangan, lekin internetga to'g'ridan-to'g'ri ochish o'rniga HTTPS reverse proxy yoki VPN ishlating.
+- **Veb-server foydalanuvchilari** kompyuter egasining sozlangan provider/API kalitlaridan foydalanadi. Taklif kodini faqat ishonchli odamlarga bering. Bir akkauntga 60 soniyada 20 ta xabar va 100 ta suhbat limiti bor, lekin kunlik xarajat yoki umumiy disk kvotasi yo'q.
+- **Maxsus provider URL** sozlaganda masofaviy endpoint uchun HTTPS ishlating; HTTP endpointga yuborilgan API kaliti tarmoqda ochiq ko'rinishi mumkin.
+- **Python 3.9** upstream tomonidan qo'llab-quvvatlashdan chiqqan. Ilovani imkon qadar xavfsizlik yangilanishlari olayotgan Python 3.11 yoki yangiroq versiyada ishga tushiring.
+- **Release fayllari** hozircha kod imzosi bilan tasdiqlanmaydi; faqat rasmiy GitHub relizlaridan yuklab oling.
 
 Zaiflik haqida xabar berish uchun yuqoridagi maxfiy Security Advisory kanalidan foydalaning.
