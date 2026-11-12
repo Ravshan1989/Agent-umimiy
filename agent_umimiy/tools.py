@@ -587,7 +587,7 @@ class Toolbox:
     def t_browser_type(self, id: int, text: str, submit: bool = False) -> str:
         url = self._browser(lambda b: (b.ensure(), b.js("location.href"))[1])
         host = urllib.parse.urlparse(url or "").hostname or "noma'lum sayt"
-        self._approve("browser_type:" + host, f"Brauzerda {host} saytining {id}-maydoniga matn yoziladi",
+        self._approve("browser-type:" + host, f"Brauzerda {host} saytining {id}-maydoniga matn yoziladi",
                       f"Sahifa: {url}\nMatn:\n{text}\n\n{'Keyin Enter bosiladi (yuboriladi).' if submit else ''}")
         return self._browser(lambda b, i, t, s: b.type(i, t, s), id, text, bool(submit),
                              say=f"Brauzerda {id}-maydonga yozdi{' va yubordi' if submit else ''}")
