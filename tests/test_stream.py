@@ -3,6 +3,8 @@ import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+from agent_umimiy import stream
+from agent_umimiy.base import AgentError
 from agent_umimiy.orchestrator import Orchestrator
 from agent_umimiy.providers import build_agent
 from tests.test_tools import serve
@@ -73,6 +75,15 @@ class StreamTests(unittest.TestCase):
         base = raw_server("".join(json.dumps(x) + "\n" for x in lines).encode(), "application/x-ndjson")
         r, events = run({"type": "ollama", "base_url": base, "tools": False})
         self.assertEqual((r.text, [t for k, t in events if k == "delta"]), ("Salom", ["Sal", "om"]))
+
+    def test_provider_response_size_is_bounded(self):
+        base = raw_server(b"x" * (stream.MAX_LINE + 2) + b"\\n")
+        with self.assertRaises(AgentError):
+            list(stream._lines(base, {}, {}))
+        base = raw_server(b"1234\\n5678\\n")
+        with unittest.mock.patch.object(stream, "MAX_RESPONSE", 8):
+            with self.assertRaises(AgentError):
+                list(stream._lines(base, {}, {}))
 
     def test_stop_cuts_the_stream(self):
         srv, _ = serve([{"content": [{"type": "text", "text": "uzun javob matni"}]}])
