@@ -45,8 +45,14 @@ def _digest(token: str) -> str:
 
 class Store:
     def __init__(self, path: Path | str):
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
         self.lock = threading.Lock()
         self.db = sqlite3.connect(str(path), check_same_thread=False, isolation_level=None)
+        try:
+            path.chmod(0o600)
+        except OSError:
+            pass
         self.db.execute("PRAGMA foreign_keys = ON")
         self.db.execute("PRAGMA journal_mode = WAL")
         self.db.executescript(SCHEMA)
@@ -81,6 +87,8 @@ class Store:
             raise StoreError("Ism 2 dan 32 gacha belgidan iborat bo'lsin.")
         if len(password) < 8:
             raise StoreError("Parol kamida 8 belgidan iborat bo'lsin.")
+        if len(password) > 1024:
+            raise StoreError("Parol 1024 belgidan oshmasin.")
         salt = secrets.token_bytes(16)
         try:
             return self._run("INSERT INTO users (name, salt, hash) VALUES (?, ?, ?)",
