@@ -44,17 +44,35 @@ def pdf_text(data_or_path, limit: int = MAX_TEXT) -> str:
     except ImportError:
         raise AttachError("PDF matnini o'qish uchun pypdf kerak (pip install pypdf).")
     import io
-    src = io.BytesIO(data_or_path) if isinstance(data_or_path, bytes) else str(data_or_path)
+    if isinstance(data_or_path, bytes):
+        if len(data_or_path) > MAX_UPLOAD:
+            raise AttachError("PDF fayl 20 MB dan katta.")
+        src = io.BytesIO(data_or_path)
+    else:
+        path = Path(data_or_path)
+        try:
+            if path.stat().st_size > MAX_UPLOAD:
+                raise AttachError("PDF fayl 20 MB dan katta.")
+        except OSError as exc:
+            raise AttachError(f"PDF fayl ochilmadi: {exc}")
+        src = str(path)
     try:
         reader = pypdf.PdfReader(src)
-        out = []
-        for i, page in enumerate(reader.pages, 1):
-            out.append(f"[{i}-sahifa]\n{page.extract_text() or ''}")
-            if sum(map(len, out)) > limit:
+        pages = reader.pages
+        out, total = [], 0
+        for i, page in enumerate(pages[:MAX_PDF_PAGES], 1):
+            block = f"[{i}-sahifa]\\n{page.extract_text() or ''}"
+            out.append(block)
+            total += len(block)
+            if total > limit:
                 break
+        if len(pages) > MAX_PDF_PAGES and total < limit:
+            out.append(f"[Faqat dastlabki {MAX_PDF_PAGES} sahifa o'qildi.]")
+    except AttachError:
+        raise
     except Exception as exc:
         raise AttachError(f"PDF o'qilmadi: {exc}")
-    text = "\n\n".join(out).strip()
+    text = "\\n\\n".join(out).strip()
     return text[:limit] or ("(PDF ichida matn topilmadi: bu skaner qilingan rasm bo'lishi mumkin. Sahifalarni rasm sifatida yuboring — "
                             "ko'ra oladigan model (Claude, GPT-4, Gemini) matnni o'zi o'qiydi)")
 
