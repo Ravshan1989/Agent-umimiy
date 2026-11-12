@@ -10,7 +10,8 @@ import urllib.request
 from pathlib import Path
 from unittest import mock
 
-from agent_umimiy import config, server, store as store_module
+from agent_umimiy import config, server
+from agent_umimiy import store as store_module
 from agent_umimiy.store import Store, StoreError
 
 PASSWORD = "parol12345"
