@@ -231,6 +231,7 @@ class Throttle:
 
     def __init__(self):
         self.fails: dict[str, list[float]] = {}
+        self.sends: dict[int, list[float]] = {}
         self.lock = threading.Lock()
 
     def _prune(self, now: float) -> None:
@@ -255,6 +256,25 @@ class Throttle:
             now = time.time()
             self._prune(now)
             return len([t for t in self.fails.get(ip, []) if now - t < self.WINDOW]) >= self.LIMIT
+\n    def allow_send(self, user_id: int) -> bool:
+        """Bir foydalanuvchining LLM xarajatini cheklash: 60 soniyada 20 ta yuborish."""
+        with self.lock:
+            now = time.time()
+            for uid, attempts in list(self.sends.items()):
+                active = [stamp for stamp in attempts if now - stamp < 60]
+                if active:
+                    self.sends[uid] = active
+                else:
+                    self.sends.pop(uid, None)
+            if len(self.sends) >= 4096 and user_id not in self.sends:
+                for uid in list(self.sends)[:256]:
+                    self.sends.pop(uid, None)
+            attempts = self.sends.get(user_id, [])
+            if len(attempts) >= 20:
+                return False
+            self.sends[user_id] = attempts + [now]
+            return True
+
 
 
 def make_handler(app: App):
@@ -406,11 +426,15 @@ def make_handler(app: App):
                 return {"ok": True}, self._cookie("", 0)
             user_id, _ = self._user()
             if path == "/api/chat/new":
+                if len(store.chats(user_id)) >= 100:
+                    raise Refused("Bir foydalanuvchi ko'pi bilan 100 ta suhbat yaratishi mumkin.", 429)
                 return {"id": store.new_chat(user_id)}, ""
             chat_id = self._chat(user_id, body.get("chat"))
             if path == "/api/chat/delete":
                 app.delete_chat(chat_id)
             elif path == "/api/send":
+                if not throttle.allow_send(user_id):
+                    raise Refused("Yuborish limiti: 60 soniyada 20 ta xabar. Biroz kuting.", 429)
                 files = body.get("files") or []
                 if not isinstance(files, list) or not all(isinstance(f, dict) for f in files):
                     raise Refused("Noto'g'ri so'rov.")
