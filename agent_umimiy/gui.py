@@ -1691,13 +1691,27 @@ class App(tk.Tk):
         if action == "send":
             if chat.busy:
                 raise ValueError("Agent hozir band. To'xtatib, qayta urining.")
-            text = (p.get("text") or "").strip()
+            text = p.get("text", "")
+            files = p.get("files") or []
+            if not isinstance(text, str) or len(text) > serverlib.MAX_PROMPT:
+                raise ValueError(f"Xabar {serverlib.MAX_PROMPT} belgidan oshmasin.")
+            if not isinstance(files, list) or len(files) > serverlib.MAX_FILES or any(not isinstance(f, dict) for f in files):
+                raise ValueError(f"Ko'pi bilan {serverlib.MAX_FILES} ta fayl yuborish mumkin.")
             atts = []
-            for f in (p.get("files") or [])[:6]:
-                atts.append(self._remote_attachment(f))
-            if not text and not atts:
-                raise ValueError("Xabar bo'sh")
-            self._dispatch(chat, text, atts)
+            try:
+                for f in files:
+                    atts.append(self._remote_attachment(f))
+                text = text.strip()
+                if not text and not atts:
+                    raise ValueError("Xabar bo'sh")
+                self._dispatch(chat, text, atts)
+            except Exception:
+                for att in atts:
+                    try:
+                        Path(att.path).unlink(missing_ok=True)
+                    except OSError:
+                        pass
+                raise
             return {"ok": True}
         raise ValueError("Noma'lum amal")
 
