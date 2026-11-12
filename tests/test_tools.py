@@ -9,7 +9,7 @@ from pathlib import Path
 from agent_umimiy import gitutil
 from agent_umimiy.orchestrator import Orchestrator
 from agent_umimiy.providers import build_agent
-from agent_umimiy.tools import Context, Toolbox
+from agent_umimiy.tools import Context, Toolbox, project_notes
 
 
 def _sse(events) -> bytes:
@@ -63,6 +63,22 @@ def serve(script):
     srv = HTTPServer(("127.0.0.1", 0), H)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     return srv, seen
+
+
+class ProjectNotesTests(unittest.TestCase):
+    def test_instruction_symlink_is_rejected_and_content_is_bounded(self):
+        root = Path(tempfile.mkdtemp())
+        outside = root.parent / (root.name + "-outside.md")
+        outside.write_text("SECRET")
+        link = root / "CLAUDE.md"
+        try:
+            link.symlink_to(outside)
+        except (OSError, NotImplementedError):
+            self.skipTest("Symlink yaratish huquqi yo'q")
+        self.assertEqual(project_notes(str(root)), "")
+        link.unlink()
+        link.write_text("x" * 30_000)
+        self.assertLessEqual(len(project_notes(str(root))), 20_100)
 
 
 class ToolboxTests(unittest.TestCase):
