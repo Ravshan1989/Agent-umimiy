@@ -107,6 +107,15 @@ class McpToolboxTests(unittest.TestCase):
         self.assertEqual(self.asked[1][1], "mcp:fake")
         self.assertIn('"note": "n"', self.asked[1][3])
 
+    def test_always_approval_is_scoped_to_one_mcp_tool(self):
+        self.answer = "always"
+        self.assertFalse(self.tb.run("fake__echo", {"text": "x"})[1])
+        self.assertFalse(self.tb.run("fake__echo", {"text": "y"})[1])
+        self.assertEqual(len(self.asked), 1)
+        self.assertFalse(self.tb.run("fake__save-note", {"note": "n"})[1])
+        self.assertEqual(len(self.asked), 2)
+        self.assertIn("save-note", self.asked[1][1])
+
     def test_denied_and_readonly_mode_hides_all_mcp_tools(self):
         self.answer = "no"
         self.assertTrue(self.tb.run("fake__echo", {"text": "n"})[1])
