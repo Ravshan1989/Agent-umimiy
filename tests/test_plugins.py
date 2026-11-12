@@ -256,6 +256,23 @@ class SkillTests(unittest.TestCase):
         with self.assertRaises(KeyError):
             skills.load("yoq")
 
+    def test_skill_file_size_limit_and_symlink_escape(self):
+        d = self.home / "app" / "skills" / "large"
+        d.mkdir(parents=True)
+        (d / "SKILL.md").write_text("---\\nname: large\\ndescription: large\\n---\\nbody text")
+        skills._cache.clear()
+        with mock.patch.object(skills, "MAX_SKILL_BYTES", 3):
+            with self.assertRaises(ValueError):
+                skills.load("large")
+        outside = self.home / "secret.txt"
+        outside.write_text("secret")
+        try:
+            (d / "escape.md").symlink_to(outside)
+        except (OSError, NotImplementedError):
+            self.skipTest("Symlink yaratish huquqi yo'q")
+        with self.assertRaises(ValueError):
+            skills.load("large", file="escape.md")
+
     def test_toolbox_use_skill_and_prompt(self):
         self.make(self.home / "app" / "skills", "tarjima", "Tarjima qilish qoidalari", body="Faqat ravon tarjima qiling.")
         skills._cache.clear()
