@@ -166,3 +166,40 @@ class RosterTests(unittest.TestCase):
             o._delegate("b", "savol", "a")
         self.assertTrue(seen["ctx"].readonly)
         self.assertIsNone(seen["ctx"].delegate)
+
+class MemoryApprovalTests(unittest.TestCase):
+    def test_memory_mutations_require_one_time_confirmation(self):
+        from agent_umimiy import config, memory
+        home = Path(tempfile.mkdtemp())
+        with mock.patch.object(config, "user_dir", return_value=home):
+            calls = []
+            ctx = Context(skills=False, confirm=lambda *args: (calls.append(args), "always")[1])
+            tb = Toolbox(ctx, "agent")
+            out, err = tb.run("memory_remember", {"fact": "User prefers Uzbek"})
+            self.assertTrue(err)
+            self.assertIn("tasdiqlamadi", out)
+            self.assertEqual(memory.search("Uzbek"), "Xotirada hali ma'lumot yo'q.")
+            self.assertEqual(calls[0][1], "memory_remember")
+
+            ctx.confirm = lambda *args: "yes"
+            out, err = tb.run("memory_remember", {"fact": "User prefers Uzbek"})
+            self.assertFalse(err, out)
+            self.assertIn("saqlandi", out)
+            item_id = memory._read(home / "memory.json")[0]["id"]
+
+            ctx.confirm = lambda *args: "no"
+            out, err = tb.run("memory_forget", {"id": item_id})
+            self.assertTrue(err)
+            self.assertIn("tasdiqlamadi", out)
+            self.assertIn("User prefers Uzbek", memory.search("Uzbek"))
+
+            ctx.confirm = lambda *args: "yes"
+            out, err = tb.run("memory_forget", {"id": item_id})
+            self.assertFalse(err, out)
+            self.assertEqual(memory.search("Uzbek"), "Xotirada hali ma'lumot yo'q.")
+
+    def test_readonly_cannot_mutate_memory_even_when_called_directly(self):
+        tb = Toolbox(Context(readonly=True, skills=False, confirm=lambda *args: "yes"), "agent")
+        self.assertTrue(tb.run("memory_remember", {"fact": "x"})[1])
+        self.assertTrue(tb.run("memory_forget", {"id": "x"})[1])
+
