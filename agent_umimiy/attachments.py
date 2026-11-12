@@ -6,8 +6,8 @@ import binascii
 import re
 import time
 from dataclasses import dataclass
-from urllib.parse import urlparse
 from pathlib import Path
+from urllib.parse import urlparse
 
 from . import docs
 
