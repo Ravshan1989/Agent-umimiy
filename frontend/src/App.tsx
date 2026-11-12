@@ -2,10 +2,9 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   Activity, ArrowUpRight, Bell, Bot, Boxes, BriefcaseBusiness, Check,
-  ChevronDown, CircleHelp, Command, FileSpreadsheet, FileText, Folder,
-  Globe2, LayoutDashboard, Menu, MessageCircle, Mic, Paperclip, Plug,
-  Plus, Search, Send, Settings, ShieldCheck, Sparkles, Workflow, X,
-  ChartNoAxesCombined, Database, Zap,
+  ChevronDown, FileSpreadsheet, FileText, Folder, Globe2, LayoutDashboard,
+  Menu, MessageCircle, Mic, Paperclip, Plug, Search, Send, Settings,
+  ShieldCheck, Sparkles, Workflow, X, ChartNoAxesCombined, Zap,
 } from "lucide-react";
 
 const nav = [
