@@ -24,6 +24,7 @@ PROTOCOL = "2024-11-05"
 MAX_TOOLS = 100
 MAX_RESPONSE = 8 * 1024 * 1024
 MAX_PAGES = 10
+MAX_SERVERS = 32
 SAFE_ENV = {
     "PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "TMPDIR", "TMP", "TEMP",
     "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA",
@@ -354,7 +355,7 @@ class Manager:
     def configure(self, cfgs: list[dict]):
         """Sozlama o'zgarganda: o'zgarmaganlari tegilmaydi, yangilari ulanadi, o'chirilganlari to'xtatiladi."""
         with self.lock:
-            wanted = {c["name"]: c for c in cfgs if c.get("name") and c.get("enabled", True)}
+            wanted = {c["name"]: c for c in cfgs[:MAX_SERVERS] if c.get("name") and c.get("enabled", True)}
             for name in list(self.servers):
                 if name not in wanted or self.servers[name].cfg != wanted[name]:
                     threading.Thread(target=self.servers.pop(name).close, daemon=True).start()
