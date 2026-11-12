@@ -531,7 +531,7 @@ class Toolbox:
         from .mcp import McpError
         # MCP annotations (including readOnlyHint) are untrusted server claims.
         # Require explicit user approval for every remote tool invocation.
-        self._approve("mcp:" + tool.server, f"Plagin amali: {tool.server} → {tool.remote_name}",
+        self._approve("mcp:" + tool.server + ":" + tool.remote_name, f"Plagin amali: {tool.server} → {tool.remote_name}",
                       json.dumps(args, indent=2, ensure_ascii=False)[:2500] or "(argumentsiz)")
         self._say("mcp", f"Plagin «{tool.server}»: {tool.remote_name}")
         try:
