@@ -55,6 +55,34 @@ class McpStdioTests(unittest.TestCase):
         self.assertEqual(self.m.servers, {})
 
 
+
+class McpHardeningTests(unittest.TestCase):
+    def test_child_environment_does_not_inherit_provider_secrets(self):
+        with mock.patch.dict("os.environ", {"PATH": "/bin", "HOME": "/tmp", "OPENAI_API_KEY": "leak-me",
+                                             "ANTHROPIC_API_KEY": "leak-me-too"}):
+            env = mcp._child_env({"NOTION_TOKEN": "explicit-token"})
+        self.assertEqual(env["PATH"], "/bin")
+        self.assertEqual(env["NOTION_TOKEN"], "explicit-token")
+        self.assertNotIn("OPENAI_API_KEY", env)
+        self.assertNotIn("ANTHROPIC_API_KEY", env)
+
+    def test_remote_http_requires_tls_but_localhost_is_allowed(self):
+        with self.assertRaises(mcp.McpError):
+            mcp.HttpTransport("http://example.com/mcp", {}).start()
+        mcp.HttpTransport("http://127.0.0.1:8765/mcp", {}).start()
+        mcp.HttpTransport("https://example.com/mcp", {}).start()
+
+    def test_tool_name_collisions_always_terminate(self):
+        manager = mcp.Manager([])
+        server = mcp.Server({"name": "fake"})
+        server.status = "tayyor"
+        server.tools = [{"name": "a" * 65 + str(i), "inputSchema": {"type": "object"}} for i in range(4)]
+        manager.servers["fake"] = server
+        names = [tool.name for tool in manager.tools()]
+        self.assertEqual(len(names), 4)
+        self.assertEqual(len(set(names)), 4)
+        self.assertTrue(all(len(name) <= 64 for name in names))
+
 class McpToolboxTests(unittest.TestCase):
     def setUp(self):
         self.m = mcp.Manager([stdio_cfg()])
