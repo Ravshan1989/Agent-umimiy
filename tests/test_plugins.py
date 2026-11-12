@@ -100,11 +100,11 @@ class McpToolboxTests(unittest.TestCase):
         self.assertTrue(echo.read_only)
         out, err = self.tb.run("fake__echo", {"text": "x"})
         self.assertEqual((out, err), ("echo: x", False))
-        self.assertEqual(self.asked[0][1], "mcp:fake")
+        self.assertEqual(self.asked[0][1], "mcp:fake:echo")
         self.assertIn('"text": "x"', self.asked[0][3])
         out, err = self.tb.run("fake__save-note", {"note": "n"})
         self.assertFalse(err)
-        self.assertEqual(self.asked[1][1], "mcp:fake")
+        self.assertEqual(self.asked[1][1], "mcp:fake:save-note")
         self.assertIn('"note": "n"', self.asked[1][3])
 
     def test_always_approval_is_scoped_to_one_mcp_tool(self):
