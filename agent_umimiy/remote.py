@@ -18,6 +18,7 @@ from urllib.parse import parse_qs, urlparse
 from .remote_page import PAGE
 
 MAX_BODY = 40 * 1024 * 1024
+MAX_CONNECTIONS = 32
 
 
 class RequestBodyError(ValueError):
@@ -112,9 +113,10 @@ FIREWALL_RULE = "Agent Umimiy"
 def firewall_script(port: int, exe: str | None = None) -> str:
     """Administrator sifatida bajariladigan .bat: avval shu dastur uchun Windows o'zi yaratgan to'suvchi qoidalar
     (ruxsat oynasida «Bekor» bosilganda paydo bo'ladi, ular ruxsat qoidasidan ustun!) o'chiriladi, so'ng ruxsat qo'shiladi."""
+    if not 1 <= port <= 65535:
+        raise ValueError("Firewall porti 1 dan 65535 gacha bo'lishi kerak.")
     lines = ["@echo off", f'netsh advfirewall firewall delete rule name="{FIREWALL_RULE}" >nul 2>&1']
-    if exe:
-        lines.append(f'netsh advfirewall firewall delete rule name=all program="{exe}" >nul 2>&1')
+    # Boshqa dastur qoidalarini o'chirmaymiz: foydalanuvchining mavjud bloklash siyosati saqlanadi.
     lines.append("netsh " + firewall_args(port, exe))
     lines.append("exit /b 0")
     return "\r\n".join(lines) + "\r\n"
@@ -122,6 +124,8 @@ def firewall_script(port: int, exe: str | None = None) -> str:
 
 def firewall_args(port: int, exe: str | None = None) -> str:
     """Windows xavfsizlik devori uchun kiruvchi ulanish qoidasi (netsh argumentlari)."""
+    if not 1 <= port <= 65535:
+        raise ValueError("Firewall porti 1 dan 65535 gacha bo'lishi kerak.")
     args = f'advfirewall firewall add rule name="{FIREWALL_RULE}" dir=in action=allow protocol=TCP localport={port} profile=any enable=yes'
     return args + (f' program="{exe}"' if exe else "")
 
@@ -158,6 +162,8 @@ def open_firewall(port: int) -> tuple[bool, str]:
 
 class RemoteServer:
     def __init__(self, handler, token: str, port: int = 8765, host: str = "0.0.0.0"):
+        if not 0 <= port <= 65535:
+            raise ValueError("Server porti 0 dan 65535 gacha bo'lishi kerak.")
         self.handler, self.token, self.host = handler, token, host
         self.port = port
         self.httpd: ThreadingHTTPServer | None = None
@@ -171,6 +177,10 @@ class RemoteServer:
         class H(BaseHTTPRequestHandler):
             protocol_version = "HTTP/1.1"
             server_version = "AgentUmimiy"
+
+            def setup(self):
+                super().setup()
+                self.connection.settimeout(30)
 
             def log_message(self, *a):
                 pass
@@ -240,6 +250,32 @@ class RemoteServer:
                     self._json(400, {"error": str(exc)})
 
         class Server(ThreadingHTTPServer):
+            daemon_threads = True
+
+            def __init__(self, *args, **kwargs):
+                self._slots = threading.BoundedSemaphore(MAX_CONNECTIONS)
+                super().__init__(*args, **kwargs)
+
+            def process_request(self, request, client_address):
+                if not self._slots.acquire(blocking=False):
+                    try:
+                        request.sendall(b"HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Length: 0\r\n\r\n")
+                    except OSError:
+                        pass
+                    self.shutdown_request(request)
+                    return
+                try:
+                    super().process_request(request, client_address)
+                except Exception:
+                    self._slots.release()
+                    raise
+
+            def process_request_thread(self, request, client_address):
+                try:
+                    super().process_request_thread(request, client_address)
+                finally:
+                    self._slots.release()
+
             def server_bind(self):  # standart usul socket.getfqdn() ni chaqiradi: Windows'da soniyalab qotib qolishi mumkin
                 socketserver.TCPServer.server_bind(self)
                 self.server_name, self.server_port = self.server_address[0], self.server_address[1]
