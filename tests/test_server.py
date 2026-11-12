@@ -142,6 +142,13 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(ali.call("/api/send", {"chat": chat, "text": "x", "agent": "buyruq"})[0], 400)
         self.assertEqual(ali.call("/api/chat/new", {}, ctype="text/plain")[0], 415)  # boshqa saytdagi forma
 
+    def test_send_throttle_limits_each_user(self):
+        throttle = server.Throttle()
+        for _ in range(20):
+            self.assertTrue(throttle.allow_send(10))
+        self.assertFalse(throttle.allow_send(10))
+        self.assertTrue(throttle.allow_send(11))
+
     def test_web_input_limits_and_file_count(self):
         user_id = self.store.add_user("Ali", PASSWORD)
         chat = self.store.new_chat(user_id)
