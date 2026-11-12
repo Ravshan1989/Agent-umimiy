@@ -17,6 +17,7 @@ NS_REL = "{http://schemas.openxmlformats.org/package/2006/relationships}"
 NS_W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 NS_A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
 NS_P = "{http://schemas.openxmlformats.org/presentationml/2006/main}"
+MAX_ARCHIVE_BYTES = 100 * 1024 * 1024
 MAX_ENTRY = 100 * 1024 * 1024
 MAX_TOTAL = 250 * 1024 * 1024
 MAX_ENTRIES = 10_000
@@ -31,7 +32,11 @@ class DocError(Exception):
 
 def _open_zip(path) -> zipfile.ZipFile:
     try:
+        if Path(path).stat().st_size > MAX_ARCHIVE_BYTES:
+            raise DocError("Office arxivi 100 MB dan katta (xavfsizlik chegarasi).")
         z = zipfile.ZipFile(path)
+    except DocError:
+        raise
     except (zipfile.BadZipFile, OSError) as exc:
         raise DocError(f"Fayl buzilgan yoki Office fayli emas: {exc}")
     infos = z.infolist()
@@ -98,17 +103,21 @@ def _fmt_date(serial: float) -> str:
 class Xlsx:
     def __init__(self, path):
         self.z = _open_zip(path)
-        names = self.z.namelist()
-        if "xl/workbook.xml" not in names:
-            raise DocError("Bu .xlsx fayl emas yoki buzilgan.")
-        rels = _rels(self.z, "xl/workbook.xml")
-        self.sheets: dict[str, str] = {}
-        for s in ET.fromstring(self.z.read("xl/workbook.xml")).iter(NS_M + "sheet"):
-            rid = s.get(NS_R + "id")
-            if rid in rels:
-                self.sheets[s.get("name", f"Varaq{len(self.sheets) + 1}")] = rels[rid][1]
-        self.shared = self._shared_strings() if "xl/sharedStrings.xml" in names else []
-        self.date_styles = self._date_styles() if "xl/styles.xml" in names else set()
+        try:
+            names = self.z.namelist()
+            if "xl/workbook.xml" not in names:
+                raise DocError("Bu .xlsx fayl emas yoki buzilgan.")
+            rels = _rels(self.z, "xl/workbook.xml")
+            self.sheets: dict[str, str] = {}
+            for sheet in ET.fromstring(self.z.read("xl/workbook.xml")).iter(NS_M + "sheet"):
+                rid = sheet.get(NS_R + "id")
+                if rid in rels:
+                    self.sheets[sheet.get("name", f"Varaq{len(self.sheets) + 1}")] = rels[rid][1]
+            self.shared = self._shared_strings() if "xl/sharedStrings.xml" in names else []
+            self.date_styles = self._date_styles() if "xl/styles.xml" in names else set()
+        except Exception:
+            self.z.close()
+            raise
 
     def close(self):
         self.z.close()
