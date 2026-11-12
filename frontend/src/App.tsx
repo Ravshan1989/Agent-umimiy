@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   Activity, ArrowUpRight, Bell, Bot, Boxes, BriefcaseBusiness, Check,
-  ChevronDown, FileSpreadsheet, FileText, Folder, Globe2, LayoutDashboard,
+  ChevronDown, Database, FileSpreadsheet, FileText, Folder, Globe2, LayoutDashboard,
   Menu, MessageCircle, Mic, Paperclip, Plug, Search, Send, Settings,
   ShieldCheck, Sparkles, Workflow, X, ChartNoAxesCombined, Zap,
 } from "lucide-react";
