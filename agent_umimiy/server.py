@@ -8,6 +8,7 @@ Ulanish oddiy HTTP: ishonchli lokal tarmoqda ishlating yoki oldiga HTTPS beruvch
 from __future__ import annotations
 
 import json
+import mimetypes
 import queue
 import shutil
 import socketserver
@@ -32,8 +33,8 @@ MAX_DOWNLOAD = 50 * 1024 * 1024
 TITLE_LEN = 40
 LOCAL_ONLY = ("cli",)  # serverda buyruq ishga tushiradigan agent turlari: veb-foydalanuvchilarga berilmaydi
 STATIC_DIR = Path(__file__).parent / "static"
-PAGE_CSP = ("default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
-            "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'")
+PAGE_CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'")
 # Yaratiladigan fayl turlari (tizim sozlamasiga bog'liq bo'lmasligi uchun aniq ro'yxat)
 FILE_TYPES = {
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -395,7 +396,21 @@ def make_handler(app: App):
             url = urlparse(self.path)
             try:
                 if url.path == "/":
+                    web_index = STATIC_DIR / "web" / "index.html"
+                    if web_index.is_file():
+                        return self._send(200, web_index.read_bytes(), "text/html; charset=utf-8")
                     return self._send(200, PAGE.encode(), "text/html; charset=utf-8")
+                if url.path.startswith("/assets/"):
+                    web_root = (STATIC_DIR / "web").resolve()
+                    asset = (web_root / url.path.lstrip("/")).resolve()
+                    try:
+                        asset.relative_to(web_root)
+                    except ValueError:
+                        raise Refused("Fayl topilmadi.", 404)
+                    if not asset.is_file():
+                        raise Refused("Fayl topilmadi.", 404)
+                    content_type = mimetypes.guess_type(asset.name)[0] or "application/octet-stream"
+                    return self._send(200, asset.read_bytes(), content_type)
                 if url.path == "/manifest.webmanifest":
                     return self._send(200, MANIFEST, "application/manifest+json")
                 if url.path in ICONS:
