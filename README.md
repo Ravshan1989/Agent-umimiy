@@ -2,7 +2,7 @@
 
 # 🤖 Agent Umimiy
 
-**Barcha AI agentlarni bitta desktop ilovada birlashtiruvchi o'zbekcha dastur**
+**Barcha AI agentlarni bitta desktop ilovada birlashtiruvchi ko'p tilli dastur**
 
 Claude, ChatGPT, Gemini, Ollama va boshqa modellar bilan bitta oynada ishlang:
 agentlar fayllaringizni o'qiydi, tahrirlaydi, brauzerni boshqaradi va bir-biriga yordam beradi.
@@ -11,7 +11,7 @@ agentlar fayllaringizni o'qiydi, tahrirlaydi, brauzerni boshqaradi va bir-biriga
 ![Versiya](https://img.shields.io/badge/versiya-0.3.0-orange)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Litsenziya](https://img.shields.io/badge/litsenziya-MIT-green)
-![Til](https://img.shields.io/badge/interfeys-o'zbek%20tilida-1EB53A)
+![Til](https://img.shields.io/badge/interfeys-UZ%20%7C%20RU%20%7C%20EN-1EB53A)
 [![Testlar](https://github.com/Ravshan1989/Agent-umimiy/actions/workflows/tests.yml/badge.svg)](https://github.com/Ravshan1989/Agent-umimiy/actions/workflows/tests.yml)
 
 [📥 Yuklab olish](#-ornatish) · [✨ Imkoniyatlar](#-imkoniyatlar) · [⚙️ Sozlash](#️-sozlash) · [📖 Qo'llanma](#-batafsil-qollanma) · [👨‍💻 Dasturchilar](#-dasturchilar-uchun)
@@ -25,10 +25,9 @@ agentlar fayllaringizni o'qiydi, tahrirlaydi, brauzerni boshqaradi va bir-biriga
 ## 📌 Bu nima?
 
 **Agent Umimiy** — bir nechta sun'iy intellekt agentlarini bitta joyga yig'adigan desktop ilova.
-Har bir xizmat uchun alohida sayt yoki dastur ochish shart emas: hammasi bitta qulay, qorong'i
-mavzudagi oynada, **to'liq o'zbek tilida**.
+Har bir xizmat uchun alohida sayt yoki dastur ochish shart emas: hammasi bitta qulay oynada. Desktop interfeysida o'zbek, rus va ingliz tillari mavjud (tarjima hali to'liq emas); telefon va veb interfeyslarining asosiy matnlari hozircha o'zbek tilida.
 
-Ilova kompyuteringizdagi mavjud agentlarni **o'zi topadi** — hech narsa yozib o'tirishingiz kerak emas.
+Desktop interfeys tilini **Sozlamalar → Interfeys tili** orqali tanlang. Ilova kompyuteringizdagi mavjud agentlarni **o'zi topadi** — hech narsa yozib o'tirishingiz kerak emas.
 
 ## 📸 Ko'rinishi
 
