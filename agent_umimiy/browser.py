@@ -10,6 +10,7 @@ import base64
 import glob
 import hashlib
 import json
+from pathlib import Path
 import os
 import shutil
 import socket
@@ -198,10 +199,15 @@ class Browser:
             if not exe:
                 raise BrowserError("Chrome yoki Edge topilmadi. Windows'da Edge odatda o'rnatilgan; "
                                    "o'rnatilmagan bo'lsa, Chrome ni o'rnating.")
-            with socket.socket() as s:
-                s.bind(("127.0.0.1", 0))
-                self.port = s.getsockname()[1]
-            args = [exe, f"--remote-debugging-port={self.port}", f"--user-data-dir={self.profile}", "--no-first-run",
+            profile = Path(self.profile)
+            profile.mkdir(parents=True, exist_ok=True)
+            port_file = profile / "DevToolsActivePort"
+            try:
+                port_file.unlink(missing_ok=True)
+            except OSError:
+                pass
+            self.port = 0
+            args = [exe, "--remote-debugging-port=0", f"--user-data-dir={self.profile}", "--no-first-run",
                     "--no-default-browser-check", "--remote-debugging-address=127.0.0.1",
                     "--disable-features=Translate", "--disable-background-networking", "about:blank"]
             if self.headless:
@@ -215,11 +221,19 @@ class Browser:
                 time.sleep(0.3)
                 if self.proc.poll() is not None:
                     raise BrowserError("Brauzer ishga tushmadi (boshqa nusxa shu profilni ishlatayotgan bo'lishi mumkin).")
-                try:
-                    pages = [t for t in self._http("/json") if t.get("type") == "page"]
-                    target = pages[0] if pages else None
-                except Exception:
-                    pass
+                if not self.port and port_file.is_file():
+                    try:
+                        self.port = int(port_file.read_text(encoding="ascii").splitlines()[0])
+                        if not 1 <= self.port <= 65535:
+                            self.port = 0
+                    except (OSError, ValueError, IndexError):
+                        self.port = 0
+                if self.port:
+                    try:
+                        pages = [t for t in self._http("/json") if t.get("type") == "page"]
+                        target = pages[0] if pages else None
+                    except Exception:
+                        pass
             if not target:
                 raise BrowserError("Brauzerga ulanib bo'lmadi.")
             ws_url = urlsplit(target.get("webSocketDebuggerUrl", ""))
