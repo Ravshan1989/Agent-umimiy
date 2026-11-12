@@ -168,7 +168,9 @@ def available(ctx: Context) -> list[Tool]:
     """Loyiha papkasi tanlanmagan bo'lsa — faqat internet, xotira va reja asboblari."""
     out = [t for t in TOOLS + MEMORY_TOOLS if ctx.root or t.kind in ("web", "open", "meta", "browser", "create", "memory")]
     if ctx.readonly:
-        out = [t for t in out if t.name not in ("memory_remember", "memory_forget")]
+        # Read-only is an execution boundary, not just a prompt hint.
+        out = [t for t in out if t.kind not in ("write", "run", "open", "browser", "create")
+               and t.name not in ("memory_remember", "memory_forget")]
     out = [t for t in out if ctx.files_dir or t.kind != "create"]
     out = [t for t in out if ctx.web or t.kind not in ("web", "open")]
     out = [t for t in out if t.kind != "browser" or (ctx.browser and not ctx.readonly)]
@@ -312,6 +314,15 @@ class Toolbox:
         elif ans != "yes":
             raise ToolError("Foydalanuvchi bu amalni rad etdi.")
 
+    def _approve_once(self, kind: str, title: str, detail: str):
+        """Maxfiy xotira amallari har safar alohida tasdiqlanadi; 'Doim' ruxsati qo'llanmaydi."""
+        if self.ctx.readonly:
+            raise ToolError("Bu rejimda xotirani o'zgartirish mumkin emas.")
+        if not self.ctx.confirm:
+            raise ToolError("Xotirani o'zgartirish uchun foydalanuvchi tasdig'i kerak.")
+        if self.ctx.confirm(self.agent, kind, title, detail) != "yes":
+            raise ToolError("Foydalanuvchi xotira amalini tasdiqlamadi.")
+
     # ---- ishga tushirish ----
     def run(self, name: str, args: dict) -> tuple[str, bool]:
         if self.ctx.cancel.is_set():
@@ -336,9 +347,11 @@ class Toolbox:
         return memory.search(query, limit)
 
     def t_memory_remember(self, fact: str) -> str:
+        self._approve_once("memory_remember", "Xotiraga ma'lumot saqlanadi", str(fact)[:1000])
         return memory.remember(fact)
 
     def t_memory_forget(self, id: str) -> str:
+        self._approve_once("memory_forget", "Xotiradagi ma'lumot o'chiriladi", f"Xotira ID: {id}")
         return memory.forget(id)
 
     # ---- asboblar ----
