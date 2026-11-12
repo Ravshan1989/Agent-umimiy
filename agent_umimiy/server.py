@@ -155,6 +155,10 @@ class App:
 
     # ---- amallar ----
     def send(self, chat_id: int, text: str, agent: str, files: list[dict]) -> None:
+        if not isinstance(agent, str):
+            raise Refused("Agent tanlovi noto'g'ri.")
+        if not isinstance(files, list) or any(not isinstance(item, dict) for item in files):
+            raise Refused("Fayllar ro'yxati noto'g'ri.")
         orch = self.orchestrator()
         if agent != "auto" and agent not in orch.agents:
             raise Refused("Bu agent mavjud emas. Sahifani yangilang.")
@@ -401,6 +405,8 @@ def make_handler(app: App):
                 self._json(exc.code, {"error": str(exc)})
             except StoreError as exc:
                 self._json(400, {"error": str(exc)})
+            except Exception:
+                self._json(500, {"error": "Ichki server xatoligi. Qayta urinib ko'ring."})
 
         def _body(self) -> dict:
             # JSON turi talab qilinadi: boshqa saytdagi forma bunday so'rov yubora olmaydi (CSRF himoyasi)
