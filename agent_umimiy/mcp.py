@@ -5,6 +5,7 @@ OAuth talab qiladigan masofaviy serverlar hozircha qo'llanmaydi.
 """
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import re
@@ -20,6 +21,19 @@ from .tools import Tool
 
 PROTOCOL = "2024-11-05"
 MAX_TOOLS = 100
+MAX_RESPONSE = 8 * 1024 * 1024
+MAX_PAGES = 10
+SAFE_ENV = {
+    "PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "TMPDIR", "TMP", "TEMP",
+    "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA",
+    "SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT", "HOMEDRIVE", "HOMEPATH",
+    "PROGRAMDATA", "PROCESSOR_ARCHITECTURE",
+}
+
+
+def _child_env(extra: dict) -> dict:
+    """MCP subprocesses inherit only runtime essentials; secrets must be passed per-plugin explicitly."""
+    return {**{k: v for k, v in os.environ.items() if k.upper() in SAFE_ENV}, **extra}
 
 # Tayyor shablonlar: (nomi, tavsif, sozlama). {papka} kabi joylar foydalanuvchi to'ldiradi.
 PRESETS = [
@@ -94,7 +108,7 @@ class StdioTransport:
             raise McpError(f"«{argv[0]}» dasturi topilmadi.{hint}")
         self.proc = subprocess.Popen(
             [exe] + argv[1:], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            env={**os.environ, **self.env}, cwd=self.cwd, bufsize=0,
+            env=_child_env(self.env), cwd=self.cwd, bufsize=0,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         threading.Thread(target=self._read_out, daemon=True).start()
         threading.Thread(target=self._read_err, daemon=True).start()
@@ -191,8 +205,21 @@ class HttpTransport:
         self.lock = threading.Lock()
 
     def start(self):
-        if not self.url.lower().startswith(("http://", "https://")):
-            raise McpError("URL http:// yoki https:// bilan boshlanishi kerak")
+        from urllib.parse import urlparse
+        parsed = urlparse(self.url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password:
+            raise McpError("MCP URL login-parolsiz http:// yoki https:// manzil bo'lishi kerak")
+        try:
+            parsed.port  # noto'g'ri portni oldindan aniqlash
+        except ValueError as exc:
+            raise McpError("MCP URL porti noto'g'ri") from exc
+        if parsed.scheme == "http":
+            try:
+                loopback = ipaddress.ip_address(parsed.hostname).is_loopback
+            except ValueError:
+                loopback = parsed.hostname.lower() == "localhost"
+            if not loopback:
+                raise McpError("Masofaviy MCP ulanishi HTTPS bo'lishi kerak; HTTP faqat localhost uchun ruxsat.")
 
     def _post(self, body: dict, timeout: float, want_id: int | None):
         h = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream", **self.headers}
@@ -200,7 +227,17 @@ class HttpTransport:
             h["Mcp-Session-Id"] = self.session
         req = urllib.request.Request(self.url, data=json.dumps(body).encode(), headers=h, method="POST")
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as r:
+            origin = (urlparse(self.url).scheme, urlparse(self.url).hostname, urlparse(self.url).port)
+
+            class SameOriginRedirect(urllib.request.HTTPRedirectHandler):
+                def redirect_request(self, request, fp, code, msg, headers, newurl):
+                    target = urlparse(newurl)
+                    if (target.scheme, target.hostname, target.port) != origin:
+                        raise McpError("MCP server boshqa manzilga yo'naltirmoqchi bo'ldi; xavfsizlik uchun rad etildi.")
+                    return super().redirect_request(request, fp, code, msg, headers, newurl)
+
+            opener = urllib.request.build_opener(SameOriginRedirect)
+            with opener.open(req, timeout=timeout) as r:
                 sid = r.headers.get("Mcp-Session-Id")
                 if sid:
                     self.session = sid
@@ -219,10 +256,14 @@ class HttpTransport:
                             except ValueError:
                                 msg = {}
                             data = []
+                            data_size = 0
                             if msg.get("id") == want_id:
                                 return msg
                     raise McpError("Server javob yubormadi")
-                return json.loads(r.read())
+                raw = r.read(MAX_RESPONSE + 1)
+                if len(raw) > MAX_RESPONSE:
+                    raise McpError("MCP HTTP javobi 8 MB chegarasidan oshdi.")
+                return json.loads(raw)
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode(errors="replace")[:200]
             if exc.code in (401, 403):
@@ -269,13 +310,22 @@ class Server:
             self.transport.request("initialize", {"protocolVersion": PROTOCOL, "capabilities": {},
                                                   "clientInfo": {"name": "agent-umimiy", "version": "0.1"}}, timeout=180)
             self.transport.notify("notifications/initialized")
-            tools, cursor = [], None
-            while True:
+            tools, cursor, seen = [], None, set()
+            for _ in range(MAX_PAGES):
                 res = self.transport.request("tools/list", {"cursor": cursor} if cursor else {}, timeout=60)
-                tools += res.get("tools", [])
+                page = res.get("tools", [])
+                if not isinstance(page, list):
+                    raise McpError("MCP tools/list noto'g'ri format qaytardi.")
+                tools.extend(page[:MAX_TOOLS - len(tools)])
                 cursor = res.get("nextCursor")
-                if not cursor:
+                if not cursor or len(tools) >= MAX_TOOLS:
                     break
+                if cursor in seen:
+                    raise McpError("MCP tools/list takroriy sahifa kursorini qaytardi.")
+                seen.add(cursor)
+            else:
+                if cursor:
+                    raise McpError("MCP tools/list sahifalari soni limitdan oshdi.")
             self.tools = tools
             self.status = "tayyor"
         except Exception as exc:
@@ -329,9 +379,12 @@ class Manager:
             if s.status != "tayyor":
                 continue
             for t in s.tools:
-                name = re.sub(r"[^A-Za-z0-9_-]", "_", f"{s.name}__{t.get('name', '')}")[:64]
+                base = re.sub(r"[^A-Za-z0-9_-]", "_", f"{s.name}__{t.get('name', '')}")[:64]
+                name, suffix = base, 2
                 while name in used:
-                    name = name[:61] + "_x"
+                    tail = f"_{suffix}"
+                    name = base[:64 - len(tail)] + tail
+                    suffix += 1
                 used.add(name)
                 schema = t.get("inputSchema") or {"type": "object", "properties": {}}
                 schema = {k: v for k, v in schema.items() if k != "$schema"}
