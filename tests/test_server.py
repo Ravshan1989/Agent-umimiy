@@ -169,9 +169,9 @@ class ServerTests(unittest.TestCase):
         chat = self.store.new_chat(user_id)
         app = server.App(self.store, str(self.d / "agents.json"))
         with self.assertRaises(server.Refused):
-            app.send(chat, "x", "aks", [{}] * (server.MAX_FILES + 1))
+            app.send(chat, "x", "auto", [{}] * (server.MAX_FILES + 1))
         with self.assertRaises(server.Refused):
-            app.send(chat, "x" * (server.MAX_PROMPT + 1), "aks", [])
+            app.send(chat, "x" * (server.MAX_PROMPT + 1), "auto", [])
         self.assertEqual(self.store.records(chat), [])
 
     def test_chat_records_are_capped(self):
