@@ -581,9 +581,7 @@ class Toolbox:
         target = parsed.geturl()
         origin = _origin(target)
         self._approve("browser:" + origin, f"Brauzerda sayt ochiladi: {origin}",
-                      f"{target}
-
-Agent bu sayt ichida bosishi va (alohida ruxsat bilan) yozishi mumkin. "
+                      f"{target}\n\nAgent bu sayt ichida bosishi va (alohida ruxsat bilan) yozishi mumkin. "
                       "Brauzer alohida profilda ochiladi: asosiy brauzeringizdagi parollar va sessiyalarga tegmaydi.")
         result = self._browser(lambda b, x: b.open(x), target, say=f"Brauzerda ochdi: {origin}")
         final_url = self._browser(lambda b: b.js("location.href"))
