@@ -156,6 +156,7 @@ class WebTests(unittest.TestCase):
 
     def test_uploaded_file_size_and_failed_file_cleanup(self):
         import base64
+
         from agent_umimiy import attachments
         folder = Path(tempfile.mkdtemp())
         with mock.patch.object(attachments, "MAX_UPLOAD", 3):
