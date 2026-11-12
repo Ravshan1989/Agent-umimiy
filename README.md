@@ -118,7 +118,7 @@ Loyiha papkasida `CLAUDE.md` yoki `AGENTS.md` fayli bo'lsa, agent uni har doim h
 - O'rnatilgan fayl asboblari tanlangan loyiha papkasidan tashqariga chiqmaydi.
 - **Shell buyruqlari, CLI-agentlar va MCP plaginlari OS darajasida sandbox qilinmagan**; ular joriy foydalanuvchi huquqlariga ega. Tasdiqlashdan oldin buyruq va plagin manbasini tekshiring.
 - API kalitlari va suhbatlar lokal diskda shifrlanmagan saqlanadi; ilova katalogiga fayl ruxsatlari qo'yiladi.
-- Brauzer alohida profil ishlatadi. HTML ko'rinish oynasi tashqi tarmoq resurslarini bloklaydi.
+- Brauzer alohida profil ishlatadi. HTML ko'rinish oynasida tashqi resurslar bloklanadi; iframe navigatsiyasi barcha brauzerlarda kafolatli cheklanmasligi mumkin.
 - Telefon boshqaruvi HTTP: faqat ishonchli Wi-Fi yoki Tailscale/VPN kabi shifrlangan tunnelda ishlating.
 
 Batafsil ma'lumot: [Xavfsizlik siyosati](SECURITY.md).
@@ -133,7 +133,7 @@ Yuqoridagi **«Loyiha papkasini tanlash»** tugmasi bilan o'z loyihangiz papkasi
 - fayl **yaratadi / tahrirlaydi** va **buyruq ishga tushiradi** (testlar, o'rnatish...) — **har safar ruxsat so'raydi**, o'zgarish (diff) ko'rsatiladi;
 - «Shu suhbatda doim ruxsat» tugmasi ruxsat so'rashni o'chiradi; **■** tugmasi ishni to'xtatadi.
 
-Xavfsizlik: o'rnatilgan fayl asboblari tanlangan loyiha papkasidan tashqariga chiqmaydi va `.git` ga tegmaydi. Ammo `run_command` va `claude`, `codex` kabi CLI agentlar operatsion tizimdagi joriy foydalanuvchi huquqlari bilan ishlaydi; ular loyiha papkasidan tashqaridagi fayllarga ham murojaat qilishi mumkin. Buyruqni tasdiqlashdan oldin uni tekshiring. «Hammasi birga» va «Kengash» rejimlarida ichki fayl yozish/buyruq asboblari o'chiriladi.
+Xavfsizlik: ichki fayl asboblari tanlangan loyiha papkasidan tashqariga chiqmaydi va `.git` ga tegmaydi. `run_command`, CLI-agentlar va MCP plaginlari esa joriy foydalanuvchi huquqlari bilan ishlaydi; OS sandbox yo'q. Buyruq va plaginlarni tasdiqlashdan oldin tekshiring. «Hammasi birga» va «Kengash» rejimlarida ichki fayl yozish/buyruq asboblari o'chiriladi.
 
 **Git** tugmasi: nima o'zgargani (oddiy tilda), o'zgarishlarni ko'rish, **Saqlash (commit)**, **Yuborish (push)**, **Olish (pull)**. Git kompyuteringizda o'rnatilgan bo'lishi kerak (git-scm.com); parollar sizning Git sozlamangizdan olinadi.
 
