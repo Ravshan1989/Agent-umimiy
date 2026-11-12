@@ -133,7 +133,7 @@ Yuqoridagi **«Loyiha papkasini tanlash»** tugmasi bilan o'z loyihangiz papkasi
 - fayl **yaratadi / tahrirlaydi** va **buyruq ishga tushiradi** (testlar, o'rnatish...) — **har safar ruxsat so'raydi**, o'zgarish (diff) ko'rsatiladi;
 - «Shu suhbatda doim ruxsat» tugmasi ruxsat so'rashni o'chiradi; **■** tugmasi ishni to'xtatadi.
 
-Xavfsizlik: ichki fayl asboblari tanlangan loyiha papkasidan tashqariga chiqmaydi va `.git` ga tegmaydi. `run_command`, CLI-agentlar va MCP plaginlari esa joriy foydalanuvchi huquqlari bilan ishlaydi; OS sandbox yo'q. Buyruq va plaginlarni tasdiqlashdan oldin tekshiring. «Hammasi birga» va «Kengash» rejimlarida ichki fayl yozish/buyruq asboblari o'chiriladi.
+Xavfsizlik: ichki fayl asboblari tanlangan loyiha papkasidan tashqariga chiqmaydi va `.git` ga tegmaydi. `run_command`, CLI-agentlar va MCP plaginlari esa joriy foydalanuvchi huquqlari bilan ishlaydi; OS sandbox yo'q. Buyruq va plaginlarni tasdiqlashdan oldin tekshiring. «Hammasi birga» va «Kengash» rejimlarida CLI-agentlar ishga tushmaydi; fayl yozish, shell, brauzer va MCP amallari o'chiriladi. Boshqa agentga topshirish orqali ham CLI ishga tushirilmaydi.
 
 **Git** tugmasi: nima o'zgargani (oddiy tilda), o'zgarishlarni ko'rish, **Saqlash (commit)**, **Yuborish (push)**, **Olish (pull)**. Git kompyuteringizda o'rnatilgan bo'lishi kerak (git-scm.com); parollar sizning Git sozlamangizdan olinadi.
 
