@@ -127,16 +127,6 @@ def scroll_body(win, pad=(22, 18)):
     return bar, inner
 
 
-def dark_top(parent, title, size=None):
-    top = tk.Toplevel(parent)
-    top.title(title)
-    top.configure(bg=P["bg"])
-    if size:
-        top.geometry(size)
-    top.transient(parent)
-    return top
-
-
 class AgentDialog(tk.Toplevel):
     """Bitta agentni qo'shish/tahrirlash — JSON yozish shart emas."""
 
