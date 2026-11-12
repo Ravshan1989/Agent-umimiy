@@ -409,7 +409,7 @@ def make_handler(app: App):
             raw_size = self.headers.get("Content-Length")
             if raw_size is None:
                 raise Refused("Content-Length sarlavhasi yo'q.")
-            if not str(raw_size).isdigit():
+            if not str(raw_size).isascii() or not str(raw_size).isdecimal():
                 raise Refused("Noto'g'ri so'rov.")
             size = int(raw_size)
             # Manfiy uzunlik rfile.read(-1) ni ulanish EOF bo'lguncha kutishga majbur
