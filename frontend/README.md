@@ -1,29 +1,39 @@
-# Agent Umimiy — yangi web interfeys
+# Agent Umumiy — Ultra Modern web interfeys
 
-Bu papka Professional + Futuristik dizayn yo'nalishidagi React prototipidir.
+React + Vite + TypeScript frontend, mavjud Python server API bilan ishlaydi.
 
-## Texnologiyalar
-- React + Vite + TypeScript
-- Tailwind CSS v4
-- shadcn/ui uchun CLI va Radix primitives
-- Framer Motion animatsiyalari
-- Recharts grafiklari uchun
-- Lucide ikonkalari
-- Sonner bildirishnomalari
+## Lokal ishlab chiqish
 
-## Ishga tushirish
+1. Python serverni ishga tushiring: `python -m agent_umimiy --serve --host 127.0.0.1 --port 8123`
+2. Ikkinchi terminalda:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+3. Vite `/api` so‘rovlarini Python serverga yo‘naltiradi. Brauzerda `http://localhost:5173` ni oching.
+
+## Release / ishlab chiqarish
+
 ```bash
 cd frontend
 npm install
-npm run dev
-```
-
-Ishlab chiqarish buildi:
-```bash
 npm run build
 ```
 
-## Muhim integratsiya eslatmasi
-Hozirgi Python backend va Tkinter/telefon/web sahifalari saqlangan. Ushbu frontend alohida UI prototipi sifatida qo'shildi; u hali Python API bilan bog'lanmagan va mavjud web-server tomonidan serve qilinmaydi. Integratsiya bosqichida haqiqiy agentlar, fayllar, suhbatlar, autentifikatsiya va ruxsat oqimlari backend API'lariga ulanadi. Namuna statistikalar va fayl nomlari demo ma'lumotlaridir, real ma'lumot emas.
+Build natijasi `agent_umimiy/static/web` ichiga yoziladi. Python server shu build mavjud bo‘lsa, `/` manzilida yangi React interfeysini beradi; build bo‘lmasa eski ichki sahifa zaxira sifatida qoladi. PyInstaller va Python paket konfiguratsiyasi build fayllarini release tarkibiga qo‘shadi.
 
-Dizayn ilhomlari: shadcn/ui ekotizimi, Radix UI va zamonaviy admin dashboard naqshlari. Tashqi repolarning kodlari to'g'ridan-to'g'ri ko'chirilmagan; litsenziya va mualliflik shartlari saqlanishi uchun komponentlar mustaqil yozilgan.
+## Haqiqiy ishlaydigan imkoniyatlar
+
+- Python serverdagi mavjud login va ro‘yxatdan o‘tish oqimi.
+- Server sozlamasidan agentlarni olish va agent tanlash.
+- Suhbat yaratish, ro‘yxatlash, o‘chirish va SSE orqali jonli javob.
+- Agent ishini to‘xtatish.
+- Rasm, PDF, Word, Excel va qo‘llab-quvvatlanadigan fayllarni biriktirish.
+- Agent yaratgan fayllarni yuklab olish.
+- Haqiqiy foydalanuvchi/suhbat ma’lumotlaridan hisoblagichlar.
+- Moslashuvchan desktop va mobil maket hamda CSS robot animatsiyasi.
+
+## Chegaralar
+
+Web server ataylab CLI/shell, lokal brauzer boshqaruvi va MCP administrator amallarini masofaviy foydalanuvchiga bermaydi. Desktop ilovadagi barcha lokal boshqaruv funksiyalari web API’da hozircha mavjud emas. AI javobi uchun server egasi `agents.json` ichida kamida bitta provider va API credential sozlashi kerak. Ro‘yxatdan o‘tish uchun server taklif kodi talab qilinadi.
