@@ -14,6 +14,9 @@ from typing import Callable
 from .base import AgentError
 
 TIMEOUT = 120  # ulanish va har bir bo'lakni kutish chegarasi (soniya)
+MAX_RESPONSE = 32 * 1024 * 1024
+MAX_LINE = 1024 * 1024
+MAX_ERROR_BODY = 1024 * 1024
 OnText = Callable[[str], None]
 
 
@@ -46,12 +49,24 @@ def _lines(url: str, payload: dict, headers: dict, sse: bool = False) -> Iterato
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
             if sse and resp.headers.get_content_type() == "application/json":
-                _fail(json.loads(resp.read() or b"{}"))  # xato JSON ko'rinishida kelgan bo'lishi mumkin
+                body = resp.read(MAX_ERROR_BODY + 1)
+                if len(body) > MAX_ERROR_BODY:
+                    raise AgentError("Provayder xato javobi 1 MB chegarasidan oshdi.")
+                _fail(json.loads(body or b"{}"))  # xato JSON ko'rinishida kelgan bo'lishi mumkin
                 raise AgentError("Server oqimli (streaming) javobni qo'llab-quvvatlamaydi.")
-            for raw in resp:
+            total = 0
+            while True:
+                raw = resp.readline(MAX_LINE + 1)
+                if not raw:
+                    break
+                if len(raw) > MAX_LINE:
+                    raise AgentError("Provayder javobidagi bitta qator 1 MB chegarasidan oshdi.")
+                total += len(raw)
+                if total > MAX_RESPONSE:
+                    raise AgentError("Provayderning oqimli javobi 32 MB chegarasidan oshdi.")
                 yield raw.decode("utf-8", errors="replace").rstrip("\r\n")
     except urllib.error.HTTPError as exc:
-        body = exc.read().decode(errors="replace")
+        body = exc.read(MAX_ERROR_BODY + 1).decode(errors="replace")
         raise AgentError(_friendly_http_error(exc.code, body)) from exc
     except urllib.error.URLError as exc:
         raise AgentError(f"Ulanish xatosi: {exc.reason}") from exc
