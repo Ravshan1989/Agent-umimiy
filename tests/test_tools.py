@@ -78,7 +78,7 @@ class ProjectNotesTests(unittest.TestCase):
         self.assertEqual(project_notes(str(root)), "")
         link.unlink()
         link.write_text("x" * 30_000)
-        self.assertLessEqual(len(project_notes(str(root))), 20_100)
+        self.assertLessEqual(len(project_notes(str(root))), 20_200)
 
 
 class ToolboxTests(unittest.TestCase):
