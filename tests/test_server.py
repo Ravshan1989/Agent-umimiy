@@ -78,6 +78,21 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(c.call("/api/me")[0], 401)
         self.assertEqual(c.call("/api/chat/new", {})[0], 401)
 
+    def test_built_react_frontend_is_served_when_present(self):
+        web = self.d / "static" / "web"
+        assets = web / "assets"
+        assets.mkdir(parents=True)
+        (web / "index.html").write_text('<!doctype html><title>Agent Umumiy React</title><script type="module" src="/assets/app.js"></script>', encoding="utf-8")
+        (assets / "app.js").write_text("window.agentUmumiy = true;", encoding="utf-8")
+        with mock.patch.object(server, "STATIC_DIR", self.d / "static"):
+            with urllib.request.urlopen(self.base + "/") as response:
+                page = response.read()
+                self.assertIn(b"Agent Umumiy React", page)
+                self.assertIn("default-src 'self'", response.headers["Content-Security-Policy"])
+            with urllib.request.urlopen(self.base + "/assets/app.js") as response:
+                self.assertEqual(response.read(), b"window.agentUmumiy = true;")
+                self.assertIn("javascript", response.headers["Content-Type"])
+
     def test_installable_as_phone_app(self):
         with urllib.request.urlopen(self.base + "/") as r:
             self.assertIn(b'rel="manifest" href="/manifest.webmanifest"', r.read())
