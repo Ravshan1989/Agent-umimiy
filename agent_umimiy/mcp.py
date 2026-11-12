@@ -16,6 +16,7 @@ import sys
 import threading
 import urllib.error
 import urllib.request
+from urllib.parse import urlparse
 
 from .tools import Tool
 
@@ -205,7 +206,6 @@ class HttpTransport:
         self.lock = threading.Lock()
 
     def start(self):
-        from urllib.parse import urlparse
         parsed = urlparse(self.url)
         if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password:
             raise McpError("MCP URL login-parolsiz http:// yoki https:// manzil bo'lishi kerak")
