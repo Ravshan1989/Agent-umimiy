@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import glob
+import hashlib
 import json
 import os
 import shutil
@@ -18,6 +19,7 @@ import sys
 import threading
 import time
 import urllib.request
+from urllib.parse import urlsplit
 
 from . import config
 
@@ -28,6 +30,8 @@ class BrowserError(Exception):
 
 # ---------------- minimal WebSocket mijoz (RFC 6455) ----------------
 class WebSocket:
+    MAX_MESSAGE = 16 * 1024 * 1024
+
     def __init__(self, host: str, port: int, path: str, timeout: float = 30):
         self.sock = socket.create_connection((host, port), timeout=timeout)
         key = base64.b64encode(os.urandom(16)).decode()
@@ -37,11 +41,26 @@ class WebSocket:
         while b"\r\n\r\n" not in head:
             chunk = self.sock.recv(4096)
             if not chunk:
+                self.sock.close()
                 raise BrowserError("WebSocket ulanishi rad etildi")
             head += chunk
-        if b" 101 " not in head.split(b"\r\n")[0]:
-            raise BrowserError("WebSocket ulanmadi: " + head.split(b"\r\n")[0].decode(errors="replace"))
-        self.buf = head.split(b"\r\n\r\n", 1)[1]
+            if len(head) > 65536:
+                self.sock.close()
+                raise BrowserError("WebSocket sarlavhasi juda katta.")
+        raw_head, self.buf = head.split(b"\r\n\r\n", 1)
+        lines = raw_head.decode("iso-8859-1").split("\r\n")
+        headers = {}
+        for line in lines[1:]:
+            if ":" in line:
+                name, value = line.split(":", 1)
+                headers[name.strip().lower()] = value.strip()
+        expected = base64.b64encode(hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest()).decode()
+        if (not lines[0].startswith("HTTP/1.1 101 ") or
+                headers.get("sec-websocket-accept") != expected or
+                headers.get("upgrade", "").lower() != "websocket" or
+                "upgrade" not in headers.get("connection", "").lower()):
+            self.sock.close()
+            raise BrowserError("WebSocket qo'l siqish tekshiruvidan o'tmadi.")
 
     def _read(self, n: int) -> bytes:
         while len(self.buf) < n:
@@ -76,6 +95,8 @@ class WebSocket:
                 n = struct.unpack(">H", self._read(2))[0]
             elif n == 127:
                 n = struct.unpack(">Q", self._read(8))[0]
+            if n > self.MAX_MESSAGE or len(msg) + n > self.MAX_MESSAGE:
+                raise BrowserError("Brauzer WebSocket xabari 16 MB chegarasidan oshdi.")
             payload = self._read(n)
             if op == 0x8:
                 raise BrowserError("Brauzer oynasi yopildi")
@@ -163,7 +184,10 @@ class Browser:
     # ---- ulanish ----
     def _http(self, path: str, timeout: float = 3):
         with urllib.request.urlopen(f"http://127.0.0.1:{self.port}{path}", timeout=timeout) as r:
-            return json.loads(r.read())
+            raw = r.read(1024 * 1024 + 1)
+            if len(raw) > 1024 * 1024:
+                raise BrowserError("Brauzer boshqaruv javobi 1 MB dan katta.")
+            return json.loads(raw)
 
     def ensure(self):
         with self.lock:
@@ -178,7 +202,8 @@ class Browser:
                 s.bind(("127.0.0.1", 0))
                 self.port = s.getsockname()[1]
             args = [exe, f"--remote-debugging-port={self.port}", f"--user-data-dir={self.profile}", "--no-first-run",
-                    "--no-default-browser-check", "--disable-features=Translate", "about:blank"]
+                    "--no-default-browser-check", "--remote-debugging-address=127.0.0.1",
+                    "--disable-features=Translate", "--disable-background-networking", "about:blank"]
             if self.headless:
                 args.insert(1, "--headless=new")
             if hasattr(os, "geteuid") and os.geteuid() == 0:
@@ -197,7 +222,11 @@ class Browser:
                     pass
             if not target:
                 raise BrowserError("Brauzerga ulanib bo'lmadi.")
-            self.ws = WebSocket("127.0.0.1", self.port, target["webSocketDebuggerUrl"].split(str(self.port), 1)[1])
+            ws_url = urlsplit(target.get("webSocketDebuggerUrl", ""))
+            if ws_url.scheme != "ws" or ws_url.hostname not in ("127.0.0.1", "localhost") or ws_url.port != self.port:
+                raise BrowserError("Brauzer WebSocket manzili kutilgan lokal portga mos emas.")
+            ws_path = ws_url.path + (("?" + ws_url.query) if ws_url.query else "")
+            self.ws = WebSocket("127.0.0.1", self.port, ws_path)
             self.call("Page.enable")
 
     def call(self, method: str, params: dict | None = None, timeout: float = 30):
