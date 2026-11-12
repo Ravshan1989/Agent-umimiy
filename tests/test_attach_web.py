@@ -154,6 +154,21 @@ class WebTests(unittest.TestCase):
         self.assertTrue(tb2.run("web_fetch", {"url": "file:///etc/passwd"})[1])
         self.assertTrue(tb2.run("web_fetch", {"url": "http://localhost:1/"})[1])
 
+    def test_pdf_extraction_stops_after_page_limit(self):
+        from agent_umimiy import attachments
+
+        class Page:
+            def extract_text(self):
+                return "matn"
+
+        fake_pdf = SimpleNamespace(PdfReader=lambda src: SimpleNamespace(pages=[Page() for _ in range(5)]))
+        with mock.patch.dict(sys.modules, {"pypdf": fake_pdf}), mock.patch.object(attachments, "MAX_PDF_PAGES", 2):
+            text = attachments.pdf_text(b"%PDF-test")
+        self.assertIn("[1-sahifa]", text)
+        self.assertIn("[2-sahifa]", text)
+        self.assertIn("Faqat dastlabki 2 sahifa", text)
+        self.assertNotIn("[3-sahifa]", text)
+
     def test_uploaded_file_size_and_failed_file_cleanup(self):
         import base64
 
