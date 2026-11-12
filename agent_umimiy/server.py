@@ -27,6 +27,8 @@ MAX_FILES = 6
 MAX_PROMPT = 100_000
 MAX_LIVE_TEXT = 200_000
 SSE_QUEUE_SIZE = 256
+MAX_CONNECTIONS = 64
+MAX_DOWNLOAD = 50 * 1024 * 1024
 TITLE_LEN = 40
 LOCAL_ONLY = ("cli",)  # serverda buyruq ishga tushiradigan agent turlari: veb-foydalanuvchilarga berilmaydi
 STATIC_DIR = Path(__file__).parent / "static"
@@ -303,6 +305,10 @@ def make_handler(app: App):
 
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
+
+        def setup(self):
+            super().setup()
+            self.connection.settimeout(30)  # sekin yuboriladigan so'rovlar server oqimini band qilmasin
         server_version = "AgentUmimiy"
 
         def log_message(self, *a):
@@ -471,6 +477,8 @@ def make_handler(app: App):
             path = app.files_dir(chat_id) / name
             if not name or name != Path(name).name or not path.is_file():
                 raise Refused("Fayl topilmadi.", 404)
+            if path.stat().st_size > MAX_DOWNLOAD:
+                raise Refused("Fayl 50 MB dan katta; uni kichikroq qismlarga ajrating.", 413)
             page = preview.page(path) if view else None
             if page is not None:
                 return self._send(200, page.encode(), "text/html; charset=utf-8", csp=preview.CSP)
@@ -509,6 +517,30 @@ def make_handler(app: App):
 class Server(ThreadingHTTPServer):
     daemon_threads = True
     store: Store
+
+    def __init__(self, *args, **kwargs):
+        self._slots = threading.BoundedSemaphore(MAX_CONNECTIONS)
+        super().__init__(*args, **kwargs)
+
+    def process_request(self, request, client_address):
+        if not self._slots.acquire(blocking=False):
+            try:
+                request.sendall(b"HTTP/1.1 503 Service Unavailable\\r\\nConnection: close\\r\\nContent-Length: 0\\r\\n\\r\\n")
+            except OSError:
+                pass
+            self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except Exception:
+            self._slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._slots.release()
 
     def server_bind(self):  # standart usul socket.getfqdn() ni chaqiradi: Windows'da soniyalab qotib qolishi mumkin
         socketserver.TCPServer.server_bind(self)
