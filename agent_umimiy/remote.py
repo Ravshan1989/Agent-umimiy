@@ -28,7 +28,7 @@ class RequestBodyError(ValueError):
 
 def read_json_body(stream, headers) -> dict:
     raw_size = headers.get("Content-Length")
-    if raw_size is None or not str(raw_size).isdigit():
+    if raw_size is None or not str(raw_size).isascii() or not str(raw_size).isdecimal():
         raise RequestBodyError("Content-Length noto'g'ri.")
     size = int(raw_size)
     if size > MAX_BODY:
