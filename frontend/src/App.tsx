@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";\nimport type { FormEvent } from "react";
 import {
-  Activity, Bell, Bot, Check, ChevronDown, Clock3, Database, Download,
+  Activity, Bot, Check, ChevronDown, Clock3, Database, Download,
   FileSpreadsheet, FileText, Folder, Globe2, LayoutDashboard, Loader2,
   LogOut, Menu, MessageSquare, Moon, Paperclip, Plus, Search, Send,
   Settings, ShieldCheck, Sparkles, Square, Sun, Trash2, X, Zap,
@@ -128,7 +128,7 @@ function App() {
 
   useEffect(() => { messagesEnd.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [records, live]);
 
-  async function submitAuth(event: React.FormEvent) {
+  async function submitAuth(event: FormEvent) {
     event.preventDefault(); setAuthBusy(true);
     try {
       await api(register ? "/api/register" : "/api/login", { name: authName, password, invite });
