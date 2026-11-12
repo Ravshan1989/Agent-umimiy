@@ -1,6 +1,7 @@
 import json
 import threading
 import unittest
+from unittest import mock
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from agent_umimiy import stream
@@ -81,7 +82,7 @@ class StreamTests(unittest.TestCase):
         with self.assertRaises(AgentError):
             list(stream._lines(base, {}, {}))
         base = raw_server(b"1234\\n5678\\n")
-        with unittest.mock.patch.object(stream, "MAX_RESPONSE", 8):
+        with mock.patch.object(stream, "MAX_RESPONSE", 8):
             with self.assertRaises(AgentError):
                 list(stream._lines(base, {}, {}))
 
