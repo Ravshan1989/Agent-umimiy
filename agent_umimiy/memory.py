@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import threading
 import uuid
@@ -37,11 +38,9 @@ def _read(path: Path) -> list[dict]:
 def _write(path: Path, items: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
-    try:
-        tmp.chmod(0o600)
-    except OSError:
-        pass
-    tmp.write_text(json.dumps(items[-MAX_ITEMS:], ensure_ascii=False, indent=2), encoding="utf-8")
+    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        json.dump(items[-MAX_ITEMS:], fh, ensure_ascii=False, indent=2)
     tmp.replace(path)
     try:
         path.chmod(0o600)
