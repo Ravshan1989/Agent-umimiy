@@ -38,7 +38,7 @@ class Tests(unittest.TestCase):
         broadcast = o.run("x", "broadcast")
         self.assertEqual([r.agent for r in broadcast], ["api"])
         consensus = o.run("x", "consensus")
-        self.assertEqual([r.agent for r in consensus if r.ok][-1], "api (yakuniy)")
+        self.assertEqual([r.agent for r in consensus if r.ok][-1], "api")
         self.assertFalse((root / "cli-ran.txt").exists())
         with self.assertRaises(ValueError):
             o.run("x", "broadcast", targets=["cli"])
