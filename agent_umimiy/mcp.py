@@ -211,7 +211,8 @@ class HttpTransport:
         if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password:
             raise McpError("MCP URL login-parolsiz http:// yoki https:// manzil bo'lishi kerak")
         try:
-            port = parsed.port  # noto'g'ri portni oldindan aniqlash
+            if parsed.port == 0:
+                raise McpError("MCP URL porti noto'g'ri")
         except ValueError as exc:
             raise McpError("MCP URL porti noto'g'ri") from exc
         if parsed.scheme == "http":
