@@ -24,6 +24,8 @@ def _path() -> Path:
 
 def _read(path: Path) -> list[dict]:
     try:
+        if path.stat().st_size > 1024 * 1024:
+            return []
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return []
@@ -35,6 +37,10 @@ def _read(path: Path) -> list[dict]:
 def _write(path: Path, items: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
+    try:
+        tmp.chmod(0o600)
+    except OSError:
+        pass
     tmp.write_text(json.dumps(items[-MAX_ITEMS:], ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.replace(path)
     try:
