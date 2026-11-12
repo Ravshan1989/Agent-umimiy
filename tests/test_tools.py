@@ -115,11 +115,31 @@ class ToolboxTests(unittest.TestCase):
         self.assertTrue(self.tb.run("run_command", {"command": "echo hi"})[1])
         self.assertEqual(len(self.asked), 1)  # readonly rejimda so'ralmaydi ham
 
-    def test_always_allows_without_asking_again(self):
+    def test_always_approval_is_scoped_to_one_file(self):
         self.answer = "always"
         self.tb.run("write_file", {"path": "1.txt", "content": "1"})
         self.tb.run("write_file", {"path": "2.txt", "content": "2"})
-        self.assertEqual(len(self.asked), 1)
+        self.tb.run("write_file", {"path": "1.txt", "content": "updated"})
+        self.assertEqual(len(self.asked), 2)
+
+    def test_create_document_requires_approval(self):
+        folder = self.root / "out"
+        self.ctx.files_dir = str(folder)
+        self.answer = "no"
+        self.assertTrue(self.tb.run("create_document", {"name": "report.txt", "content": "hello"})[1])
+        self.assertFalse((folder / "report.txt").exists())
+        self.assertEqual(self.asked[-1][1], "create:report.txt")
+        self.answer = "yes"
+        out, err = self.tb.run("create_document", {"name": "report.txt", "content": "hello"})
+        self.assertFalse(err, out)
+        self.assertTrue((folder / "report.txt").is_file())
+
+    def test_always_run_permission_is_scoped_to_exact_command(self):
+        self.answer = "always"
+        self.tb.run("run_command", {"command": "echo same"})
+        self.tb.run("run_command", {"command": "echo same"})
+        self.tb.run("run_command", {"command": "echo different"})
+        self.assertEqual(len(self.asked), 2)
 
     def test_search_list_run(self):
         (self.root / "m.py").write_text("def foo():\n    return 1\n")
@@ -132,7 +152,7 @@ class ToolboxTests(unittest.TestCase):
     def test_run_command_asks(self):
         self.answer = "no"
         self.assertTrue(self.tb.run("run_command", {"command": "echo x"})[1])
-        self.assertEqual(self.asked[0][1], "run")
+        self.assertTrue(self.asked[0][1].startswith("run:"))
 
 
 class LoopTests(unittest.TestCase):
