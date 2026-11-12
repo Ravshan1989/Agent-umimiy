@@ -485,7 +485,7 @@ class Toolbox:
         old = self._read(f) if f.exists() else None
         title = f"Fayl {'o‘zgartiriladi' if old is not None else 'yaratiladi'}: {self._rel(f)}"
         detail = _diff(old or "", content, self._rel(f)) if old is not None else _clip(content, 3000)
-        self._approve("write", title, detail)
+        self._approve("write:" + self._rel(f), title, detail)
         f.parent.mkdir(parents=True, exist_ok=True)
         with open(f, "w", encoding="utf-8", newline="") as fh:
             fh.write(content)
