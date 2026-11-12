@@ -20,7 +20,14 @@ def user_dir() -> Path:
         base = Path.home() / "Library" / "Application Support"
     else:
         base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-    return base / "AgentUmimiy"
+    path = base / "AgentUmimiy"
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        if os.name != "nt":
+            path.chmod(0o700)
+    except OSError:
+        pass
+    return path
 
 
 def upload_dir() -> Path:
