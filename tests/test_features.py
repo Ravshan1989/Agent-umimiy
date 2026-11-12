@@ -56,6 +56,21 @@ class StoreTests(unittest.TestCase):
         chatstore.clear()
         self.assertEqual(chatstore.load()["chats"], [])
 
+    def test_config_size_and_agent_count_limits(self):
+        path = self.d / "large-agents.json"
+        path.write_text(" " * 20)
+        with mock.patch.object(config, "MAX_CONFIG_BYTES", 10):
+            with self.assertRaises(ValueError):
+                config.read(str(path))
+        with self.assertRaises(ValueError):
+            config.build({"agents": [{"name": f"a{i}", "type": "echo"} for i in range(config.MAX_AGENTS + 1)]})
+
+    def test_chatstore_rejects_oversized_json(self):
+        p = self.d / "chats.json"
+        p.write_text(" " * 20)
+        with mock.patch.object(chatstore, "MAX_CHATSTORE_BYTES", 10):
+            self.assertEqual(chatstore.load()["chats"], [])
+
     def test_corrupt_file_is_ignored(self):
         (self.d / "chats.json").write_text("{buzilgan")
         self.assertEqual(chatstore.load(), {"chats": [], "active": 0})
