@@ -29,22 +29,35 @@ def _clip(value, depth: int = 0):
     return str(value)[:MAX_TEXT_FIELD]
 
 
-def _safe_chats(chats: list) -> list[dict]:
+def _safe_chats_and_active(chats: list, active: int) -> tuple[list[dict], int]:
+    """Sanitize chats and preserve the selected chat when invalid entries are discarded."""
     safe = []
-    for chat in chats[-MAX_CHATS:]:
+    selected = None
+    start = max(0, len(chats) - MAX_CHATS)
+    for original_index, chat in enumerate(chats[start:], start=start):
         if not isinstance(chat, dict):
             continue
         records = chat.get("records", [])
         history = chat.get("history", [])
-        if not isinstance(records, list) or not isinstance(history, list):
-            continue
-        if not records:
+        if not isinstance(records, list) or not isinstance(history, list) or not records:
             continue
         item = _clip(chat)
         item["records"] = [_clip(r) for r in records[-MAX_RECORDS:] if isinstance(r, dict)]
         item["history"] = [_clip(h) for h in history[-MAX_HISTORY:] if isinstance(h, dict)]
+        if not item["records"]:
+            continue
+        if original_index == active:
+            selected = len(safe)
         safe.append(item)
-    return safe
+    if not safe:
+        return [], 0
+    if selected is None:
+        selected = min(max(active - start, 0), len(safe) - 1)
+    return safe, selected
+
+
+def _safe_chats(chats: list) -> list[dict]:
+    return _safe_chats_and_active(chats, 0)[0]
 
 
 def load() -> dict:
@@ -56,20 +69,20 @@ def load() -> dict:
         data = json.loads(p.read_text(encoding="utf-8"))
         if not isinstance(data, dict) or not isinstance(data.get("chats"), list):
             return empty
-        chats = _safe_chats(data["chats"])
         active = data.get("active", 0)
-        if not isinstance(active, int):
+        if not isinstance(active, int) or isinstance(active, bool):
             active = 0
-        return {"chats": chats, "active": min(max(active, 0), max(0, len(chats) - 1))}
+        chats, active = _safe_chats_and_active(data["chats"], active)
+        return {"chats": chats, "active": active}
     except (OSError, ValueError, TypeError, RecursionError):
         return empty
 
 
 def save(chats: list[dict], active: int) -> None:
     try:
-        safe = _safe_chats(chats)
-        if not isinstance(active, int):
+        if not isinstance(active, int) or isinstance(active, bool):
             active = 0
+        safe, active = _safe_chats_and_active(chats, active)
         payload = json.dumps({"chats": safe, "active": min(max(active, 0), max(0, len(safe) - 1))},
                              ensure_ascii=False).encode("utf-8")
         if len(payload) > MAX_CHATSTORE_BYTES:
