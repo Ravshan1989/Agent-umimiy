@@ -6,6 +6,8 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 
 ## [Nashr qilinmagan] / [Unreleased]
 
+## [0.3.0] — 2026-11-12
+
 ### Qo'shildi / Added
 - **Fayl yaratish**: agent tayyor Word (.docx), Excel (.xlsx) va matn fayllarini yaratadi (`create_document`,
   `create_spreadsheet`); oynada bosib ochiladi, veb-serverda yuklab olinadi.
@@ -16,6 +18,14 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 - Oyna uchun haqiqiy Tk bilan tutun sinovlari (CI'da virtual ekran ostida).
 - **Linux paketi**: `AgentUmimiy-Linux-x86_64.tar.gz` har nashrda Windows o'rnatuvchisi bilan birga yig'iladi.
 - Yig'ilgan dastur har build'da veb-server rejimida ishga tushirib sinaladi.
+
+### Xavfsizlik / Security
+- Veb-server so'rovlarini tekshirish kuchaytirildi (noto'g'ri va haddan katta `Content-Length` rad etiladi).
+- Plagin (MCP) asboblari va brauzer amallari uchun ruxsat chegaralari qat'iylashtirildi.
+- Office fayllari va CSV o'qishda hajm chegaralari qo'shildi.
+
+### O'zgardi / Changed
+- Ishlatilmaydigan kod olib tashlandi.
 
 ## [0.2.0] — 2026-11-11
 

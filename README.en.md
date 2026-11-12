@@ -8,7 +8,7 @@ Work with Claude, ChatGPT, Gemini, Ollama and other models in a single window:
 the agents read and edit your files, control the browser, and help each other.
 
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
-![Version](https://img.shields.io/badge/version-0.2.0-orange)
+![Version](https://img.shields.io/badge/version-0.3.0-orange)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![UI](https://img.shields.io/badge/interface-Uzbek-1EB53A)
