@@ -155,20 +155,24 @@ class NetworkHelpersTests(unittest.TestCase):
 class FirewallScriptTests(unittest.TestCase):
     EXE = r"C:\Users\User\Downloads\AgentUmimiy-Windows\AgentUmimiy.exe"
 
-    def test_script_removes_blocks_then_allows(self):
+    def test_script_preserves_existing_program_rules(self):
         lines = remote.firewall_script(8765, self.EXE).splitlines()
         self.assertEqual(lines[0], "@echo off")
         self.assertEqual(lines[-1], "exit /b 0")
-        body = [l for l in lines if l.startswith("netsh")]
-        self.assertEqual(len(body), 3)
+        body = [line for line in lines if line.startswith("netsh")]
+        self.assertEqual(len(body), 2)
         self.assertIn('delete rule name="Agent Umimiy"', body[0])
-        self.assertIn(f'delete rule name=all program="{self.EXE}"', body[1])  # Windows'ning o'zi yaratgan to'suvchi qoidalar
-        self.assertTrue(body[2].startswith("netsh advfirewall firewall add rule"))
-        self.assertNotIn("firewall firewall firewall", remote.firewall_script(8765, self.EXE))
-        self.assertIn("\r\n", remote.firewall_script(8765, self.EXE))
-        # delete add dan oldin bo'lishi shart
-        self.assertLess(remote.firewall_script(8765, self.EXE).index("delete rule name=all"),
+        self.assertTrue(body[1].startswith("netsh advfirewall firewall add rule"))
+        self.assertIn(f'program="{self.EXE}"', body[1])
+        self.assertNotIn("name=all", remote.firewall_script(8765, self.EXE))
+        self.assertIn("\\r\\n", remote.firewall_script(8765, self.EXE))
+        self.assertLess(remote.firewall_script(8765, self.EXE).index("delete rule"),
                         remote.firewall_script(8765, self.EXE).index("add rule"))
+
+    def test_firewall_port_validation(self):
+        for port in (-1, 0, 65536):
+            with self.assertRaises(ValueError):
+                remote.firewall_args(port)
 
     def test_script_without_exe_has_no_program_rules(self):
         s = remote.firewall_script(9000)
