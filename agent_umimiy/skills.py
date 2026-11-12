@@ -71,15 +71,20 @@ def discover(project: str | None = None, ttl: float = 5.0) -> list[Skill]:
             remaining = MAX_SKILLS - len(files)
             if remaining <= 0:
                 break
-            files += [(f, src) for f in islice(sorted(root.glob("*/SKILL.md")), remaining)]
+            files += [(f, src, root) for f in islice(sorted(root.glob("*/SKILL.md")), remaining)]
     plug = Path.home() / ".claude" / "plugins"
     if plug.is_dir() and len(files) < MAX_SKILLS:
-        files += [(f, "Claude plagin") for f in islice(plug.glob("**/skills/*/SKILL.md"), MAX_SKILLS - len(files))]
-    for f, src in files:
+        files += [(f, "Claude plagin", plug) for f in islice(plug.glob("**/skills/*/SKILL.md"), MAX_SKILLS - len(files))]
+    for f, src, root in files:
         try:
-            with f.open("rb") as fh:
+            base = root.resolve()
+            folder = f.parent.resolve()
+            folder.relative_to(base)
+            resolved = f.resolve()
+            resolved.relative_to(folder)
+            with resolved.open("rb") as fh:
                 meta, _ = parse(fh.read(4000).decode("utf-8", errors="replace"))
-        except OSError:
+        except (OSError, ValueError):
             continue
         name = meta.get("name") or f.parent.name
         if name not in found:  # birinchi topilgan (loyiha > o'zimizniki > Claude) ustun
@@ -99,7 +104,9 @@ def load(name: str, project: str | None = None, file: str = "") -> str:
         target = (sk.path / file).resolve()
         target.relative_to(sk.path.resolve())  # papkadan tashqariga chiqishni to'sadi (ValueError)
         return _read_limited(target)
-    _, body = parse(_read_limited(sk.path / "SKILL.md"))
+    skill_file = (sk.path / "SKILL.md").resolve()
+    skill_file.relative_to(sk.path.resolve())
+    _, body = parse(_read_limited(skill_file))
     others = [str(p.relative_to(sk.path)) for p in islice(sk.path.rglob("*"), MAX_SCAN_FILES)
               if p.is_file() and p.name != "SKILL.md"][:40]
     extra = ("\n\n[Bu ko'nikma papkasidagi boshqa fayllar (use_skill(name, file=...) bilan o'qing): " + ", ".join(others) + "]") if others else ""
