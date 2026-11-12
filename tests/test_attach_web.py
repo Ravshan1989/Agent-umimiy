@@ -1,11 +1,13 @@
 import base64
 import json
+import sys
 import tempfile
 import threading
 import unittest
 import zipfile
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 from agent_umimiy import attachments as att
