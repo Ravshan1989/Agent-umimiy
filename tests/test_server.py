@@ -153,6 +153,18 @@ class ServerTests(unittest.TestCase):
             self.assertIn("attachment", r.headers["Content-Disposition"])
             self.assertIn("wordprocessingml", r.headers["Content-Type"])
         self.assertEqual(vali.call(url)[0], 404)  # begona suhbat
+        # ko'rinish: HTML faqat qum qutisi siyosati bilan beriladi; Word uchun ko'rinish yo'q, u yuklab olinadi
+        (folder / "sahifa.html").write_text("<script>document.title='x'</script>", encoding="utf-8")
+        for name, sandboxed in (("sahifa.html", True), ("Ҳисобот 1.docx", False)):
+            view = f"/api/file?chat={chat}&view=1&name=" + urllib.parse.quote(name)
+            with urllib.request.urlopen(urllib.request.Request(self.base + view, headers={"Cookie": ali.cookie})) as r:
+                self.assertEqual(r.headers["Content-Security-Policy"].startswith("sandbox "), sandboxed, name)
+                self.assertEqual("attachment" in (r.headers["Content-Disposition"] or ""), not sandboxed, name)
+        with urllib.request.urlopen(urllib.request.Request(  # view'siz HTML sahifa sifatida ochilmaydi
+                self.base + f"/api/file?chat={chat}&name=sahifa.html", headers={"Cookie": ali.cookie})) as r:
+            self.assertEqual((r.headers["Content-Type"], "attachment" in r.headers["Content-Disposition"]),
+                             ("application/octet-stream", True))
+        self.assertEqual(vali.call(f"/api/file?chat={chat}&view=1&name=sahifa.html")[0], 404)
         self.assertEqual(Client(self.base).call(url)[0], 401)
         for name in ("../server.db", "..%2Fserver.db", "yoq.docx", ""):
             self.assertEqual(ali.call(f"/api/file?chat={chat}&name={name}")[0], 404, name)

@@ -172,6 +172,7 @@ Ask the agent for a document or a table: "Make an Excel table from this data", "
 - **In the app window:** the file is saved to `Documents\Agent Umimiy`; click the row in the chat to open it.
 - **On the web server:** a "Download" link appears in the chat; only the owner of that conversation can get the file.
 - An existing file is never overwritten: a taken name gets a number.
+- **Live preview (web server):** a page or chart (`.html`) and a table (`.xlsx`, `.csv`) created by the agent opens at once in a panel next to the chat; the "Ko'rish" (View) button on the file row opens it again. To get a chart, ask: "Draw a chart from these numbers". The page runs in a sandbox: it cannot reach your conversations or account. In the app window, clicking the file opens it in the browser or Excel.
 - Works with agents that support tools (Claude, OpenAI-compatible, Ollama); not yet with Gemini and CLI agents.
 
 ### Internet
@@ -330,6 +331,7 @@ python -m unittest discover -s tests -t .  # tests
 | `providers.py` | Claude, OpenAI, Gemini, Ollama, CLI agents |
 | `stream.py` | reading streamed responses |
 | `writer.py` | creating Word, Excel and text files |
+| `preview.py` | live preview of created files (sandboxed) |
 | `server.py`, `server_page.py`, `store.py` | web server mode: HTTP, page, SQLite |
 | `agentic.py`, `tools.py` | the agent loop and tools (files, commands, search) |
 | `orchestrator.py` | modes and agent-to-agent help |

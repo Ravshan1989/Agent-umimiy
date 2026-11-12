@@ -140,8 +140,11 @@ TOOLS.append(Tool(
 TOOLS += [
     Tool("create_document", "Create a NEW file for the user and show it to them. The format follows the extension of name: "
          ".docx makes a Word document from Markdown content (headings, lists, tables, **bold**); "
-         ".txt, .md, .csv, .html, .json are saved as plain text. Use it when the user asks for a document, report, "
-         "letter or file. Never overwrites: a taken name gets a number.",
+         ".txt, .md, .csv, .html, .json are saved as plain text. An .html file is shown to the user as a live page next "
+         "to the chat: use one self-contained .html (inline CSS/JS/SVG; libraries only from cdn.jsdelivr.net, "
+         "cdnjs.cloudflare.com or unpkg.com; no other network access) for charts, diagrams, dashboards and interactive "
+         "pages. Use it when the user asks for a document, report, letter, page or file. Never overwrites: a taken name "
+         "gets a number.",
          _obj({"name": S, "content": S}, ["name", "content"]), "create"),
     Tool("create_spreadsheet", "Create a NEW Excel file (.xlsx) for the user and show it to them. sheets is a list of "
          "{name, rows}; rows is a list of rows, each a list of cell values (first row = headers). Use numbers for numeric "
@@ -219,7 +222,8 @@ def project_notes(root: str | None) -> str:
 
 
 FILES_NOTE = (" When the user asks for a document, report, table or other file, create it with create_document or "
-              "create_spreadsheet instead of only printing its contents; the app shows the finished file to the user.")
+              "create_spreadsheet instead of only printing its contents; the app shows the finished file to the user. "
+              "For a chart, diagram or interactive page, create a self-contained .html file: it is shown live.")
 
 
 def system_prompt(ctx: Context, agent: str = "") -> str:

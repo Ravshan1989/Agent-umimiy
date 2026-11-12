@@ -159,6 +159,7 @@ Agentdan hujjat yoki jadval so'rang: «Shu ma'lumotdan Excel jadval qilib ber»,
 - **Dastur oynasida:** fayl `Hujjatlar\Agent Umimiy` papkasiga saqlanadi; chatdagi qatorni bossangiz ochiladi.
 - **Veb-serverda:** chatda «Yuklab olish» havolasi chiqadi; faylni faqat shu suhbat egasi ola oladi.
 - Mavjud fayl hech qachon almashtirilmaydi: nom band bo'lsa, raqam qo'shiladi.
+- **Jonli ko'rinish (veb-serverda):** agent yaratgan sahifa, diagramma (`.html`) va jadval (`.xlsx`, `.csv`) chat yonidagi oynada darhol ochiladi; fayl qatoridagi «Ko'rish» tugmasi bilan qayta ochasiz. Diagramma so'rash uchun: «Shu sonlardan diagramma chiz». Sahifa qum qutisida ishlaydi: suhbatlaringizga va hisobingizga kira olmaydi. Dastur oynasida fayl bosilganda brauzer yoki Excel'da ochiladi.
 - Asboblarni qo'llaydigan agentlarda ishlaydi (Claude, OpenAI-mos, Ollama); Gemini va CLI agentlarda hozircha yo'q.
 
 ### Internet
@@ -283,6 +284,7 @@ python -m unittest discover -s tests -t .  # testlar
 | `providers.py` | Claude, OpenAI, Gemini, Ollama, CLI agentlar |
 | `stream.py` | oqimli (streaming) javoblarni o'qish |
 | `writer.py` | Word, Excel va matn fayllarini yaratish |
+| `preview.py` | yaratilgan fayllarning jonli ko'rinishi (qum qutisi) |
 | `server.py`, `server_page.py`, `store.py` | veb-server rejimi: HTTP, sahifa, SQLite |
 | `agentic.py`, `tools.py` | agent sikli va asboblar (fayl, buyruq, qidiruv) |
 | `orchestrator.py` | rejimlar va agentlararo yordam |

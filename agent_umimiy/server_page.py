@@ -54,8 +54,14 @@ main header{display:flex;align-items:center;gap:10px;padding:calc(10px + env(saf
 .b h1,.b h2,.b h3{margin:8px 0 4px;font-size:16px}.b a{color:var(--acc2)}.b ul{margin:4px 0;padding-left:22px}
 .cp{background:none;border:0;color:var(--mut);font-size:12px;padding:3px 0}
 .act{font-size:12.5px;margin:3px auto;padding-left:42px;color:var(--mut)}.act.info{color:var(--err)}.act.agent,.act.skill{color:var(--ok)}
-.act.file{padding-left:42px}.act.file a{display:inline-block;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 14px;color:var(--fg);text-decoration:none;font-size:14px}
-.act.file a:hover{border-color:var(--acc)}.act.file small{color:var(--mut);margin-left:8px}
+.act.file{padding-left:42px}.fc{display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 12px;color:var(--fg);font-size:14px;max-width:100%}
+.fc b{font-weight:600;overflow-wrap:anywhere}.fc a,.fc button{background:var(--hi);border:0;border-radius:8px;padding:5px 10px;color:var(--fg);text-decoration:none;font-size:12.5px}
+.fc button{background:var(--acc);color:#fff}
+#pv{width:46%;min-width:340px;flex:none;display:flex;flex-direction:column;border-left:1px solid var(--line);background:var(--side)}
+#pv header{display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;border-bottom:1px solid var(--line)}
+#pvt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+#pv header a,#pv header button{background:var(--hi);border:0;border-radius:8px;padding:6px 11px;color:var(--fg);text-decoration:none;font-size:13px}
+#pvf{flex:1;border:0;width:100%;background:#fff}
 .files{font-size:12px;color:var(--mut);text-align:right;margin-bottom:3px}
 .typing{color:var(--mut);font-size:13px;padding-left:42px;margin:8px auto}
 .empty{text-align:center;color:var(--mut);margin-top:22vh}.empty div{font-size:40px}
@@ -65,6 +71,7 @@ main header{display:flex;align-items:center;gap:10px;padding:calc(10px + env(saf
 textarea{flex:1;resize:none;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:11px 14px;max-height:30vh;min-height:46px}
 .rb{width:46px;height:46px;border-radius:50%;border:0;color:#fff;font-size:20px;flex:none;background:var(--hi)}.rb.send{background:var(--acc)}.rb.stop{background:var(--err)}
 #banner{background:var(--err);color:#fff;text-align:center;font-size:13px;padding:4px}
+@media(max-width:1000px){#pv{position:fixed;inset:0;width:auto;min-width:0;z-index:6;border:0}}
 @media(max-width:760px){aside{position:fixed;inset:0 auto 0 0;z-index:5;transform:translateX(-100%);transition:transform .15s}
  aside.open{transform:none;box-shadow:0 0 0 100vmax rgba(0,0,0,.5)}#menu{display:block}}
 </style></head><body>
@@ -88,6 +95,8 @@ textarea{flex:1;resize:none;background:var(--card);border:1px solid var(--line);
    <button type="button" class="rb" id="att" title="Fayl biriktirish">+</button>
    <textarea id="t" rows="1" placeholder="Xabar yozing…"></textarea>
    <button type="submit" class="rb send" id="go" title="Yuborish">↑</button></form></main>
+ <section id="pv" hidden><header><span id="pvt"></span><a id="pvd" download>Yuklab olish</a><button id="pvx" aria-label="Yopish">✕</button></header>
+  <iframe id="pvf" sandbox="allow-scripts allow-popups" title="Ko'rinish"></iframe></section>
 </div>
 <script>
 (function(){
@@ -152,8 +161,15 @@ function rec(r){
   add('<div class="col">'+f+'<div class="b">'+md(r.text)+'</div></div>','row u')}
  else if(r.k==='agent'){var row=agentRow(r.name,r.meta,md(r.text),r.err);
   if(!r.err){var b=document.createElement('button');b.className='cp';b.textContent='Nusxalash';b.onclick=function(){copy(r.text,b)};row.querySelector('.col').appendChild(b)}}
- else if(r.k==='act'&&r.kind==='file')add('<a href="/api/file?chat='+cur+'&name='+encodeURIComponent(r.text)+'" download>📄 '+esc(r.text)+'<small>Yuklab olish</small></a>','act file')
+ else if(r.k==='act'&&r.kind==='file'){var row=add('<span class="fc">📄 <b>'+esc(r.text)+'</b>'+(canView(r.text)?'<button>Ko\'rish</button>':'')+'<a href="'+fileUrl(r.text)+'" download>Yuklab olish</a></span>','act file');
+  var vb=row.querySelector('button');if(vb)vb.onclick=function(){openView(r.text)}}
  else if(r.k==='act'&&r.kind!=='todo')add(esc((r.agent||'')+': '+r.text),'act '+esc(r.kind))}
+// ---- jonli ko'rinish: fayl qum qutisidagi (sandbox) oynada chat yonida ochiladi ----
+function fileUrl(name){return '/api/file?chat='+cur+'&name='+encodeURIComponent(name)}
+function canView(name){return /\.(html|csv|xlsx|txt|md|json)$/i.test(name)}
+function openView(name){$('pvt').textContent=name;$('pvd').href=fileUrl(name);$('pvf').src=fileUrl(name)+'&view=1';$('pv').hidden=false}
+function closeView(){$('pv').hidden=true;$('pvf').removeAttribute('src')}
+$('pvx').onclick=closeView;
 function setLive(agent,text){var l=live[agent];
  if(!l)l=live[agent]={text:'',el:agentRow(agent,'','',false)};
  l.text=text;l.el.querySelector('.b').innerHTML=md(text)}
@@ -166,19 +182,20 @@ function clearMsgs(){$('msgs').innerHTML='';live={};typingEl=null}
 function handle(ev){var stick=nearBottom();
  if(ev.type==='init'){clearMsgs();ev.records.forEach(rec);Object.keys(ev.live).forEach(function(a){if(ev.live[a])setLive(a,ev.live[a])});setBusy(ev.busy);
   if(!ev.records.length&&!ev.busy)empty();stick=true}
- else if(ev.type==='record'){if(ev.record.k==='agent')dropAllLive();rec(ev.record);typing()}
+ else if(ev.type==='record'){if(ev.record.k==='agent')dropAllLive();rec(ev.record);typing();
+  if(ev.record.k==='act'&&ev.record.kind==='file'&&canView(ev.record.text))openView(ev.record.text)}
  else if(ev.type==='delta'){setLive(ev.agent,((live[ev.agent]||{}).text||'')+ev.text);typing()}
  else if(ev.type==='turn'){dropLive(ev.agent);typing()}
  else if(ev.type==='busy')setBusy(true)
  else if(ev.type==='done'){dropAllLive();setBusy(false);refresh()}
  if(stick)scroll()}
 function empty(){add('<div>✦</div><p>Qanday yordam bera olaman?</p>','empty')}
-function openChat(id){cur=id;if(es)es.close();clearMsgs();setBusy(false);$('side').classList.remove('open');
+function openChat(id){cur=id;if(es)es.close();closeView();clearMsgs();setBusy(false);$('side').classList.remove('open');
  es=new EventSource('/api/stream?chat='+id);
  es.onmessage=function(e){$('banner').hidden=true;handle(JSON.parse(e.data))};
  es.onerror=function(){$('banner').hidden=false;api('/api/me').catch(function(e){if(e.code===401)showAuth()})};
  es.onopen=function(){$('banner').hidden=true};refresh()}
-function newChat(){cur=null;if(es){es.close();es=null}clearMsgs();setBusy(false);empty();$('side').classList.remove('open');
+function newChat(){cur=null;if(es){es.close();es=null}closeView();clearMsgs();setBusy(false);empty();$('side').classList.remove('open');
  Array.prototype.forEach.call($('chats').children,function(d){d.classList.remove('on')});$('t').focus()}
 $('new').onclick=newChat;$('menu').onclick=function(){$('side').classList.toggle('open')};
 $('msgs').onclick=function(){$('side').classList.remove('open')};
