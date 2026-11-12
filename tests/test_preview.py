@@ -43,6 +43,8 @@ class PreviewTests(unittest.TestCase):
         self.assertNotIn("allow-same-origin", preview.CSP)
         self.assertIn("default-src 'none'", preview.CSP)
         self.assertNotIn("connect-src", preview.CSP)  # default-src 'none': sahifa hech qayerga so'rov yubora olmaydi
+        self.assertIn("img-src data: blob:", preview.CSP)
+        self.assertNotIn("img-src data: blob: https:", preview.CSP)
 
 
 if __name__ == "__main__":
