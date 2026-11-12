@@ -164,7 +164,7 @@ class WebTests(unittest.TestCase):
                 attachments.save_upload(folder, "large.txt", base64.b64encode(b"four").decode())
         self.assertEqual(list(folder.iterdir()), [])
         with self.assertRaises(attachments.AttachError):
-            attachments.save_upload(folder, "bad.txt", base64.b64encode(b"\\x00bad").decode())
+            attachments.save_upload(folder, "bad.txt", base64.b64encode(bytes([0, 98, 97, 100])).decode())
         self.assertEqual(list(folder.iterdir()), [])
 
     def test_redirect_to_private_blocked(self):
