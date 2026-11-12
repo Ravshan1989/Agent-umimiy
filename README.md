@@ -115,10 +115,13 @@ Loyiha papkasida `CLAUDE.md` yoki `AGENTS.md` fayli bo'lsa, agent uni har doim h
 
 ## 🔒 Xavfsizlik
 
-- Agent fayllarni faqat **siz tanlagan loyiha papkasida** o'zgartiradi.
-- Buyruq ishga tushirish va fayl yozish **ruxsatingiz bilan** bajariladi.
-- Brauzer alohida profilda ishlaydi — asosiy brauzeringiz ma'lumotlariga tegmaydi.
-- API kalitlaringiz faqat sizning kompyuteringizda saqlanadi.
+- O'rnatilgan fayl asboblari tanlangan loyiha papkasidan tashqariga chiqmaydi.
+- **Shell buyruqlari, CLI-agentlar va MCP plaginlari OS darajasida sandbox qilinmagan**; ular joriy foydalanuvchi huquqlariga ega. Tasdiqlashdan oldin buyruq va plagin manbasini tekshiring.
+- API kalitlari va suhbatlar lokal diskda shifrlanmagan saqlanadi; ilova katalogiga fayl ruxsatlari qo'yiladi.
+- Brauzer alohida profil ishlatadi. HTML ko'rinish oynasi tashqi tarmoq resurslarini bloklaydi.
+- Telefon boshqaruvi HTTP: faqat ishonchli Wi-Fi yoki Tailscale/VPN kabi shifrlangan tunnelda ishlating.
+
+Batafsil ma'lumot: [Xavfsizlik siyosati](SECURITY.md).
 
 ## 📖 Batafsil qo'llanma
 
