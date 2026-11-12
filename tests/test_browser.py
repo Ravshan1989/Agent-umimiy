@@ -131,7 +131,7 @@ class BrowserToolTests(unittest.TestCase):
         n = next(l.split(". <", 1)[0].strip() for l in out.splitlines() if ". <input" in l and "Ismingiz" in l)
         self.tb.run("browser_type", {"id": int(n), "text": "a"})
         self.tb.run("browser_type", {"id": int(n), "text": "b"})
-        self.assertEqual([a[1] for a in self.asked].count("browser_type"), 2)
+        self.assertEqual([a[1] for a in self.asked].count("browser-type:127.0.0.1"), 2)
 
     def test_denied_click_does_not_execute_page_action(self):
         out, err = self.tb.run("browser_open", {"url": self.url})
