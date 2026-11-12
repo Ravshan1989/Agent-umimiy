@@ -39,6 +39,10 @@ def _write(path: Path, items: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
     fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        os.fchmod(fd, 0o600)
+    except OSError:
+        pass
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
         json.dump(items[-MAX_ITEMS:], fh, ensure_ascii=False, indent=2)
     tmp.replace(path)
