@@ -1,7 +1,7 @@
 """Jonli ko'rinish: agent yaratgan faylni brauzerda chat yonida ko'rsatish uchun HTML sahifa.
 
 Sahifa har doim qum qutisida (sandbox) ochiladi: skript ishlashi mumkin, lekin dastur manziliga, cookie'larga,
-API'ga yoki tashqi tarmoqqa yo'l yo'q.
+API'ga yoki tashqi resurs yuklashga yo'l yo'q. Brauzerning o'z iframe navigatsiyasi barcha brauzerlarda to'liq kafolatlanmaydi; maxfiy hujjatlarni ishonchsiz HTML sifatida ochmang.
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from . import docs
 
 CSP = ("sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
        "font-src data:; img-src data: blob:; form-action 'none'; base-uri 'none'; object-src 'none'; "
-       "frame-ancestors 'self'")
+       "navigate-to 'none'; frame-ancestors 'self'")
 TABLES, TEXTS = (".csv", ".xlsx"), (".txt", ".md", ".json")
 KINDS = (".html",) + TABLES + TEXTS
 MAX_ROWS, MAX_SHEETS = 500, 10
