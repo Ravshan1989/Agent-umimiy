@@ -17,7 +17,10 @@ NS_REL = "{http://schemas.openxmlformats.org/package/2006/relationships}"
 NS_W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 NS_A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
 NS_P = "{http://schemas.openxmlformats.org/presentationml/2006/main}"
-MAX_ENTRY = 200 * 1024 * 1024
+MAX_ENTRY = 100 * 1024 * 1024
+MAX_TOTAL = 250 * 1024 * 1024
+MAX_ENTRIES = 10_000
+MAX_CSV_BYTES = 100 * 1024 * 1024
 MAX_ROWS = 200_000
 OLD_FORMATS = {".xls": ".xlsx", ".ppt": ".pptx", ".doc": ".docx"}
 
@@ -31,8 +34,11 @@ def _open_zip(path) -> zipfile.ZipFile:
         z = zipfile.ZipFile(path)
     except (zipfile.BadZipFile, OSError) as exc:
         raise DocError(f"Fayl buzilgan yoki Office fayli emas: {exc}")
-    if any(i.file_size > MAX_ENTRY for i in z.infolist()):
-        raise DocError("Fayl ichida juda katta qism bor (xavfsizlik chegarasi).")
+    infos = z.infolist()
+    if (len(infos) > MAX_ENTRIES or any(i.file_size > MAX_ENTRY for i in infos)
+            or sum(i.file_size for i in infos) > MAX_TOTAL):
+        z.close()
+        raise DocError("Office arxivi juda katta yoki juda ko'p qismlardan iborat (xavfsizlik chegarasi).")
     return z
 
 
@@ -104,6 +110,15 @@ class Xlsx:
         self.shared = self._shared_strings() if "xl/sharedStrings.xml" in names else []
         self.date_styles = self._date_styles() if "xl/styles.xml" in names else set()
 
+    def close(self):
+        self.z.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+
     def _shared_strings(self) -> list[str]:
         out = []
         for si in ET.fromstring(self.z.read("xl/sharedStrings.xml")).iter(NS_M + "si"):
@@ -169,7 +184,11 @@ class Xlsx:
 
 # ============================ DOCX ============================
 def read_docx(path) -> str:
-    z = _open_zip(path)
+    with _open_zip(path) as z:
+        return _read_docx(z)
+
+
+def _read_docx(z: zipfile.ZipFile) -> str:
     if "word/document.xml" not in z.namelist():
         raise DocError("Bu .docx fayl emas yoki buzilgan.")
     body = ET.fromstring(z.read("word/document.xml")).find(NS_W + "body")
@@ -217,7 +236,11 @@ def read_docx(path) -> str:
 
 # ============================ PPTX ============================
 def read_pptx(path) -> str:
-    z = _open_zip(path)
+    with _open_zip(path) as z:
+        return _read_pptx(z)
+
+
+def _read_pptx(z: zipfile.ZipFile) -> str:
     if "ppt/presentation.xml" not in z.namelist():
         raise DocError("Bu .pptx fayl emas yoki buzilgan.")
     rels = _rels(z, "ppt/presentation.xml")
@@ -276,7 +299,10 @@ def decode_text(data: bytes) -> str:
 
 
 def read_csv_rows(path, limit: int | None = None) -> list[list[str]]:
-    text = decode_text(Path(path).read_bytes())
+    p = Path(path)
+    if p.stat().st_size > MAX_CSV_BYTES:
+        raise DocError("CSV fayl 100 MB dan katta (xavfsizlik chegarasi).")
+    text = decode_text(p.read_bytes())
     try:
         dialect = csv.Sniffer().sniff(text[:20000], delimiters=",;\t|")
     except csv.Error:
@@ -295,11 +321,11 @@ def _table_rows(path, sheet: str = "", limit: int | None = MAX_ROWS) -> tuple[st
     if ext in (".csv", ".tsv", ".txt"):
         return "", read_csv_rows(path, limit), []
     if ext == ".xlsx":
-        book = Xlsx(path)
-        name = sheet or next(iter(book.sheets), "")
-        if not name:
-            raise DocError("Faylda varaq yo'q")
-        return name, list(book.rows(name, limit)), list(book.sheets)
+        with Xlsx(path) as book:
+            name = sheet or next(iter(book.sheets), "")
+            if not name:
+                raise DocError("Faylda varaq yo'q")
+            return name, list(book.rows(name, limit)), list(book.sheets)
     if ext in OLD_FORMATS:
         raise DocError(f"Eski {ext} format. Faylni {OLD_FORMATS[ext]} sifatida saqlab qayta urining.")
     raise DocError("Jadval sifatida faqat .csv, .tsv va .xlsx o'qiladi.")
@@ -372,10 +398,10 @@ def _extract_text(path, max_chars: int = 300_000) -> str:
     if ext in (".xlsx", ".csv", ".tsv"):
         parts = []
         if ext == ".xlsx":
-            book = Xlsx(p)
-            for name in book.sheets:
-                rows = list(book.rows(name, MAX_ROWS))
-                parts.append(_table_block(rows, f"=== Varaq: {name} ===\n", max_chars // max(1, len(book.sheets))))
+            with Xlsx(p) as book:
+                for name in book.sheets:
+                    rows = list(book.rows(name, MAX_ROWS))
+                    parts.append(_table_block(rows, f"=== Varaq: {name} ===\n", max_chars // max(1, len(book.sheets))))
         else:
             parts.append(_table_block(read_csv_rows(p, MAX_ROWS), "", max_chars))
         return "\n\n".join(parts)[:max_chars * 2]

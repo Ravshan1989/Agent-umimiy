@@ -165,8 +165,10 @@ def available(ctx: Context) -> list[Tool]:
         out = [t for t in out if t.name != "list_agents"]
     if not ctx.delegate or len(ctx.roster) < 2:
         out = [t for t in out if t.name != "ask_agent"]
-    if ctx.mcp:
-        out += [t for t in ctx.mcp.tools() if not ctx.readonly or t.read_only]
+    if ctx.mcp and not ctx.readonly:
+        # MCP readOnlyHint is server-supplied metadata, not a security boundary.
+        # In read-only orchestration modes, expose no remote tools at all.
+        out += ctx.mcp.tools()
     return out
 
 
@@ -479,9 +481,10 @@ class Toolbox:
     # ---- plaginlar (MCP) va ko'nikmalar ----
     def _call_mcp(self, tool: Tool, args: dict) -> str:
         from .mcp import McpError
-        if not tool.read_only:  # faqat o'qiydigan asboblar ruxsatsiz; qolganlari so'raydi
-            self._approve("mcp:" + tool.server, f"Plagin amali: {tool.server} → {tool.remote_name}",
-                          json.dumps(args, indent=2, ensure_ascii=False)[:2500] or "(argumentsiz)")
+        # MCP annotations (including readOnlyHint) are untrusted server claims.
+        # Require explicit user approval for every remote tool invocation.
+        self._approve("mcp:" + tool.server, f"Plagin amali: {tool.server} → {tool.remote_name}",
+                      json.dumps(args, indent=2, ensure_ascii=False)[:2500] or "(argumentsiz)")
         self._say("mcp", f"Plagin «{tool.server}»: {tool.remote_name}")
         try:
             return _clip(self.ctx.mcp.call(tool.server, tool.remote_name, args), 14000)
@@ -527,6 +530,10 @@ class Toolbox:
         return self._browser(lambda b: b.snapshot(), say="Brauzer sahifasini o'qidi")
 
     def t_browser_click(self, id: int) -> str:
+        url = self._browser(lambda b: (b.ensure(), b.js("location.href"))[1])
+        host = urllib.parse.urlparse(url or "").hostname or "noma'lum sayt"
+        self._approve("browser_action:" + host, f"Brauzerda element bosiladi: {host}",
+                      f"Sahifa: {url}\nElement raqami: {id}. Bosish sahifadagi amalni bajarishi yoki ma'lumot yuborishi mumkin.")
         return self._browser(lambda b, i: b.click(i), id, say=f"Brauzerda {id}-elementni bosdi")
 
     def t_browser_type(self, id: int, text: str, submit: bool = False) -> str:
@@ -536,6 +543,11 @@ class Toolbox:
                              say=f"Brauzerda {id}-maydonga yozdi{' va yubordi' if submit else ''}")
 
     def t_browser_press(self, key: str) -> str:
+        if key == "Enter":
+            url = self._browser(lambda b: (b.ensure(), b.js("location.href"))[1])
+            host = urllib.parse.urlparse(url or "").hostname or "noma'lum sayt"
+            self._approve("browser_action:" + host, f"Brauzerda Enter bosiladi: {host}",
+                          f"Sahifa: {url}\nEnter tugmasi formani yuborishi yoki amalni tasdiqlashi mumkin.")
         return self._browser(lambda b, k: b.press(k), key, say=f"Brauzerda {key} bosdi")
 
     def t_browser_scroll(self, direction: str) -> str:

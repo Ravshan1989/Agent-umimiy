@@ -3,6 +3,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 from agent_umimiy import attachments, docs
 from agent_umimiy.tools import Context, Toolbox
@@ -103,6 +104,27 @@ class OfficeTests(unittest.TestCase):
             with self.assertRaises(attachments.AttachError) as cm:
                 attachments.load(str(self.d / old))
             self.assertIn("eski", str(cm.exception))
+
+    def test_office_archive_expansion_limits(self):
+        path = self.d / "large.docx"
+        with zipfile.ZipFile(path, "w") as z:
+            z.writestr("word/document.xml", "1234567890")
+        with mock.patch.object(docs, "MAX_ENTRY", 5):
+            with self.assertRaises(docs.DocError):
+                docs.extract_text(path)
+        with mock.patch.object(docs, "MAX_ENTRY", 100), mock.patch.object(docs, "MAX_TOTAL", 5):
+            with self.assertRaises(docs.DocError):
+                docs.extract_text(path)
+        with mock.patch.object(docs, "MAX_ENTRIES", 0):
+            with self.assertRaises(docs.DocError):
+                docs.extract_text(path)
+
+    def test_csv_file_size_limit(self):
+        path = self.d / "large.csv"
+        path.write_text("a,b\n1,2\n")
+        with mock.patch.object(docs, "MAX_CSV_BYTES", 3):
+            with self.assertRaises(docs.DocError):
+                docs.read_csv_rows(path)
 
     def test_broken_files_give_clean_errors(self):
         for name in ("x.xlsx", "x.docx", "x.pptx"):
