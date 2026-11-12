@@ -26,7 +26,7 @@ Iloji boricha quyidagilarni qo'shing: zaiflik tavsifi, takrorlash qadamlari, ta'
 - **MCP serverlari** alohida dastur sifatida ishga tushadi va joriy foydalanuvchi huquqlariga ega. Ularning muhitiga provider API kalitlari avtomatik uzatilmaydi; kerakli tokenlarni faqat shu server uchun aniq sozlang.
 - **Telefondan boshqarish** oddiy HTTP orqali ishlaydi. Token URL fragmentida bo'lsa ham, so'rovlar tarmoqda shifrlanmaydi. Faqat ishonchli LAN yoki Tailscale/VPN kabi shifrlangan tunnelda foydalaning.
 - **Ichki fayl asboblari** tanlangan loyiha papkasidan tashqariga chiqishni bloklaydi; shell/CLI/MCP uchun bu kafolat yo'q.
-- **HTML ko'rinish oynasi** tashqi tarmoq resurslarini bloklaydi va sandbox ichida ishlaydi.
+- **HTML ko'rinish oynasi** tashqi resurs yuklashini CSP bilan cheklaydi va sandbox ichida ishlaydi. Biroq iframe navigatsiyasini barcha brauzerlarda to'liq bloklash kafolatlanmagan; maxfiy ma'lumotli ishonchsiz HTML'ni ochmang.
 - **Masofaviy veb-server** login/sessiya bilan himoyalangan, lekin internetga to'g'ridan-to'g'ri ochish o'rniga HTTPS reverse proxy yoki VPN ishlating.
 
 Zaiflik haqida xabar berish uchun yuqoridagi maxfiy Security Advisory kanalidan foydalaning.
