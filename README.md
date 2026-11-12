@@ -25,7 +25,7 @@ agentlar fayllaringizni o'qiydi, tahrirlaydi, brauzerni boshqaradi va bir-biriga
 ## 📌 Bu nima?
 
 **Agent Umimiy** — bir nechta sun'iy intellekt agentlarini bitta joyga yig'adigan desktop ilova.
-Har bir xizmat uchun alohida sayt yoki dastur ochish shart emas: hammasi bitta qulay oynada. Desktop interfeysida o'zbek, rus va ingliz tillari mavjud (tarjima hali to'liq emas); telefon va veb interfeyslarining asosiy matnlari hozircha o'zbek tilida.
+Har bir xizmat uchun alohida sayt yoki dastur ochish shart emas: hammasi bitta qulay oynada. Desktop, telefon va veb interfeyslarida o'zbek, rus va ingliz tillarini tanlash mumkin. Ruscha va inglizcha tarjimalar qisman: ayrim dinamik xabarlar, agent javoblari va kam ishlatiladigan matnlar o'zbekcha qolishi mumkin.
 
 Desktop interfeys tilini **Sozlamalar → Interfeys tili** orqali tanlang. Ilova kompyuteringizdagi mavjud agentlarni **o'zi topadi** — hech narsa yozib o'tirishingiz kerak emas.
 
