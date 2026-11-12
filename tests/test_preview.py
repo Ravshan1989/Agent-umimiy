@@ -44,6 +44,7 @@ class PreviewTests(unittest.TestCase):
         self.assertNotIn("https://", preview.CSP)
         self.assertIn("form-action 'none'", preview.CSP)
         self.assertIn("base-uri 'none'", preview.CSP)
+        self.assertIn("navigate-to 'none'", preview.CSP)
 
     def test_oversized_html_preview_is_not_rendered(self):
         path = Path(tempfile.mktemp(suffix=".html"))
