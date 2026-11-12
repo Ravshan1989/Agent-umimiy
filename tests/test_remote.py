@@ -165,7 +165,7 @@ class FirewallScriptTests(unittest.TestCase):
         self.assertTrue(body[1].startswith("netsh advfirewall firewall add rule"))
         self.assertIn(f'program="{self.EXE}"', body[1])
         self.assertNotIn("name=all", remote.firewall_script(8765, self.EXE))
-        self.assertIn("\\r\\n", remote.firewall_script(8765, self.EXE))
+        self.assertIn("\r\n", remote.firewall_script(8765, self.EXE))
         self.assertLess(remote.firewall_script(8765, self.EXE).index("delete rule"),
                         remote.firewall_script(8765, self.EXE).index("add rule"))
 
