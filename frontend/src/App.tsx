@@ -226,7 +226,7 @@ function App() {
       <nav>
         {[["Bosh sahifa",LayoutDashboard],["Suhbat",MessageSquare],["Agentlar",Bot],["Fayllar",Folder],["Loyihalar",Database],["Plaginlar",Zap],["Avtomatlashtirish",Clock3],["Hisobotlar",Activity],["Ma’lumotlar bazasi",Database],["Sozlamalar",Settings]].map(([label, Icon]) => {
           const I = Icon as typeof LayoutDashboard;
-          return <button key={label as string} className={activeView === label ? "nav-item selected" : "nav-item"} onClick={() => { setActiveView(label as string); setMobileNav(false); if (label === "Suhbat" && chatId === null) void createChat(); }}><I size={17} /><span>{label as string}</span></button>;
+          return <button key={label as string} disabled={!["Bosh sahifa", "Suhbat"].includes(label as string)} title={["Bosh sahifa", "Suhbat"].includes(label as string) ? label as string : "Bu bo‘lim web versiyasiga hali ulanmagan"} className={activeView === label ? "nav-item selected" : "nav-item"} onClick={() => { setActiveView(label as string); setMobileNav(false); if (label === "Suhbat" && chatId === null) void createChat(); }}><I size={17} /><span>{label as string}</span></button>;
         })}
       </nav>
       <div className="sidebar-section"><div className="sidebar-section-title">SO‘NGGI SUHBATLAR <button onClick={createChat} title="Yangi suhbat"><Plus size={14} /></button></div>
