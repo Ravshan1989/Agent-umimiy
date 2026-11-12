@@ -305,6 +305,23 @@ class Throttle:
 
 
 
+def safe_file_path(base, name: str) -> Path | None:
+    """Foydalanuvchi faylini faqat suhbat papkasi ichidan, symlink'larsiz tanlaydi."""
+    if not isinstance(name, str) or not name or name != Path(name).name:
+        return None
+    try:
+        root = Path(base).resolve()
+        candidate = root / name
+        if candidate.is_symlink():
+            return None
+        path = candidate.resolve(strict=True)
+        if root not in path.parents or not path.is_file():
+            return None
+        return path
+    except (OSError, RuntimeError, ValueError):
+        return None
+
+
 def make_handler(app: App):
     store, throttle = app.store, Throttle()
 
@@ -397,6 +414,8 @@ def make_handler(app: App):
                 raise Refused("Topilmadi.", 404)
             except Refused as exc:
                 self._json(exc.code, {"error": str(exc)})
+            except Exception:
+                self._json(500, {"error": "Ichki server xatoligi."})
 
         def do_POST(self):
             try:
@@ -481,8 +500,8 @@ def make_handler(app: App):
 
         def _file(self, chat_id: int, name: str, view: bool):
             """Agent shu suhbatda yaratgan fayl: yuklab beradi yoki (view) qum qutisidagi ko'rinish sahifasini beradi."""
-            path = app.files_dir(chat_id) / name
-            if not name or name != Path(name).name or not path.is_file():
+            path = safe_file_path(app.files_dir(chat_id), name)
+            if path is None:
                 raise Refused("Fayl topilmadi.", 404)
             if path.stat().st_size > MAX_DOWNLOAD:
                 raise Refused("Fayl 50 MB dan katta; uni kichikroq qismlarga ajrating.", 413)
