@@ -1,4 +1,5 @@
 """Oynaning tutun sinovi: haqiqiy Tk oynasi ochiladi (ekran bo'lmasa o'tkazib yuboriladi; CI'da xvfb ostida ishlaydi)."""
+import gc
 import json
 import tempfile
 import time
@@ -29,13 +30,19 @@ class GuiSmokeTests(unittest.TestCase):
         patch = mock.patch.object(config, "user_dir", return_value=self.d)
         patch.start()
         self.addCleanup(patch.stop)
+        # Tk obyektlari faqat asosiy oqimda yo'q qilinishi kerak: boshqa testlarning fon oqimlari axlat yig'ishni
+        # ishga tushirsa, Tcl dasturni yiqitadi. Shuning uchun yig'ish o'chiriladi va oxirida shu oqimda bajariladi.
+        gc.disable()
+        self.addCleanup(gc.enable)
         self.app = gui.App(str(self.cfg))
         self.addCleanup(self._close)
         self.app.update()
 
     def _close(self):
-        if self.app.winfo_exists():
+        if self.app is not None:
             self.app._on_close()
+            self.app = None
+        gc.collect()
 
     def pump(self, until, seconds=10):
         end = time.time() + seconds
@@ -69,6 +76,16 @@ class GuiSmokeTests(unittest.TestCase):
         self.app._poll()
         self.assertEqual((chat.live, chat.stream, chat.busy), ({}, {}, False))
 
+    def test_created_file_gets_a_clickable_row(self):
+        chat = self.app.cur
+        self.app.inbox.put(("event", chat, "aks", "file", str(self.d / "hisobot.xlsx")))
+        self.app._poll()
+        self.app.update()
+        self.assertEqual(chat.records[-1], {"k": "act", "agent": "aks", "kind": "file", "text": str(self.d / "hisobot.xlsx")})
+        texts = [w.cget("text") for row in chat.inner.winfo_children() for w in row.winfo_children() if isinstance(w, tk.Label)]
+        self.assertTrue(any("hisobot.xlsx" in t for t in texts), texts)
+        self.assertEqual(Path(chat.orch.ctx.files_dir).name, "Agent Umimiy")
+
     def test_web_server_toggle_and_autostart_setting(self):
         self.assertIsNone(self.app.web_server)
         dialog = gui.ServerDialog(self.app)
@@ -83,6 +100,7 @@ class GuiSmokeTests(unittest.TestCase):
         self.assertIsNone(self.app.web_server)
         self.assertFalse(json.loads(self.cfg.read_text())["server"])
         dialog.destroy()
+        del dialog
 
     def test_server_starts_with_the_app_when_enabled(self):
         self._close()

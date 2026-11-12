@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import json
 import queue
+import shutil
 import socketserver
 import threading
 import time
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 from . import attachments, config, remote
 from .server_page import PAGE
@@ -26,6 +27,13 @@ MAX_FILES = 6
 TITLE_LEN = 40
 LOCAL_ONLY = ("cli",)  # serverda buyruq ishga tushiradigan agent turlari: veb-foydalanuvchilarga berilmaydi
 STATIC_DIR = Path(__file__).parent / "static"
+# Yaratiladigan fayl turlari (tizim sozlamasiga bog'liq bo'lmasligi uchun aniq ro'yxat)
+FILE_TYPES = {
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".csv": "text/csv; charset=utf-8", ".json": "application/json; charset=utf-8",
+    ".txt": "text/plain; charset=utf-8", ".md": "text/plain; charset=utf-8",
+}
 ICONS = {"/icon-192.png": 192, "/icon-512.png": 512, "/apple-touch-icon.png": 180}
 # Telefonda «Bosh ekranga qo'shish» orqali ilova kabi ochilishi uchun (PWA)
 MANIFEST = json.dumps({
@@ -73,6 +81,10 @@ class App:
         ctx.web, ctx.skills = bool(cfg.get("web", True)), bool(cfg.get("skills", True))
         return orch
 
+    def files_dir(self, chat_id: int) -> Path:
+        """Shu suhbatda agent yaratgan fayllar papkasi."""
+        return config.user_dir() / "files" / str(chat_id)
+
     def agents(self) -> list[dict]:
         return [{"name": a.name, "model": a.options.get("model", "")} for a in self.orchestrator().agents.values()]
 
@@ -92,6 +104,8 @@ class App:
         self._publish(chat_id, {"type": "record", "record": record}, record)
 
     def _emit(self, chat_id: int, agent: str, kind: str, text: str) -> None:
+        if kind == "file":  # brauzerga faqat fayl nomi beriladi, serverdagi yo'l emas
+            text = Path(text).name
         if kind not in ("delta", "turn"):
             return self._record(chat_id, {"k": "act", "agent": agent, "kind": kind, "text": text})
         with self.lock:
@@ -122,6 +136,7 @@ class App:
         orch = self.orchestrator()
         if agent not in orch.agents:
             raise Refused("Bu agent mavjud emas. Sahifani yangilang.")
+        orch.ctx.files_dir = str(self.files_dir(chat_id))
         try:
             atts = [attachments.save_upload(config.upload_dir(), f.get("name", "fayl"), f.get("data", ""))
                     for f in files[:MAX_FILES]]
@@ -176,6 +191,7 @@ class App:
             if ch and ch.busy:
                 raise Refused("Agent hali ishlayapti. Avval to'xtating.")
             self.store.delete_chat(chat_id)
+        shutil.rmtree(self.files_dir(chat_id), ignore_errors=True)
 
 
 class Throttle:
@@ -209,7 +225,8 @@ def make_handler(app: App):
             pass
 
         # ---- javob ----
-        def _send(self, code: int, body: bytes, ctype: str = "application/json; charset=utf-8", cookie: str = ""):
+        def _send(self, code: int, body: bytes, ctype: str = "application/json; charset=utf-8", cookie: str = "",
+                  download: str = ""):
             self.send_response(code)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(body)))
@@ -221,6 +238,8 @@ def make_handler(app: App):
                              "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'")
             if cookie:
                 self.send_header("Set-Cookie", cookie)
+            if download:
+                self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{quote(download)}")
             self.end_headers()
             self.wfile.write(body)
 
@@ -277,6 +296,10 @@ def make_handler(app: App):
                 if url.path == "/api/stream":
                     user_id, _ = self._user()
                     return self._stream(self._chat(user_id, parse_qs(url.query).get("chat", [""])[0]))
+                if url.path == "/api/file":
+                    user_id, _ = self._user()
+                    query = parse_qs(url.query)
+                    return self._file(self._chat(user_id, query.get("chat", [""])[0]), query.get("name", [""])[0])
                 raise Refused("Topilmadi.", 404)
             except Refused as exc:
                 self._json(exc.code, {"error": str(exc)})
@@ -356,6 +379,14 @@ def make_handler(app: App):
             else:
                 raise Refused("Topilmadi.", 404)
             return {"ok": True}, ""
+
+        def _file(self, chat_id: int, name: str):
+            """Agent shu suhbatda yaratgan faylni yuklab beradi."""
+            path = app.files_dir(chat_id) / name
+            if not name or name != Path(name).name or not path.is_file():
+                raise Refused("Fayl topilmadi.", 404)
+            ctype = FILE_TYPES.get(path.suffix.lower(), "application/octet-stream")  # .html ham faqat yuklab olinadi
+            self._send(200, path.read_bytes(), ctype, download=name)
 
         def _stream(self, chat_id: int):
             """Suhbat hodisalari oqimi (SSE). Ulanish uzilguncha ochiq turadi."""

@@ -5,7 +5,7 @@ description = "Barcha AI agentlarni birlashtiruvchi desktop ilova"
 requires-python = ">=3.9"
 license = {text = "MIT"}
 readme = "README.md"
-dependencies = ["pypdf", "qrcode", "pillow"]
+dependencies = ["pypdf", "qrcode", "pillow", "python-docx", "openpyxl"]
 
 [project.scripts]
 agent-umimiy = "agent_umimiy.__main__:main"

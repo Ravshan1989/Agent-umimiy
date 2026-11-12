@@ -166,6 +166,14 @@ a **Word (.docx)** or a **text file** — the agent looks at them and answers. I
 Claude, ChatGPT-compatible models, Gemini and vision-capable Ollama models. PDF text is sent to other
 models too. Limit: image ≤ 5 MB, PDF ≤ 20 MB.
 
+### Creating files (Word, Excel)
+
+Ask the agent for a document or a table: "Make an Excel table from this data", "Write a letter in Word". The agent creates a finished **.docx** or **.xlsx** file (text files too: .txt, .md, .csv, .html) and shows it in the chat.
+- **In the app window:** the file is saved to `Documents\Agent Umimiy`; click the row in the chat to open it.
+- **On the web server:** a "Download" link appears in the chat; only the owner of that conversation can get the file.
+- An existing file is never overwritten: a taken name gets a number.
+- Works with agents that support tools (Claude, OpenAI-compatible, Ollama); not yet with Gemini and CLI agents.
+
 ### Internet
 
 Agents can **search the internet** (DuckDuckGo) and **read pages**, and when needed they offer to
@@ -303,12 +311,12 @@ The key is stored only in the settings file on your computer. If a model doesn't
 
 ### Running from source
 
-Python 3.9+ required. Optional libraries: `pypdf` (reading PDFs), `qrcode` (QR code for phone) and `pillow` (pasting screenshots with Ctrl+V).
+Python 3.9+ required. Optional libraries: `pypdf` (reading PDFs), `qrcode` (QR code for phone) `pillow` (pasting screenshots with Ctrl+V), `python-docx` and `openpyxl` (creating Word and Excel files).
 
 ```bash
 git clone https://github.com/Ravshan1989/Agent-umimiy.git
 cd Agent-umimiy
-pip install pypdf qrcode pillow
+pip install pypdf qrcode pillow python-docx openpyxl
 python app.py                              # window
 python app.py --cli -m broadcast "hello"   # terminal
 python -m unittest discover -s tests -t .  # tests
@@ -321,6 +329,7 @@ python -m unittest discover -s tests -t .  # tests
 | `gui.py`, `theme.py` | window and design (Tkinter) |
 | `providers.py` | Claude, OpenAI, Gemini, Ollama, CLI agents |
 | `stream.py` | reading streamed responses |
+| `writer.py` | creating Word, Excel and text files |
 | `server.py`, `server_page.py`, `store.py` | web server mode: HTTP, page, SQLite |
 | `agentic.py`, `tools.py` | the agent loop and tools (files, commands, search) |
 | `orchestrator.py` | modes and agent-to-agent help |

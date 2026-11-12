@@ -4,8 +4,11 @@ import contextlib
 import copy
 import itertools
 import json
+import os
 import queue
 import re
+import subprocess
+import sys
 import threading
 import tkinter as tk
 import webbrowser
@@ -47,8 +50,21 @@ PROJECT_SUGGESTIONS = ["Bu loyiha nima haqida? Qisqa tushuntirib ber", "Kodda xa
 KIND_ICON = {"read": "◧", "write": "✎", "run": "▶", "info": "•", "agent": "⇄", "browser": "◎", "mcp": "⬡", "skill": "✧"}
 KIND_COLOR = {"read": P["muted"], "write": P["warn"], "run": P["accent_hi"], "info": P["err"], "agent": P["ok"],
               "browser": P["accent_hi"], "mcp": P["accent_hi"], "skill": P["ok"]}
+FILES_DIR = Path.home() / "Documents" / "Agent Umimiy"  # agent yaratgan Word/Excel fayllari
 SUGGESTIONS = ["Bu kodni tushuntirib ber", "Menga qisqa xat yozib ber", "Ingliz tiliga tarjima qil",
                "Internetdan bugungi yangiliklarni top"]
+
+
+def open_path(path) -> bool:
+    """Fayl yoki papkani tizimning standart dasturida ochadi."""
+    try:
+        if sys.platform == "win32":
+            os.startfile(str(path))
+        else:
+            subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(path)])
+        return True
+    except OSError:
+        return False
 
 
 def _wrapped_lines(lines, f, px):
@@ -928,17 +944,9 @@ class PluginsDialog(tk.Toplevel):
             self.skills.insert("", "end", text=s.name, values=(s.source, s.description))
 
     def open_skills_dir(self):
-        import os
-        import subprocess
-        import sys
         d = config.user_dir() / "skills"
         d.mkdir(parents=True, exist_ok=True)
-        try:
-            if sys.platform == "win32":
-                os.startfile(str(d))
-            else:
-                subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(d)])
-        except OSError:
+        if not open_path(d):
             messagebox.showinfo(i18n.t("Papka"), str(d), parent=self)
 
 
@@ -1317,6 +1325,7 @@ class App(tk.Tk):
         o.ctx.browser = bool(self.cfg.get("browser", True))
         o.ctx.mcp = self.mcp
         o.ctx.skills = bool(self.cfg.get("skills", True))
+        o.ctx.files_dir = str(FILES_DIR)
         return o
 
     def rebuild(self):
@@ -1887,8 +1896,17 @@ class App(tk.Tk):
         self._clear_empty()
         row = tk.Frame(self.inner, bg=P["bg"])
         row.pack(fill="x", padx=28, pady=1)
-        label(row, f"{KIND_ICON.get(kind, '•')}  {agent}: {text}", fg=KIND_COLOR.get(kind, P["muted"]), size=9,
-              wraplength=700, justify="left").pack(side="left", padx=(46, 0))
+        if kind == "file":  # agent yaratgan fayl: bosilsa ochiladi
+            row.pack_configure(pady=4)
+            link = label(row, f"📄  {Path(text).name}   —   " + i18n.t("Ochish"), fg=P["accent_hi"], size=10, cursor="hand2")
+            link.pack(side="left", padx=(46, 0))
+            link.bind("<Button-1>", lambda e, p=text: open_path(p) or messagebox.showinfo(i18n.t("Fayl"), p, parent=self))
+            folder = label(row, "    " + i18n.t("Papkani ochish"), fg=P["muted"], size=9, cursor="hand2")
+            folder.pack(side="left")
+            folder.bind("<Button-1>", lambda e, p=text: open_path(Path(p).parent))
+        else:
+            label(row, f"{KIND_ICON.get(kind, '•')}  {agent}: {text}", fg=KIND_COLOR.get(kind, P["muted"]), size=9,
+                  wraplength=700, justify="left").pack(side="left", padx=(46, 0))
         if self.typing is not None:
             self.typing.pack_forget()
             self.typing.pack(fill="x", padx=28, pady=8)

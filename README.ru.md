@@ -168,6 +168,14 @@ CLI-агенты вроде `claude`, `codex` запускаются в выбр
 ChatGPT модели, Gemini и модели Ollama с поддержкой зрения. Текст PDF отправляется и другим моделям.
 Ограничение: изображение ≤ 5 МБ, PDF ≤ 20 МБ.
 
+### Создание файлов (Word, Excel)
+
+Попросите у агента документ или таблицу: «Сделай из этих данных таблицу Excel», «Напиши письмо в Word». Агент создаёт готовый файл **.docx** или **.xlsx** (и текстовые: .txt, .md, .csv, .html) и показывает его в чате.
+- **В окне программы:** файл сохраняется в папку `Документы\Agent Umimiy`; щёлкните строку в чате, чтобы открыть.
+- **На веб-сервере:** в чате появляется ссылка «Скачать»; файл может получить только владелец этой беседы.
+- Существующий файл никогда не перезаписывается: к занятому имени добавляется номер.
+- Работает с агентами, поддерживающими инструменты (Claude, OpenAI-совместимые, Ollama); с Gemini и CLI-агентами пока нет.
+
 ### Интернет
 
 Агенты могут **искать в интернете** (DuckDuckGo) и **читать страницы**, а при необходимости предлагают
@@ -307,12 +315,12 @@ Claude и `.claude/skills` в проекте. Агент сам загружае
 ### Запуск из исходного кода
 
 Нужен Python 3.9+. Дополнительные библиотеки по желанию: `pypdf` (чтение PDF), `qrcode` (QR-код для
-телефона) и `pillow` (вставка скриншотов через Ctrl+V).
+телефона) `pillow` (вставка скриншотов через Ctrl+V), `python-docx` и `openpyxl` (создание файлов Word и Excel).
 
 ```bash
 git clone https://github.com/Ravshan1989/Agent-umimiy.git
 cd Agent-umimiy
-pip install pypdf qrcode pillow
+pip install pypdf qrcode pillow python-docx openpyxl
 python app.py                              # окно
 python app.py --cli -m broadcast "привет"  # терминал
 python -m unittest discover -s tests -t .  # тесты
@@ -325,6 +333,7 @@ python -m unittest discover -s tests -t .  # тесты
 | `gui.py`, `theme.py` | окно и дизайн (Tkinter) |
 | `providers.py` | Claude, OpenAI, Gemini, Ollama, CLI-агенты |
 | `stream.py` | чтение потоковых ответов |
+| `writer.py` | создание файлов Word, Excel и текстовых |
 | `server.py`, `server_page.py`, `store.py` | режим веб-сервера: HTTP, страница, SQLite |
 | `agentic.py`, `tools.py` | цикл агента и инструменты (файлы, команды, поиск) |
 | `orchestrator.py` | режимы и помощь между агентами |
