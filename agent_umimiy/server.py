@@ -25,6 +25,8 @@ from .store import SESSION_DAYS, Store, StoreError
 MAX_BODY = 40 * 1024 * 1024
 MAX_FILES = 6
 MAX_PROMPT = 100_000
+MAX_LIVE_TEXT = 200_000
+SSE_QUEUE_SIZE = 256
 TITLE_LEN = 40
 LOCAL_ONLY = ("cli",)  # serverda buyruq ishga tushiradigan agent turlari: veb-foydalanuvchilarga berilmaydi
 STATIC_DIR = Path(__file__).parent / "static"
@@ -103,7 +105,7 @@ class App:
             if record is not None:
                 self.store.add_record(chat_id, record)
             for q in ch.subs:
-                q.put(event)
+                self._enqueue(q, event)
 
     def _record(self, chat_id: int, record: dict) -> None:
         self._publish(chat_id, {"type": "record", "record": record}, record)
@@ -115,16 +117,29 @@ class App:
             return self._record(chat_id, {"k": "act", "agent": agent, "kind": kind, "text": text})
         with self.lock:
             ch = self._channel(chat_id)
-            ch.live[agent] = "" if kind == "turn" else ch.live.get(agent, "") + text
+            ch.live[agent] = "" if kind == "turn" else (ch.live.get(agent, "") + text)[-MAX_LIVE_TEXT:]
             for q in ch.subs:
-                q.put({"type": kind, "agent": agent, "text": text})
+                self._enqueue(q, {"type": kind, "agent": agent, "text": text})
+
+    @staticmethod
+    def _enqueue(q: queue.Queue, event: dict) -> None:
+        try:
+            q.put_nowait(event)
+        except queue.Full:
+            # Slow SSE clients are disconnected; reconnect receives a full database snapshot.
+            while True:
+                try:
+                    q.get_nowait()
+                except queue.Empty:
+                    break
+            q.put_nowait({"type": "overflow"})
 
     def subscribe(self, chat_id: int) -> queue.Queue:
         """Tinglovchi navbati; birinchi hodisa — suhbatning hozirgi to'liq holati."""
-        q: queue.Queue = queue.Queue()
+        q: queue.Queue = queue.Queue(maxsize=SSE_QUEUE_SIZE)
         with self.lock:
             ch = self._channel(chat_id)
-            q.put({"type": "init", "records": self.store.records(chat_id), "live": dict(ch.live), "busy": ch.busy})
+            self._enqueue(q, {"type": "init", "records": self.store.records(chat_id), "live": dict(ch.live), "busy": ch.busy})
             ch.subs.add(q)
         return q
 
@@ -190,7 +205,7 @@ class App:
                 ch = self._channel(chat_id)
                 ch.busy, ch.cancel, ch.live = False, None, {}
                 for q in ch.subs:
-                    q.put({"type": "done"})
+                    self._enqueue(q, {"type": "done"})
                 if not ch.subs:
                     del self.channels[chat_id]
 
@@ -430,11 +445,14 @@ def make_handler(app: App):
                 self.close_connection = True
                 while True:
                     try:
-                        chunk = "data: " + json.dumps(q.get(timeout=15), ensure_ascii=False) + "\n\n"
+                        event = q.get(timeout=15)
+                        chunk = "data: " + json.dumps(event, ensure_ascii=False) + "\n\n"
                     except queue.Empty:
-                        chunk = ": ping\n\n"  # ulanish tirikligini bildiradi va uzilganini aniqlaydi
+                        event, chunk = None, ": ping\n\n"  # ulanish tirikligini bildiradi va uzilganini aniqlaydi
                     self.wfile.write(chunk.encode())
                     self.wfile.flush()
+                    if event and event.get("type") == "overflow":
+                        break  # EventSource qayta ulanadi va to'liq tarixni init orqali oladi
             except OSError:
                 pass  # brauzer yopildi
             finally:
