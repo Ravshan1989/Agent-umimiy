@@ -18,6 +18,43 @@ from urllib.parse import parse_qs, urlparse
 from .remote_page import PAGE
 
 MAX_BODY = 40 * 1024 * 1024
+
+
+class RequestBodyError(ValueError):
+    def __init__(self, message: str, status: int = 400, close: bool = False):
+        super().__init__(message)
+        self.status, self.close = status, close
+
+
+def read_json_body(stream, headers) -> dict:
+    raw_size = headers.get("Content-Length")
+    if raw_size is None or not str(raw_size).isdigit():
+        raise RequestBodyError("Content-Length noto'g'ri.")
+    size = int(raw_size)
+    if size > MAX_BODY:
+        raise RequestBodyError("Hajm juda katta.", 413, True)
+    raw = stream.read(size)
+    if len(raw) != size:
+        raise RequestBodyError("So'rov tanasi to'liq kelmadi.", 400, True)
+    try:
+        payload = json.loads(raw or b"{}")
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise RequestBodyError("JSON noto'g'ri.") from exc
+    if not isinstance(payload, dict):
+        raise RequestBodyError("JSON noto'g'ri.")
+    return payload
+
+
+def _prune_failures(fails: dict[str, list[float]], now: float, window: float = 600, cap: int = 4096):
+    for address, attempts in list(fails.items()):
+        active = [stamp for stamp in attempts if now - stamp < window]
+        if active:
+            fails[address] = active
+        else:
+            fails.pop(address, None)
+    if len(fails) >= cap:
+        for address in list(fails)[:max(1, cap // 16)]:
+            fails.pop(address, None)
 ACTIONS = {"/api/send": "send", "/api/stop": "stop", "/api/approve": "approve", "/api/new": "new",
            "/api/close": "close", "/api/mode": "mode"}
 
@@ -189,14 +226,11 @@ class RemoteServer:
                 if not self._auth():
                     return
                 try:
-                    n = int(self.headers.get("Content-Length", "0"))
-                    if n > MAX_BODY:
-                        return self._json(413, {"error": "Hajm juda katta"})
-                    payload = json.loads(self.rfile.read(n) or b"{}")
-                    if not isinstance(payload, dict):
-                        raise ValueError
-                except ValueError:
-                    return self._json(400, {"error": "JSON noto'g'ri"})
+                    payload = read_json_body(self.rfile, self.headers)
+                except RequestBodyError as exc:
+                    if exc.close:
+                        self.close_connection = True
+                    return self._json(exc.status, {"error": str(exc)})
                 self._run(action, payload)
 
             def _run(self, action, payload):
@@ -233,11 +267,13 @@ class RemoteServer:
     def fail(self, ip: str):
         with self.lock:
             now = time.time()
+            _prune_failures(self.fails, now)
             self.fails[ip] = [t for t in self.fails.get(ip, []) if now - t < 600] + [now]
 
     def locked(self, ip: str) -> bool:
         with self.lock:
             now = time.time()
+            _prune_failures(self.fails, now)
             return len([t for t in self.fails.get(ip, []) if now - t < 600]) >= 20
 
     def selftest(self, ip: str, timeout: float = 2.0) -> tuple[bool, str]:
@@ -251,4 +287,4 @@ class RemoteServer:
             return False, f"Server {ip}:{self.port} da javob bermadi ({exc})."
 
     def url(self, host: str | None = None) -> str:
-        return f"http://{host or lan_ip()}:{self.port}/?t={self.token}"
+        return f"http://{host or lan_ip()}:{self.port}/#t={self.token}"
