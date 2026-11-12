@@ -89,3 +89,11 @@ jobs:
         run: npm install
       - name: TypeScript va Vite build
         run: npm run build
+      - name: Python server integratsiya sinovlari
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Server test kutubxonalarini o'rnatish
+        run: python -m pip install pypdf qrcode pillow python-docx openpyxl python-pptx
+      - name: React build va Python API integratsiyasini tekshirish
+        run: python -m unittest tests.test_server -v
