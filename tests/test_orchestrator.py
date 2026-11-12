@@ -55,7 +55,7 @@ class Tests(unittest.TestCase):
 
     def test_agent_count_is_bounded(self):
         with self.assertRaises(ValueError):
-            Orchestrator([EchoAgent(f"a{i}") for i in range(Orchestrator.__module__ and 17)])
+            Orchestrator([EchoAgent(f"a{i}") for i in range(17)])
 
     def test_broadcast(self):
         self.assertEqual({r.agent for r in make().run("x", "broadcast")}, {"a", "b"})
