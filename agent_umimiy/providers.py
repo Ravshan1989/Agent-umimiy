@@ -56,7 +56,7 @@ class OpenAIAgent(Agent):
         msg = stream.openai(
             o.get("base_url", "https://api.openai.com/v1") + "/chat/completions",
             {
-                "model": o.get("model", "gpt-4o"),
+                "model": att.openai_model_for(o, self._files),
                 "messages": history + [{"role": "user", "content": att.openai_content(prompt, self._files)}],
             },
             {"Authorization": "Bearer " + _key(o, "OPENAI_API_KEY")},

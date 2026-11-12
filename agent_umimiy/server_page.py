@@ -144,7 +144,7 @@ function renderChats(chats){var box=$('chats');box.innerHTML='';
 function refresh(){return api('/api/me').then(function(me){renderChats(me.chats);return me}).catch(function(e){if(e.code===401)showAuth()})}
 function boot(){api('/api/me').then(function(me){$('auth').hidden=true;$('app').hidden=false;$('user').textContent=me.user;
   var sel=$('agent'),keep=sel.value;sel.innerHTML='';
-  me.agents.forEach(function(a){var o=document.createElement('option');o.value=a.name;o.textContent=a.name+(a.model?' · '+a.model:'');sel.appendChild(o)});
+   me.agents.forEach(function(a){var o=document.createElement('option');o.value=a.name;o.textContent=a.name==='auto'?'Avtomatik — o‘zi tanlaydi':a.name+(a.model?' · '+a.model:'');sel.appendChild(o)});
   if(keep)sel.value=keep;renderChats(me.chats);if(cur===null)newChat()}).catch(function(e){if(e.code===401)showAuth();else{showAuth();$('aerr').textContent=e.message}})}
 
 // ---- xabarlar ----

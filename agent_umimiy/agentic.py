@@ -6,6 +6,8 @@ natijani qaytaramiz -> model yakuniy matn bergunga qadar.
 from __future__ import annotations
 
 import json
+import re
+import xml.etree.ElementTree as ET
 
 from . import attachments as att
 from . import stream
@@ -31,6 +33,43 @@ def _sink(tb: Toolbox):
 def _next_turn(tb: Toolbox):
     """Asboblar bajarildi, model yangi javob boshlaydi: ko'rsatilayotgan oqimli matn tozalanadi."""
     tb._say("turn", "")
+
+
+def _text_tool_calls(content: str, tools) -> list[dict]:
+    """Recover XML-style function calls emitted as text by OpenAI-compatible models."""
+    text = (content or "").strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:xml)?\s*|\s*```$", "", text, flags=re.IGNORECASE).strip()
+    if not re.fullmatch(r"<function_calls>.*</function_calls>", text, flags=re.DOTALL | re.IGNORECASE):
+        return []
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError:
+        return []
+    available = {tool.name: tool for tool in tools}
+    calls = []
+    for index, invoke in enumerate(root.findall("invoke")):
+        name = invoke.get("name", "")
+        tool = available.get(name)
+        if tool is None:
+            continue
+        schema = (tool.parameters.get("properties") or {})
+        args = {}
+        for parameter in invoke.findall("parameter"):
+            key = parameter.get("name", "")
+            if not key or key not in schema:
+                continue
+            value = "".join(parameter.itertext()).strip()
+            kind = schema[key].get("type")
+            if kind != "string":
+                try:
+                    value = json.loads(value)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+            args[key] = value
+        calls.append({"id": f"text_call_{index}", "type": "function",
+                      "function": {"name": name, "arguments": json.dumps(args, ensure_ascii=False)}})
+    return calls
 
 
 def anthropic(o: dict, key: str, prompt: str, history: list, tb: Toolbox, files=()) -> str:
@@ -67,14 +106,17 @@ def openai(o: dict, key: str, prompt: str, history: list, tb: Toolbox, files=())
         _check(tb)
         msg = stream.openai(
             o.get("base_url", "https://api.openai.com/v1") + "/chat/completions",
-            {"model": o.get("model", "gpt-4o"), "messages": messages, "tools": tools},
+            {"model": att.openai_model_for(o, list(files)), "messages": messages, "tools": tools},
             {"Authorization": "Bearer " + key},
             _sink(tb),
         )
         messages.append(msg)
         calls = msg.get("tool_calls") or []
         if not calls:
-            return msg.get("content") or ""
+            calls = _text_tool_calls(msg.get("content") or "", tb.tools())
+            if not calls:
+                return msg.get("content") or ""
+            messages[-1] = {"role": "assistant", "content": None, "tool_calls": calls}
         for c in calls:
             try:
                 args = json.loads(c["function"].get("arguments") or "{}")

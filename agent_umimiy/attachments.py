@@ -5,6 +5,7 @@ import base64
 import binascii
 import re
 import time
+from urllib.parse import urlparse
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -149,6 +150,15 @@ def openai_content(prompt: str, atts: list[Attachment]):
         return text
     return [{"type": "text", "text": text}] + [
         {"type": "image_url", "image_url": {"url": f"data:{a.mime};base64,{a.b64}"}} for a in imgs]
+
+
+def openai_model_for(options: dict, atts: list[Attachment]) -> str:
+    """OpenRouter free alias sometimes resolves to text-only capacity; use a vision free route for images."""
+    model = str(options.get("model", "gpt-4o"))
+    host = urlparse(str(options.get("base_url", ""))).hostname or ""
+    if host == "openrouter.ai" and model.strip().lower() == "openrouter/free" and any(a.kind == "image" for a in atts):
+        return str(options.get("vision_model") or "nvidia/nemotron-3.5-super-vl:free")
+    return model
 
 
 def gemini_parts(prompt: str, atts: list[Attachment]) -> list[dict]:

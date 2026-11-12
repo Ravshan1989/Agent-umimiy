@@ -88,7 +88,9 @@ class App:
         return config.user_dir() / "files" / str(chat_id)
 
     def agents(self) -> list[dict]:
-        return [{"name": a.name, "model": a.options.get("model", "")} for a in self.orchestrator().agents.values()]
+        return [{"name": "auto", "model": "Avtomatik — o‘zi tanlaydi"}] + [
+            {"name": a.name, "model": a.options.get("model", "")} for a in self.orchestrator().agents.values()
+        ]
 
     # ---- hodisalar ----
     def _channel(self, chat_id: int) -> Channel:
@@ -136,7 +138,7 @@ class App:
     # ---- amallar ----
     def send(self, chat_id: int, text: str, agent: str, files: list[dict]) -> None:
         orch = self.orchestrator()
-        if agent not in orch.agents:
+        if agent != "auto" and agent not in orch.agents:
             raise Refused("Bu agent mavjud emas. Sahifani yangilang.")
         orch.ctx.files_dir = str(self.files_dir(chat_id))
         try:
@@ -163,7 +165,11 @@ class App:
         try:
             orch.history = self.store.history(chat_id)
             orch.ctx.emit = lambda name, kind, text: self._emit(chat_id, name, kind, text)
-            for r in orch.run(prompt, "single", [agent], atts):
+            if agent == "auto":
+                results = orch.run(prompt, "auto", files=atts)
+            else:
+                results = orch.run(prompt, "single", [agent], atts)
+            for r in results:
                 if r.ok:
                     record = {"k": "agent", "name": r.agent, "text": r.text or "(bo'sh javob)", "meta": f"{r.seconds:.1f} s"}
                 else:
