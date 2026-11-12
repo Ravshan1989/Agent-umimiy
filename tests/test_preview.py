@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from agent_umimiy import preview, writer
@@ -43,6 +44,14 @@ class PreviewTests(unittest.TestCase):
         self.assertNotIn("https://", preview.CSP)
         self.assertIn("form-action 'none'", preview.CSP)
         self.assertIn("base-uri 'none'", preview.CSP)
+
+    def test_oversized_html_preview_is_not_rendered(self):
+        path = Path(tempfile.mktemp(suffix=".html"))
+        path.write_text("<h1>test</h1>")
+        with mock.patch.object(preview, "MAX_PREVIEW_BYTES", 3):
+            page = preview.page(path)
+        self.assertIn("10 MB dan kichik", page)
+        self.assertNotIn("<h1>test</h1>", page)
         self.assertNotIn("allow-same-origin", preview.CSP)
         self.assertIn("default-src 'none'", preview.CSP)
         self.assertNotIn("connect-src", preview.CSP)  # default-src 'none': sahifa hech qayerga so'rov yubora olmaydi
