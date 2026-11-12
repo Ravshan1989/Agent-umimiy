@@ -567,8 +567,8 @@ class Toolbox:
                 low.startswith(("javascript:", "data:", "file:", "chrome:", "about:", "vbscript:", "blob:", "view-source:")):
             raise ToolError("Faqat http/https manzillarni ochish mumkin.")
         u = urllib.parse.urlparse(url if low.startswith(("http://", "https://")) else "https://" + url)
-        if u.scheme not in ("http", "https") or not u.hostname:
-            raise ToolError("Faqat http/https manzillarni ochish mumkin.")
+        if u.scheme not in ("http", "https") or not u.hostname or u.username or u.password:
+            raise ToolError("Faqat login-parolsiz http/https manzillarni ochish mumkin.")
         self._approve("browser:" + u.hostname, f"Brauzerda sayt ochiladi: {u.hostname}",
                       f"{u.geturl()}\n\nAgent bu sayt ichida bosishi va (alohida ruxsat bilan) yozishi mumkin. "
                       "Brauzer alohida profilda ochiladi: asosiy brauzeringizdagi parollar va sessiyalarga tegmaydi.")
@@ -585,8 +585,10 @@ class Toolbox:
         return self._browser(lambda b, i: b.click(i), id, say=f"Brauzerda {id}-elementni bosdi")
 
     def t_browser_type(self, id: int, text: str, submit: bool = False) -> str:
-        self._approve("browser_type", f"Brauzerda {id}-maydonga matn yoziladi",
-                      f"Matn:\n{text}\n\n{'Keyin Enter bosiladi (yuboriladi).' if submit else ''}")
+        url = self._browser(lambda b: (b.ensure(), b.js("location.href"))[1])
+        host = urllib.parse.urlparse(url or "").hostname or "noma'lum sayt"
+        self._approve("browser_type:" + host, f"Brauzerda {host} saytining {id}-maydoniga matn yoziladi",
+                      f"Sahifa: {url}\nMatn:\n{text}\n\n{'Keyin Enter bosiladi (yuboriladi).' if submit else ''}")
         return self._browser(lambda b, i, t, s: b.type(i, t, s), id, text, bool(submit),
                              say=f"Brauzerda {id}-maydonga yozdi{' va yubordi' if submit else ''}")
 
@@ -682,8 +684,8 @@ class Toolbox:
 
 def _check_url(url: str, allow_private: bool):
     u = urllib.parse.urlparse(url)
-    if u.scheme not in ("http", "https") or not u.hostname:
-        raise ToolError("Faqat http/https manzillar ruxsat etiladi.")
+    if u.scheme not in ("http", "https") or not u.hostname or u.username or u.password:
+        raise ToolError("Faqat login-parolsiz http/https manzillar ruxsat etiladi.")
     if allow_private:
         return
     try:
@@ -692,8 +694,8 @@ def _check_url(url: str, allow_private: bool):
         raise ToolError(f"Manzil topilmadi: {u.hostname}")
     for info in infos:
         ip = ipaddress.ip_address(info[4][0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
-            raise ToolError("Kompyuter va ichki tarmoq manzillariga ruxsat yo'q (xavfsizlik).")
+        if not ip.is_global:
+            raise ToolError("Faqat ochiq internet manzillariga ruxsat bor; ichki yoki maxsus IP manzillar bloklangan.")
 
 
 class _Text(HTMLParser):
