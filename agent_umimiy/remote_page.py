@@ -51,7 +51,7 @@ textarea{flex:1;resize:none;background:var(--card);color:var(--fg);border:1px so
 <button type="submit" class="rb send" id="go" title="Yuborish">↑</button></form>
 <script>
 (function(){
-var T=new URLSearchParams(location.search).get('t')||sessionStorage.getItem('t')||'';
+var T=new URLSearchParams(location.hash.slice(1)).get('t')||new URLSearchParams(location.search).get('t')||sessionStorage.getItem('t')||'';
 try{sessionStorage.setItem('t',T)}catch(e){}
 history.replaceState(null,'',location.pathname);
 var $=function(i){return document.getElementById(i)};
