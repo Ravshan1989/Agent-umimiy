@@ -572,31 +572,38 @@ class Toolbox:
     def t_browser_open(self, url: str) -> str:
         url = url.strip()
         low = url.lower()
-        if "://" in url and not low.startswith(("http://", "https://")) or \
+        if "://" in url and not low.startswith(("http://", "https://")) or \\
                 low.startswith(("javascript:", "data:", "file:", "chrome:", "about:", "vbscript:", "blob:", "view-source:")):
             raise ToolError("Faqat http/https manzillarni ochish mumkin.")
-        u = urllib.parse.urlparse(url if low.startswith(("http://", "https://")) else "https://" + url)
-        if u.scheme not in ("http", "https") or not u.hostname or u.username or u.password:
+        parsed = urllib.parse.urlparse(url if low.startswith(("http://", "https://")) else "https://" + url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password:
             raise ToolError("Faqat login-parolsiz http/https manzillarni ochish mumkin.")
-        self._approve("browser:" + u.hostname, f"Brauzerda sayt ochiladi: {u.hostname}",
-                      f"{u.geturl()}\n\nAgent bu sayt ichida bosishi va (alohida ruxsat bilan) yozishi mumkin. "
+        target = parsed.geturl()
+        origin = _origin(target)
+        self._approve("browser:" + origin, f"Brauzerda sayt ochiladi: {origin}",
+                      f"{target}\\n\\nAgent bu sayt ichida bosishi va (alohida ruxsat bilan) yozishi mumkin. "
                       "Brauzer alohida profilda ochiladi: asosiy brauzeringizdagi parollar va sessiyalarga tegmaydi.")
-        return self._browser(lambda b, x: b.open(x), u.geturl(), say=f"Brauzerda ochdi: {u.hostname}")
-
-    def t_browser_read(self) -> str:
-        return self._browser(lambda b: b.snapshot(), say="Brauzer sahifasini o'qidi")
+        result = self._browser(lambda b, x: b.open(x), target, say=f"Brauzerda ochdi: {origin}")
+        final_url = self._browser(lambda b: b.js("location.href"))
+        final_parsed = urllib.parse.urlparse(final_url or target)
+        if final_parsed.scheme not in ("http", "https") or not final_parsed.hostname:
+            raise ToolError("Brauzer xavfsiz bo'lmagan sxemaga yo'naltirildi.")
+        final_origin = _origin(final_url or target)
+        if final_origin != origin:
+            self._approve("browser:" + final_origin, f"Brauzer boshqa manzilga yo'naltirdi: {final_origin}", final_url)
+        return result
 
     def t_browser_click(self, id: int) -> str:
         url = self._browser(lambda b: (b.ensure(), b.js("location.href"))[1])
-        host = urllib.parse.urlparse(url or "").hostname or "noma'lum sayt"
-        self._approve("browser_action:" + host, f"Brauzerda element bosiladi: {host}",
+        origin = _origin(url or "")
+        self._approve("browser_action:" + origin, f"Brauzerda element bosiladi: {origin}",
                       f"Sahifa: {url}\nElement raqami: {id}. Bosish sahifadagi amalni bajarishi yoki ma'lumot yuborishi mumkin.")
         return self._browser(lambda b, i: b.click(i), id, say=f"Brauzerda {id}-elementni bosdi")
 
     def t_browser_type(self, id: int, text: str, submit: bool = False) -> str:
         url = self._browser(lambda b: (b.ensure(), b.js("location.href"))[1])
-        host = urllib.parse.urlparse(url or "").hostname or "noma'lum sayt"
-        self._approve("browser-type:" + host, f"Brauzerda {host} saytining {id}-maydoniga matn yoziladi",
+        origin = _origin(url or "")
+        self._approve("browser-type:" + origin, f"Brauzerda {origin} saytining {id}-maydoniga matn yoziladi",
                       f"Sahifa: {url}\nMatn:\n{text}\n\n{'Keyin Enter bosiladi (yuboriladi).' if submit else ''}")
         return self._browser(lambda b, i, t, s: b.type(i, t, s), id, text, bool(submit),
                              say=f"Brauzerda {id}-maydonga yozdi{' va yubordi' if submit else ''}")
@@ -604,8 +611,8 @@ class Toolbox:
     def t_browser_press(self, key: str) -> str:
         if key == "Enter":
             url = self._browser(lambda b: (b.ensure(), b.js("location.href"))[1])
-            host = urllib.parse.urlparse(url or "").hostname or "noma'lum sayt"
-            self._approve("browser_action:" + host, f"Brauzerda Enter bosiladi: {host}",
+            origin = _origin(url or "")
+            self._approve("browser_action:" + origin, f"Brauzerda Enter bosiladi: {origin}",
                           f"Sahifa: {url}\nEnter tugmasi formani yuborishi yoki amalni tasdiqlashi mumkin.")
         return self._browser(lambda b, k: b.press(k), key, say=f"Brauzerda {key} bosdi")
 
@@ -688,11 +695,17 @@ class Toolbox:
 
     def t_open_url(self, url: str) -> str:
         _check_url(url, True)
-        host = urllib.parse.urlparse(url).hostname or "noma'lum sayt"
-        self._approve("open:" + host, f"Brauzerda sahifa ochiladi: {host}", url)
+        origin = _origin(url)
+        self._approve("open:" + origin, f"Brauzerda sahifa ochiladi: {origin}", url)
         webbrowser.open(url)
         self._say("run", f"Brauzerda ochdi: {url[:90]}")
         return "Brauzerda ochildi."
+
+
+def _origin(url: str) -> str:
+    parsed = urllib.parse.urlparse(url)
+    port = parsed.port or (443 if parsed.scheme.lower() == "https" else 80)
+    return f"{parsed.scheme.lower()}://{(parsed.hostname or '').lower()}:{port}"
 
 
 def _check_url(url: str, allow_private: bool):
