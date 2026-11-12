@@ -1,3 +1,4 @@
+import io
 import json
 import sys
 import unittest
@@ -44,6 +45,7 @@ class RemoteServerTests(unittest.TestCase):
         self.assertIn("frame-ancestors 'none'", h["Content-Security-Policy"])
         self.assertEqual(h["Cache-Control"], "no-store")
         self.assertNotIn("sir", PAGE)  # sahifada hech qanday kalit yo'q
+        self.assertIn("location.hash", PAGE)  # token URL fragmentidan olinadi
 
     def test_api_requires_token(self):
         for tok in (None, "", "xato", "sir "):
@@ -80,6 +82,15 @@ class RemoteServerTests(unittest.TestCase):
         with self.assertRaises((urllib.error.HTTPError, urllib.error.URLError, ConnectionError)):
             urllib.request.urlopen(r, timeout=5)
 
+    def test_body_parser_rejects_negative_missing_and_truncated_lengths(self):
+        with self.assertRaises(remote.RequestBodyError):
+            remote.read_json_body(io.BytesIO(b""), {"Content-Length": "-1"})
+        with self.assertRaises(remote.RequestBodyError):
+            remote.read_json_body(io.BytesIO(b""), {})
+        with self.assertRaises(remote.RequestBodyError):
+            remote.read_json_body(io.BytesIO(b"{"), {"Content-Length": "2"})
+        self.assertEqual(remote.read_json_body(io.BytesIO(b'{"x":1}'), {"Content-Length": "7"}), {"x": 1})
+
     def test_actions_routed(self):
         for path, action in remote.ACTIONS.items():
             code, _, body = req(self.srv, path, body={"x": 1})
@@ -87,7 +98,7 @@ class RemoteServerTests(unittest.TestCase):
 
     def test_url_and_token(self):
         self.assertTrue(self.srv.url("192.168.0.5").startswith("http://192.168.0.5:"))
-        self.assertTrue(self.srv.url("1.2.3.4").endswith("?t=sir"))
+        self.assertTrue(self.srv.url("1.2.3.4").endswith("/#t=sir"))
         a, b = remote.new_token(), remote.new_token()
         self.assertNotEqual(a, b)
         self.assertGreaterEqual(len(a), 30)
