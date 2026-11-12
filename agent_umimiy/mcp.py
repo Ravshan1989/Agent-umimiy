@@ -210,7 +210,7 @@ class HttpTransport:
         if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password:
             raise McpError("MCP URL login-parolsiz http:// yoki https:// manzil bo'lishi kerak")
         try:
-            parsed.port  # noto'g'ri portni oldindan aniqlash
+            port = parsed.port  # noto'g'ri portni oldindan aniqlash
         except ValueError as exc:
             raise McpError("MCP URL porti noto'g'ri") from exc
         if parsed.scheme == "http":
@@ -245,10 +245,15 @@ class HttpTransport:
                     return None
                 ctype = r.headers.get("Content-Type", "")
                 if "text/event-stream" in ctype:
-                    data = []
+                    data, data_size = [], 0
                     for raw in r:
+                        if len(raw) > MAX_RESPONSE:
+                            raise McpError("MCP SSE javobi 8 MB chegarasidan oshdi.")
                         line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
                         if line.startswith("data:"):
+                            data_size += len(raw)
+                            if data_size > MAX_RESPONSE:
+                                raise McpError("MCP SSE javobi 8 MB chegarasidan oshdi.")
                             data.append(line[5:].lstrip())
                         elif not line and data:
                             try:
