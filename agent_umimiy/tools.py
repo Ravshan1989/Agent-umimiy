@@ -572,8 +572,8 @@ class Toolbox:
     def t_browser_open(self, url: str) -> str:
         url = url.strip()
         low = url.lower()
-        if "://" in url and not low.startswith(("http://", "https://")) or \\
-                low.startswith(("javascript:", "data:", "file:", "chrome:", "about:", "vbscript:", "blob:", "view-source:")):
+        if (("://" in url and not low.startswith(("http://", "https://"))) or
+                low.startswith(("javascript:", "data:", "file:", "chrome:", "about:", "vbscript:", "blob:", "view-source:"))):
             raise ToolError("Faqat http/https manzillarni ochish mumkin.")
         parsed = urllib.parse.urlparse(url if low.startswith(("http://", "https://")) else "https://" + url)
         if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password:
@@ -581,7 +581,9 @@ class Toolbox:
         target = parsed.geturl()
         origin = _origin(target)
         self._approve("browser:" + origin, f"Brauzerda sayt ochiladi: {origin}",
-                      f"{target}\\n\\nAgent bu sayt ichida bosishi va (alohida ruxsat bilan) yozishi mumkin. "
+                      f"{target}
+
+Agent bu sayt ichida bosishi va (alohida ruxsat bilan) yozishi mumkin. "
                       "Brauzer alohida profilda ochiladi: asosiy brauzeringizdagi parollar va sessiyalarga tegmaydi.")
         result = self._browser(lambda b, x: b.open(x), target, say=f"Brauzerda ochdi: {origin}")
         final_url = self._browser(lambda b: b.js("location.href"))
