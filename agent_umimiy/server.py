@@ -279,7 +279,8 @@ class Throttle:
             now = time.time()
             self._prune(now)
             return len([t for t in self.fails.get(ip, []) if now - t < self.WINDOW]) >= self.LIMIT
-\n    def allow_send(self, user_id: int) -> bool:
+
+    def allow_send(self, user_id: int) -> bool:
         """Bir foydalanuvchining LLM xarajatini cheklash: 60 soniyada 20 ta yuborish."""
         with self.lock:
             now = time.time()
@@ -525,7 +526,7 @@ class Server(ThreadingHTTPServer):
     def process_request(self, request, client_address):
         if not self._slots.acquire(blocking=False):
             try:
-                request.sendall(b"HTTP/1.1 503 Service Unavailable\\r\\nConnection: close\\r\\nContent-Length: 0\\r\\n\\r\\n")
+                request.sendall(b"HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Length: 0\r\n\r\n")
             except OSError:
                 pass
             self.shutdown_request(request)
