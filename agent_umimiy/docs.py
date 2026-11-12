@@ -167,7 +167,8 @@ class Xlsx:
         if t == "inlineStr":
             return "".join(x.text or "" for x in c.iter(NS_M + "t"))
         if v is None or v.text is None:
-            return ""
+            f = c.find(NS_M + "f")  # hali hisoblanmagan formula (masalan, dastur yaratgan fayl): formulaning o'zi
+            return "=" + f.text if f is not None and f.text else ""
         if t == "s":
             i = int(v.text)
             return self.shared[i] if i < len(self.shared) else ""

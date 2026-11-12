@@ -18,7 +18,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import attachments, config, remote
+from . import attachments, config, preview, remote
 from .server_page import PAGE
 from .store import SESSION_DAYS, Store, StoreError
 
@@ -27,6 +27,8 @@ MAX_FILES = 6
 TITLE_LEN = 40
 LOCAL_ONLY = ("cli",)  # serverda buyruq ishga tushiradigan agent turlari: veb-foydalanuvchilarga berilmaydi
 STATIC_DIR = Path(__file__).parent / "static"
+PAGE_CSP = ("default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
+            "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'")
 # Yaratiladigan fayl turlari (tizim sozlamasiga bog'liq bo'lmasligi uchun aniq ro'yxat)
 FILE_TYPES = {
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -226,16 +228,14 @@ def make_handler(app: App):
 
         # ---- javob ----
         def _send(self, code: int, body: bytes, ctype: str = "application/json; charset=utf-8", cookie: str = "",
-                  download: str = ""):
+                  download: str = "", csp: str = PAGE_CSP):
             self.send_response(code)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Referrer-Policy", "no-referrer")
-            self.send_header("Content-Security-Policy",
-                             "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
-                             "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'")
+            self.send_header("Content-Security-Policy", csp)
             if cookie:
                 self.send_header("Set-Cookie", cookie)
             if download:
@@ -299,7 +299,8 @@ def make_handler(app: App):
                 if url.path == "/api/file":
                     user_id, _ = self._user()
                     query = parse_qs(url.query)
-                    return self._file(self._chat(user_id, query.get("chat", [""])[0]), query.get("name", [""])[0])
+                    return self._file(self._chat(user_id, query.get("chat", [""])[0]), query.get("name", [""])[0],
+                                      bool(query.get("view")))
                 raise Refused("Topilmadi.", 404)
             except Refused as exc:
                 self._json(exc.code, {"error": str(exc)})
@@ -380,12 +381,15 @@ def make_handler(app: App):
                 raise Refused("Topilmadi.", 404)
             return {"ok": True}, ""
 
-        def _file(self, chat_id: int, name: str):
-            """Agent shu suhbatda yaratgan faylni yuklab beradi."""
+        def _file(self, chat_id: int, name: str, view: bool):
+            """Agent shu suhbatda yaratgan fayl: yuklab beradi yoki (view) qum qutisidagi ko'rinish sahifasini beradi."""
             path = app.files_dir(chat_id) / name
             if not name or name != Path(name).name or not path.is_file():
                 raise Refused("Fayl topilmadi.", 404)
-            ctype = FILE_TYPES.get(path.suffix.lower(), "application/octet-stream")  # .html ham faqat yuklab olinadi
+            page = preview.page(path) if view else None
+            if page is not None:
+                return self._send(200, page.encode(), "text/html; charset=utf-8", csp=preview.CSP)
+            ctype = FILE_TYPES.get(path.suffix.lower(), "application/octet-stream")  # .html faqat ko'rinishda ochiladi
             self._send(200, path.read_bytes(), ctype, download=name)
 
         def _stream(self, chat_id: int):
