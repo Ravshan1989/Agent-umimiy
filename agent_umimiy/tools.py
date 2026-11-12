@@ -347,6 +347,9 @@ class Toolbox:
         try:
             if tool.kind == "mcp":
                 return self._call_mcp(tool, args), False
+            # Keep the browser read action available in every Toolbox build.
+            if name == "browser_read":
+                return self._browser(lambda b: b.snapshot(), say="Brauzer sahifasini o'qidi"), False
             return getattr(self, "t_" + name)(**args), False
         except ToolError as exc:
             self._say("info", str(exc))
