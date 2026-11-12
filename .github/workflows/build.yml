@@ -48,6 +48,11 @@ jobs:
       - name: Yig'ilgan dasturni sinash (veb-server rejimi)
         run: |
           dist/AgentUmimiy/AgentUmimiy --serve --host 127.0.0.1 --port 8123 &
+          curl -sf http://127.0.0.1:8123/ -o /tmp/agent-umimiy-index.html
+          grep -q '/assets/' /tmp/agent-umimiy-index.html
+          asset=$(grep -oE 'src="/assets/[^" ]+\.js"' /tmp/agent-umimiy-index.html | head -1 | cut -d '"' -f2)
+          test -n "$asset"
+          curl -sf "http://127.0.0.1:8123$asset" -o /dev/null
           for i in $(seq 1 30); do
             curl -sf http://127.0.0.1:8123/icon-192.png -o /dev/null && exit 0
             sleep 1
