@@ -130,8 +130,7 @@ Yuqoridagi **«Loyiha papkasini tanlash»** tugmasi bilan o'z loyihangiz papkasi
 - fayl **yaratadi / tahrirlaydi** va **buyruq ishga tushiradi** (testlar, o'rnatish...) — **har safar ruxsat so'raydi**, o'zgarish (diff) ko'rsatiladi;
 - «Shu suhbatda doim ruxsat» tugmasi ruxsat so'rashni o'chiradi; **■** tugmasi ishni to'xtatadi.
 
-Xavfsizlik: agent faqat tanlangan papka ichida ishlaydi (tashqariga chiqolmaydi, `.git` ga tegmaydi). «Hammasi birga» va «Kengash» rejimlarida bir nechta agent bir vaqtda ishlagani uchun ular **faqat o'qiydi**.
-`claude`, `codex` kabi CLI agentlar tanlangan papkada ishga tushadi.
+Xavfsizlik: o'rnatilgan fayl asboblari tanlangan loyiha papkasidan tashqariga chiqmaydi va `.git` ga tegmaydi. Ammo `run_command` va `claude`, `codex` kabi CLI agentlar operatsion tizimdagi joriy foydalanuvchi huquqlari bilan ishlaydi; ular loyiha papkasidan tashqaridagi fayllarga ham murojaat qilishi mumkin. Buyruqni tasdiqlashdan oldin uni tekshiring. «Hammasi birga» va «Kengash» rejimlarida ichki fayl yozish/buyruq asboblari o'chiriladi.
 
 **Git** tugmasi: nima o'zgargani (oddiy tilda), o'zgarishlarni ko'rish, **Saqlash (commit)**, **Yuborish (push)**, **Olish (pull)**. Git kompyuteringizda o'rnatilgan bo'lishi kerak (git-scm.com); parollar sizning Git sozlamangizdan olinadi.
 
