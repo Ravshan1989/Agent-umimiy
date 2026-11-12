@@ -601,6 +601,9 @@ class Toolbox:
             self._approve("browser:" + final_origin, f"Brauzer boshqa manzilga yo'naltirdi: {final_origin}", final_url)
         return result
 
+    def t_browser_read(self) -> str:
+        return self._browser(lambda b: b.snapshot(), say="Brauzer sahifasini o'qidi")
+
     def t_browser_click(self, id: int) -> str:
         url = self._browser(lambda b: (b.ensure(), b.js("location.href"))[1])
         origin = _origin(url or "")
