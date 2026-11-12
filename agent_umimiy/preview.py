@@ -10,10 +10,9 @@ from pathlib import Path
 
 from . import docs
 
-CDN = "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com"
-CSP = ("sandbox allow-scripts allow-popups; default-src 'none'; "
-       f"script-src 'unsafe-inline' {CDN}; style-src 'unsafe-inline' {CDN}; font-src data: {CDN}; "
-       "img-src data: blob:; frame-ancestors 'self'")
+CSP = ("sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
+       "font-src data:; img-src data: blob:; form-action 'none'; base-uri 'none'; object-src 'none'; "
+       "frame-ancestors 'self'")
 TABLES, TEXTS = (".csv", ".xlsx"), (".txt", ".md", ".json")
 KINDS = (".html",) + TABLES + TEXTS
 MAX_ROWS, MAX_SHEETS = 500, 10
