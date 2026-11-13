@@ -343,7 +343,7 @@ function App() {
               <section className="columns">
                 <article className="panel list-panel">
                   <div className="panel-heading"><h2><Bot /> Ulangan agentlar</h2></div>
-                  {agents.map((item) => <div className="agent-row" key={item.name}><div className="file-icon blue"><Bot /></div><div className="row-copy"><b>{item.name}</b><span>{item.model || "Model avtomatik tanlanadi"}</span></div><span className="online"><i /> Mavjud</span></div>)}
+                  {agents.map((item) => <div className="agent-row" key={item.name}><div className="file-icon blue"><Bot /></div><div className="row-copy"><b>{item.name === "auto" ? item.model || "Automatic selection" : item.name}</b><span>{item.name === "auto" ? " " : item.model || "Model avtomatik tanlanadi"}</span></div><span className="online"><i /> Mavjud</span></div>)}
                 </article>
                 <article className="panel list-panel">
                   <div className="panel-heading"><h2><Folder /> Suhbatlar</h2></div>
