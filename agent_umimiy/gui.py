@@ -141,7 +141,7 @@ class AgentDialog(tk.Toplevel):
         bar, f = scroll_body(self)
         label(f, i18n.t("Agent sozlamasi"), size=14, weight="bold").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
         self.vars = {}
-        rows = [("name", "Nomi"), ("type", "Turi"), ("model", "Model"), ("api_key", "API kalit"),
+        rows = [("name", "Nomi"), ("type", "Turi"), ("model", "Model"), ("vision_model", "Rasm uchun model (ixtiyoriy)"), ("api_key", "API kalit"),
                 ("base_url", "Manzil (ixtiyoriy)"), ("command", "Buyruq (CLI uchun)")]
         for i, (k, text) in enumerate(rows, start=1):
             label(f, i18n.t(text), fg=P["muted"]).grid(row=i, column=0, sticky="w", pady=5)
@@ -214,7 +214,7 @@ class AgentDialog(tk.Toplevel):
     def _spec(self):
         t = REAL_TYPE.get(self._type(), self._type())
         s = {"name": self.vars["name"].get().strip(), "type": t}
-        for k in ("model", "api_key", "base_url", "command"):
+        for k in ("model", "vision_model", "api_key", "base_url", "command"):
             val = self.vars[k].get().strip()
             if val:
                 s[k] = val
