@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { motion } from "framer-motion";
 import {
-  Activity, ArrowUpRight, Bot, Boxes, Check, ChevronDown, FileSpreadsheet,
-  FileText, Folder, Globe2, LayoutDashboard, Menu, MessageCircle, Paperclip,
+  Activity, ArrowUpRight, Bot, Boxes, Check, FileSpreadsheet,
+  FileText, Folder, LayoutDashboard, Menu, MessageCircle, Paperclip,
   Plug, Search, Send, Settings, ShieldCheck, Sparkles, Workflow, X, Zap,
 } from "lucide-react";
 
