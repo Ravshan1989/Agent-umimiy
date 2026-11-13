@@ -178,6 +178,13 @@ class WebTests(unittest.TestCase):
         self.assertIn("Faqat dastlabki 2 sahifa", text)
         self.assertNotIn("[3-sahifa]", text)
 
+    def test_openrouter_vision_model_is_configurable(self):
+        image = SimpleNamespace(kind="image")
+        options = {"base_url": "https://openrouter.ai/api/v1", "model": "openrouter/free"}
+        self.assertEqual(att.openai_model_for(options, [image]), "openrouter/free")
+        options["vision_model"] = "provider/current-vision-model"
+        self.assertEqual(att.openai_model_for(options, [image]), "provider/current-vision-model")
+
     def test_uploaded_file_size_and_failed_file_cleanup(self):
         import base64
 
