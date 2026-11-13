@@ -97,6 +97,10 @@ class ServerTests(unittest.TestCase):
         self.assertNotIn("Secure", register("Ali", {}))
         self.assertIn("; Secure", register("Vali", {"X-Forwarded-Proto": "https"}))
 
+    def test_auto_agent_name_is_reserved(self):
+        with self.assertRaisesRegex(ValueError, "nomi band"):
+            config.build({"agents": [{"name": "auto", "type": "echo"}]})
+
     def test_register_needs_invite_and_login_checks_password(self):
         c = Client(self.base)
         self.assertEqual(c.call("/api/register", {"name": "Ali", "password": PASSWORD, "invite": "XATO"})[0], 403)
@@ -112,6 +116,21 @@ class ServerTests(unittest.TestCase):
                                         {"name": "aks", "model": ""}])  # CLI agent veb-foydalanuvchilarga berilmaydi
         self.assertEqual(c.call("/api/logout", {})[0], 200)
         self.assertEqual(c.call("/api/me")[0], 401)
+
+    def test_memory_is_isolated_per_web_account(self):
+        ali, vali = self.user("Ali"), self.user("Vali")
+        saved = ali.call("/api/memory/remember", {"fact": "Ali maxsus ma'lumoti"})
+        self.assertEqual(saved[0], 200)
+        self.assertIn("saqlandi", saved[1]["message"].lower())
+        ali_items = ali.call("/api/memory")[1]["items"]
+        self.assertEqual(len(ali_items), 1)
+        item_id = ali_items[0]["id"]
+        self.assertEqual(vali.call("/api/memory")[1]["items"], [])
+        # Vali Ali xotirasini ID orqali ham o'chira olmaydi.
+        vali.call("/api/memory/delete", {"id": item_id})
+        self.assertEqual(ali.call("/api/memory")[1]["items"], ali_items)
+        ali.call("/api/memory/delete", {"id": item_id})
+        self.assertEqual(ali.call("/api/memory")[1]["items"], [])
 
     def test_chat_stream_history_and_isolation(self):
         ali, vali = self.user("Ali"), self.user("Vali")

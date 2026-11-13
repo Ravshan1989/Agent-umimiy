@@ -6,6 +6,14 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 
 ## [Nashr qilinmagan] / [Unreleased]
 
+### Tuzatildi / Fixed
+- Veb-xotira endi foydalanuvchi akkaunti bo‘yicha ajratiladi; xotirani ko‘rish, qo‘shish va o‘chirish uchun alohida UI/API qo‘shildi.
+- HTTP 400/404/422 statusi do‘stona xato matnidan alohida saqlanadi, asbobsiz chat fallback buzilmaydi.
+- Telefon serverida manfiy Content-Length rad etiladi; Ollama noto‘g‘ri JSON argumentlari butun navbatni yiqitmaydi.
+- Internetdan sahifa olishda DNS manzili ulanish paytida tekshirilib, aynan tekshirilgan IP manziliga ulanadi; CGNAT diapazoni ham bloklanadi.
+- Xotira limiti to‘lganda eski yozuvlar jim kesilmaydi; vision model nomi foydalanuvchi sozlamasidan olinadi.
+
+
 ## [0.3.0] — 2026-11-12
 
 ### Qo'shildi / Added

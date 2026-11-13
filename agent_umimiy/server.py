@@ -8,6 +8,7 @@ Ulanish oddiy HTTP: ishonchli lokal tarmoqda ishlating yoki oldiga HTTPS beruvch
 from __future__ import annotations
 
 import json
+import mimetypes
 import queue
 import shutil
 import socketserver
@@ -32,7 +33,8 @@ MAX_DOWNLOAD = 50 * 1024 * 1024
 TITLE_LEN = 40
 LOCAL_ONLY = ("cli",)  # serverda buyruq ishga tushiradigan agent turlari: veb-foydalanuvchilarga berilmaydi
 STATIC_DIR = Path(__file__).parent / "static"
-PAGE_CSP = ("default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
+STATIC_WEB_DIR = STATIC_DIR / "web"
+PAGE_CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'")
 # Yaratiladigan fayl turlari (tizim sozlamasiga bog'liq bo'lmasligi uchun aniq ro'yxat)
 FILE_TYPES = {
@@ -78,7 +80,7 @@ class App:
         self.channels: dict[int, Channel] = {}
 
     # ---- agentlar ----
-    def orchestrator(self):
+    def orchestrator(self, user_id: int | None = None):
         cfg = config.read(self.config_file)
         cfg["agents"] = [a for a in cfg["agents"] if a.get("type") not in LOCAL_ONLY]
         orch = config.build(cfg)
@@ -86,6 +88,8 @@ class App:
         ctx.root = ctx.confirm = ctx.mcp = None
         ctx.browser = False
         ctx.web, ctx.skills = bool(cfg.get("web", True)), bool(cfg.get("skills", True))
+        if user_id is not None:
+            ctx.memory_file = str(config.user_dir() / "memories" / f"{int(user_id)}.json")
         return orch
 
     def files_dir(self, chat_id: int) -> Path:
@@ -93,7 +97,9 @@ class App:
         return config.user_dir() / "files" / str(chat_id)
 
     def agents(self) -> list[dict]:
-        return [{"name": "auto", "model": "Avtomatik — o‘zi tanlaydi"}] + [
+        lang = config.read(self.config_file).get("lang", "uz")
+        automatic = {"uz": "Avtomatik — o‘zi tanlaydi", "ru": "Автоматический выбор", "en": "Automatic selection"}
+        return [{"name": "auto", "model": automatic.get(lang, automatic["uz"])}] + [
             {"name": a.name, "model": a.options.get("model", "")} for a in self.orchestrator().agents.values()
         ]
 
@@ -154,12 +160,12 @@ class App:
                     del self.channels[chat_id]
 
     # ---- amallar ----
-    def send(self, chat_id: int, text: str, agent: str, files: list[dict]) -> None:
+    def send(self, chat_id: int, text: str, agent: str, files: list[dict], user_id: int | None = None) -> None:
         if not isinstance(agent, str):
             raise Refused("Agent tanlovi noto'g'ri.")
         if not isinstance(files, list) or any(not isinstance(item, dict) for item in files):
             raise Refused("Fayllar ro'yxati noto'g'ri.")
-        orch = self.orchestrator()
+        orch = self.orchestrator(user_id)
         if agent != "auto" and agent not in orch.agents:
             raise Refused("Bu agent mavjud emas. Sahifani yangilang.")
         orch.ctx.files_dir = str(self.files_dir(chat_id))
@@ -395,7 +401,17 @@ def make_handler(app: App):
             url = urlparse(self.path)
             try:
                 if url.path == "/":
+                    index = STATIC_WEB_DIR / "index.html"
+                    if index.is_file():
+                        return self._send(200, index.read_bytes(), "text/html; charset=utf-8")
                     return self._send(200, PAGE.encode(), "text/html; charset=utf-8")
+                if url.path.startswith("/assets/"):
+                    root = STATIC_WEB_DIR.resolve()
+                    asset = (STATIC_WEB_DIR / url.path.lstrip("/")).resolve()
+                    if root not in asset.parents or not asset.is_file():
+                        raise Refused("Fayl topilmadi.", 404)
+                    content_type = mimetypes.guess_type(asset.name)[0] or "application/octet-stream"
+                    return self._send(200, asset.read_bytes(), content_type)
                 if url.path == "/manifest.webmanifest":
                     return self._send(200, MANIFEST, "application/manifest+json")
                 if url.path in ICONS:
@@ -403,6 +419,11 @@ def make_handler(app: App):
                 if url.path == "/api/me":
                     user_id, name = self._user()
                     return self._json(200, {"user": name, "agents": app.agents(), "chats": store.chats(user_id)})
+                if url.path == "/api/memory":
+                    user_id, _ = self._user()
+                    from . import memory
+                    path = config.user_dir() / "memories" / f"{user_id}.json"
+                    return self._json(200, {"items": memory.list_items(path)})
                 if url.path == "/api/stream":
                     user_id, _ = self._user()
                     return self._stream(self._chat(user_id, parse_qs(url.query).get("chat", [""])[0]))
@@ -478,6 +499,19 @@ def make_handler(app: App):
                 store.drop_session(self._token())
                 return {"ok": True}, self._cookie("", 0)
             user_id, _ = self._user()
+            if path == "/api/memory/delete":
+                from . import memory
+                item_id = str(body.get("id", "")).strip()
+                if not item_id:
+                    raise Refused("Xotira ID ko'rsatilmagan.")
+                memory.forget(item_id, config.user_dir() / "memories" / f"{user_id}.json")
+                return {"ok": True}, ""
+            if path == "/api/memory/remember":
+                from . import memory
+                fact = str(body.get("fact", "")).strip()
+                if not fact:
+                    raise Refused("Saqlanadigan ma'lumot bo'sh.")
+                return {"message": memory.remember(fact, config.user_dir() / "memories" / f"{user_id}.json")}, ""
             if path == "/api/chat/new":
                 if len(store.chats(user_id)) >= 100:
                     raise Refused("Bir foydalanuvchi ko'pi bilan 100 ta suhbat yaratishi mumkin.", 429)
@@ -491,7 +525,7 @@ def make_handler(app: App):
                 files = body.get("files") or []
                 if not isinstance(files, list) or not all(isinstance(f, dict) for f in files):
                     raise Refused("Noto'g'ri so'rov.")
-                app.send(chat_id, str(body.get("text", "")), str(body.get("agent", "")), files)
+                app.send(chat_id, str(body.get("text", "")), str(body.get("agent", "")), files, user_id=user_id)
             elif path == "/api/stop":
                 app.stop(chat_id)
             else:

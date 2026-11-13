@@ -85,6 +85,8 @@ def build(cfg: dict) -> Orchestrator:
     raw_agents = cfg.get("agents", [])
     if not isinstance(raw_agents, list) or any(not isinstance(a, dict) for a in raw_agents):
         raise ValueError("agents sozlamasi ro'yxat bo'lishi va har bir agent obyekt bo'lishi kerak.")
+    if any(str(a.get("name", "")).strip().casefold() == "auto" for a in raw_agents if a.get("enabled", True)):
+        raise ValueError("'auto' nomi band: bu nom veb va avtomatik rejim uchun ajratilgan. Agentga boshqa nom bering.")
     enabled = [a for a in raw_agents if a.get("enabled", True)]
     if len(enabled) > MAX_AGENTS:
         raise ValueError(f"Ko'pi bilan {MAX_AGENTS} ta agent sozlash mumkin.")

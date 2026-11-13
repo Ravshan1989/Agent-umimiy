@@ -58,6 +58,7 @@ Desktop interfeys tilini **Sozlamalar → Interfeys tili** orqali tanlang. Ilova
 | 📚 | **Ko'nikmalar (Skills)** | `SKILL.md` ko'rsatmalari bilan agentga ish uslubini o'rgatish. `~/.claude/skills` papkasi ham avtomatik topiladi |
 | 📱 | **Telefondan boshqarish** | QR-kodni skanerlang — chat telefon brauzerida ochiladi, ruxsat so'rovlari ham telefonga keladi |
 | 💾 | **Suhbatlar saqlanadi** | Dasturni yopib ochganingizda suhbatlar joyida qoladi |
+| 🧠 | **Shaxsiy xotira** | Saqlangan ma’lumotlarni ko‘rish va o‘chirish; veb-foydalanuvchilarning xotirasi akkaunt bo‘yicha ajratiladi |
 | 🌿 | **Git yordamchisi** | Loyihadagi Git holatini oddiy tilda ko'rsatadi |
 
 ## 📥 O'rnatish
@@ -117,6 +118,7 @@ Loyiha papkasida `CLAUDE.md` yoki `AGENTS.md` fayli bo'lsa, agent uni har doim h
 - O'rnatilgan fayl asboblari tanlangan loyiha papkasidan tashqariga chiqmaydi.
 - **Shell buyruqlari, CLI-agentlar va MCP plaginlari OS darajasida sandbox qilinmagan**; ular joriy foydalanuvchi huquqlariga ega. Tasdiqlashdan oldin buyruq va plagin manbasini tekshiring.
 - API kalitlari va suhbatlar lokal diskda shifrlanmagan saqlanadi; ilova katalogiga fayl ruxsatlari qo'yiladi.
+- Veb rejimida xotira har bir akkaunt uchun alohida faylda saqlanadi; agent xotiraga yozish/o‘chirishni avtomatik bajara olmaydi. Foydalanuvchi xotirani interfeysdan boshqaradi.
 - Brauzer alohida profil ishlatadi. HTML ko'rinish oynasida tashqi resurslar bloklanadi; iframe navigatsiyasi barcha brauzerlarda kafolatli cheklanmasligi mumkin.
 - Telefon boshqaruvi HTTP: faqat ishonchli Wi-Fi yoki Tailscale/VPN kabi shifrlangan tunnelda ishlating.
 
