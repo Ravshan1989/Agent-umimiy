@@ -251,7 +251,7 @@ function App() {
     <main className="main-area">
       <header className="topbar"><button className="icon-btn menu-btn" onClick={() => setMobileNav(true)}><Menu /></button><div className="search"><Search size={16} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Suhbatlarni qidirish..." /></div>
         <label className="agent-select"><Bot size={15} /><select value={selectedAgent} onChange={(e) => setSelectedAgent(e.target.value)}>{agents.map((a) => <option key={a.name} value={a.name}>{a.name === "auto" ? "Avtomatik agent" : a.name}</option>)}</select><ChevronDown size={13} /></label>
-        <div className="server-pill"><i /> Server: Ulangan</div><button className="icon-btn" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} title="Mavzuni almashtirish">{theme === "dark" ? <Sun /> : <Moon />}</button>
+        <div className="server-pill"><i /> Server: Ulangan</div><button className="icon-btn" onClick={() => void saveSettings({ ...settings, theme: theme === "dark" ? "light" : "dark" })} title="Mavzuni almashtirish">{theme === "dark" ? <Sun /> : <Moon />}</button>
       </header>
       <div className="content">
         {activeView === "Sozlamalar" && <section className="panel settings-page">
