@@ -78,6 +78,20 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(c.call("/api/me")[0], 401)
         self.assertEqual(c.call("/api/chat/new", {})[0], 401)
 
+    def test_local_host_panel_returns_share_details(self):
+        code, info = Client(self.base).call("/api/host/info")
+        self.assertEqual(code, 200)
+        self.assertTrue(info["is_host"])
+        self.assertEqual(info["invite"], self.store.invite())
+        self.assertIn(self.base + "/", info["addresses"])
+
+    def test_firewall_button_is_host_local_and_delegates_to_windows_helper(self):
+        with mock.patch.object(server.remote, "open_firewall", return_value=(True, "UAC")) as firewall:
+            code, result = Client(self.base).call("/api/host/firewall", {})
+        self.assertEqual(code, 200)
+        self.assertTrue(result["ok"])
+        firewall.assert_called_once_with(self.httpd.server_port)
+
     def test_installable_as_phone_app(self):
         with urllib.request.urlopen(self.base + "/") as r:
             self.assertIn(b'rel="manifest" href="/manifest.webmanifest"', r.read())
@@ -287,3 +301,4 @@ class StoreTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
