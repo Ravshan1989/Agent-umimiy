@@ -3,9 +3,8 @@ from __future__ import annotations
 
 import difflib
 import hashlib
-import http.client
-import ssl
 import html
+import http.client
 import ipaddress
 import json
 import re
