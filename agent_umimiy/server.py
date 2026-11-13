@@ -8,6 +8,7 @@ Ulanish oddiy HTTP: ishonchli lokal tarmoqda ishlating yoki oldiga HTTPS beruvch
 from __future__ import annotations
 
 import json
+import mimetypes
 import queue
 import shutil
 import socketserver
@@ -15,7 +16,6 @@ import threading
 import time
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-import mimetypes
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
