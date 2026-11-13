@@ -40,6 +40,11 @@ def _read(path: Path) -> list[dict]:
 
 def _write(path: Path, items: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    if os.name != "nt":
+        try:
+            path.parent.chmod(0o700)
+        except OSError:
+            pass
     tmp = path.with_name(path.name + ".tmp")
     fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     try:
