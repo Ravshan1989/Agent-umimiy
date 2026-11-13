@@ -97,6 +97,10 @@ class ServerTests(unittest.TestCase):
         self.assertNotIn("Secure", register("Ali", {}))
         self.assertIn("; Secure", register("Vali", {"X-Forwarded-Proto": "https"}))
 
+    def test_auto_agent_name_is_reserved(self):
+        with self.assertRaisesRegex(ValueError, "nomi band"):
+            config.build({"agents": [{"name": "auto", "type": "echo"}]})
+
     def test_register_needs_invite_and_login_checks_password(self):
         c = Client(self.base)
         self.assertEqual(c.call("/api/register", {"name": "Ali", "password": PASSWORD, "invite": "XATO"})[0], 403)
