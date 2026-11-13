@@ -226,6 +226,8 @@ class AgentDialog(tk.Toplevel):
         s = self._spec()
         if not s["name"]:
             return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("Nomini yozing"), parent=self)
+        if s["name"].strip().casefold() == "auto":
+            return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("'auto' nomi band. Boshqa nom tanlang."), parent=self)
         if self._type() == "freellm" and not self.vars["model"].get().strip():
             return messagebox.showwarning(i18n.t("Diqqat"), i18n.t("Avval «Ro'yxat» tugmasi bilan modelni tanlang."), parent=self)
         self.config(cursor="watch")
