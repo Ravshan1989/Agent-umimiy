@@ -96,7 +96,9 @@ class App:
         return config.user_dir() / "files" / str(chat_id)
 
     def agents(self) -> list[dict]:
-        return [{"name": "auto", "model": "Avtomatik — o‘zi tanlaydi"}] + [
+        lang = config.read(self.config_file).get("lang", "uz")
+        automatic = {"uz": "Avtomatik — o‘zi tanlaydi", "ru": "Автоматический выбор", "en": "Automatic selection"}
+        return [{"name": "auto", "model": automatic.get(lang, automatic["uz"])}] + [
             {"name": a.name, "model": a.options.get("model", "")} for a in self.orchestrator().agents.values()
         ]
 
