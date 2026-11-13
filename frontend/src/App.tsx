@@ -225,7 +225,25 @@ function App() {
     }
   }
 
-  async function loadMemory() {\n    try { const data = await api<{ items: MemoryItem[] }>("/api/memory"); setMemoryItems(data.items); }\n    catch (err) { setError(err instanceof Error ? err.message : "Xotira yuklanmadi"); }\n  }\n\n  async function saveMemory(event: FormEvent) {\n    event.preventDefault();\n    if (!memoryFact.trim()) return;\n    try { await api("/api/memory/remember", { fact: memoryFact.trim() }); setMemoryFact(""); await loadMemory(); }\n    catch (err) { setError(err instanceof Error ? err.message : "Xotira saqlanmadi"); }\n  }\n\n  async function deleteMemory(id: string) {\n    if (!window.confirm("Ushbu xotira yozuvi o‘chirilsinmi?")) return;\n    try { await api("/api/memory/delete", { id }); await loadMemory(); }\n    catch (err) { setError(err instanceof Error ? err.message : "Xotira o‘chirilmadi"); }\n  }\n\n  async function logout() {
+  async function loadMemory() {
+    try { const data = await api<{ items: MemoryItem[] }>("/api/memory"); setMemoryItems(data.items); }
+    catch (err) { setError(err instanceof Error ? err.message : "Xotira yuklanmadi"); }
+  }
+
+  async function saveMemory(event: FormEvent) {
+    event.preventDefault();
+    if (!memoryFact.trim()) return;
+    try { await api("/api/memory/remember", { fact: memoryFact.trim() }); setMemoryFact(""); await loadMemory(); }
+    catch (err) { setError(err instanceof Error ? err.message : "Xotira saqlanmadi"); }
+  }
+
+  async function deleteMemory(id: string) {
+    if (!window.confirm("Ushbu xotira yozuvi o‘chirilsinmi?")) return;
+    try { await api("/api/memory/delete", { id }); await loadMemory(); }
+    catch (err) { setError(err instanceof Error ? err.message : "Xotira o‘chirilmadi"); }
+  }
+
+  async function logout() {
     await api("/api/logout", {}).catch(() => {});
     showAuth();
   }
