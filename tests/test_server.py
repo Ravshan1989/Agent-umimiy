@@ -309,11 +309,26 @@ class ServerTests(unittest.TestCase):
         with urllib.request.urlopen(urllib.request.Request(self.base + url, headers={"Cookie": ali.cookie})) as r:
             self.assertEqual(r.read(), b"rasm-baytlari")
             self.assertEqual(r.headers["Content-Type"], "image/png")
+            # Diskdagi vaqt belgisi emas, foydalanuvchi bergan nom bilan saqlanishi kerak
             self.assertIn("attachment", r.headers["Content-Disposition"])
+            self.assertIn("rasm.png", r.headers["Content-Disposition"])
+            self.assertNotIn(stored, r.headers["Content-Disposition"])
         self.assertEqual(vali.call(url)[0], 404)  # begona suhbat
+        boshqa = vali.call("/api/chat/new", {})[1]["id"]  # o'z suhbatidan turib ham ololmaydi
+        self.assertEqual(vali.call(f"/api/file?chat={boshqa}&name=" + urllib.parse.quote(stored))[0], 404)
         self.assertEqual(Client(self.base).call(url)[0], 401)
         self.assertEqual(ali.call("/api/chat/delete", {"chat": chat})[0], 200)
         self.assertFalse((self.d / "files" / str(chat)).exists())  # biriktirmalar ham o'chadi
+
+    def test_old_records_with_plain_file_names_still_work(self):
+        """Eski yozuvlarda `files` oddiy matn ro'yxati edi: tarix tiklanganda dict'ning xom matni tushmasligi kerak."""
+        self.assertEqual(server.attached_names(["a.png", {"name": "b.pdf", "file": "123_b.pdf"}, 7, None]),
+                         ["a.png", "b.pdf"])
+        self.assertEqual(server.attached_names([{"file": "123_c.txt"}]), ["123_c.txt"])
+        self.assertEqual(server.attached_names(None), [])
+        self.assertEqual(server.shown_name("1794592181685_rasm.png"), "rasm.png")
+        self.assertEqual(server.shown_name("rasm.png"), "rasm.png")
+        self.assertEqual(server.shown_name("1794592181685_"), "1794592181685_")  # nomsiz qolmasin
 
     def test_created_file_download_is_private(self):
         ali, vali = self.user("Ali"), self.user("Vali")

@@ -575,7 +575,10 @@ class Toolbox:
                       f"{command}\n\nBoshlang'ich papka: {self.root}\n"
                       "Ogohlantirish: buyruq joriy foydalanuvchi huquqlari bilan ishlaydi va loyiha tashqarisiga ham kira oladi.")
         self._say("run", f"Buyruq: {command[:120]}")
-        limit = min(max(timeout or 300, 1), 900)
+        try:  # model chegarani matn ko'rinishida ham yuborishi mumkin
+            limit = min(max(int(timeout or 300), 1), 900)
+        except (TypeError, ValueError):
+            raise ToolError("timeout butun son bo'lishi kerak (soniya, eng ko'pi 900).")
         try:
             p = proc.run(command, cwd=str(self.root), shell=True, timeout=limit)
         except subprocess.TimeoutExpired as timed_out:

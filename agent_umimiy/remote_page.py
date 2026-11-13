@@ -89,7 +89,7 @@ function scroll(){var m=$('msgs');m.scrollTop=m.scrollHeight}
 function nearBottom(){var m=$('msgs');return m.scrollHeight-m.scrollTop-m.clientHeight<140}
 function add(html,cls){var d=document.createElement('div');d.className=cls;d.innerHTML=html;$('msgs').appendChild(d);return d}
 function rec(r){
- if(r.k==='user'){var f=(r.files&&r.files.length)?'<div class="files">▣ '+r.files.map(esc).join(' &nbsp; ▣ ')+'</div>':'';
+ if(r.k==='user'){var f=(r.files&&r.files.length)?'<div class="files">▣ '+r.files.map(function(x){return esc(typeof x==='string'?x:(x&&(x.name||x.file))||'fayl')}).join(' &nbsp; ▣ ')+'</div>':'';
   add('<div class="col">'+f+'<div class="b">'+md(r.text)+'</div></div>','row u')}
  else if(r.k==='agent'){var c=r.err?'var(--err)':color(String(r.name).split(' ')[0]);
   add('<div class="av" style="background:'+c+'">'+esc((r.name||'?')[0].toUpperCase())+'</div><div class="col"><div class="nm" style="color:'+c+'">'+esc(r.name)+(r.meta?'<span>'+esc(r.meta)+'</span>':'')+'</div><div class="b'+(r.err?' err':'')+'">'+md(r.text)+'</div></div>','row')}

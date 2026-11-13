@@ -1834,14 +1834,17 @@ class App(tk.Tk):
             self._save_soon()
 
     def add_user(self, text, files=()):
-        self._record(k="user", text=text, files=[getattr(a, "name", a) for a in files])
+        def shown(a):  # Attachment, oddiy matn yoki {"name": ..., "file": ...} ko'rinishidagi yozuv
+            return a.get("name") or a.get("file") or "fayl" if isinstance(a, dict) else str(getattr(a, "name", a))
+
+        self._record(k="user", text=text, files=[shown(a) for a in files])
         self._clear_empty()
         row = tk.Frame(self.inner, bg=P["bg"])
         row.pack(fill="x", padx=28, pady=8)
         col = tk.Frame(row, bg=P["bg"])
         col.pack(side="right")
         if files:
-            label(col, "   ".join(("▣ " if getattr(a, "kind", "") == "image" else "▤ ") + getattr(a, "name", a) for a in files), fg=P["muted"],
+            label(col, "   ".join(("▣ " if getattr(a, "kind", "") == "image" else "▤ ") + shown(a) for a in files), fg=P["muted"],
                   size=9).pack(anchor="e", pady=(0, 4))
         self._bubble(col, text, P["user"], "white").pack(anchor="e")
         self._scroll()

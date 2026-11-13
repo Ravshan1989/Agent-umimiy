@@ -16,7 +16,8 @@ def _kill_tree(p: subprocess.Popen) -> None:
     """
     try:
         if os.name == "nt":
-            subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)], capture_output=True,
+            # timeout shart: taskkill qotib qolsa, buyruq chegarasi butunlay ma'nosiz bo'lib qoladi.
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)], capture_output=True, timeout=KILL_GRACE,
                            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         else:
             os.killpg(os.getpgid(p.pid), signal.SIGKILL)
@@ -32,20 +33,21 @@ def run(args, *, cwd=None, input=None, timeout=None, shell=False, encoding=None)
     kw = {} if input is not None else {"stdin": subprocess.DEVNULL}  # stdin yo'q bo'lsa Windows'da xato beradi
     if os.name != "nt":
         kw["start_new_session"] = True  # butun guruhni o'ldira olish uchun
-    p = subprocess.Popen(
+    # `with` shart: har qanday istisnoda (timeout, KeyboardInterrupt) bola o'ldiriladi va quvurlar yopiladi.
+    with subprocess.Popen(
         args, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         stdin=subprocess.PIPE if input is not None else kw.pop("stdin"),
         text=True, encoding=encoding, errors="replace", shell=shell,
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         env={**os.environ, "GIT_TERMINAL_PROMPT": "0"}, **kw,
-    )
-    try:
-        out, err = p.communicate(input, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        _kill_tree(p)
+    ) as p:
         try:
-            out, err = p.communicate(timeout=KILL_GRACE)
-        except subprocess.TimeoutExpired:  # quvurni boshqa jarayon ushlab turibdi: kutmaymiz
-            out = err = ""
-        raise subprocess.TimeoutExpired(args, timeout, output=out, stderr=err)
-    return subprocess.CompletedProcess(args, p.returncode, out, err)
+            out, err = p.communicate(input, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            _kill_tree(p)
+            try:
+                out, err = p.communicate(timeout=KILL_GRACE)
+            except subprocess.TimeoutExpired:  # quvurni nevara jarayon ushlab turibdi: kutmaymiz
+                out = err = ""
+            raise subprocess.TimeoutExpired(args, timeout, output=out, stderr=err)
+        return subprocess.CompletedProcess(args, p.returncode, out, err)

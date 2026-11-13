@@ -11,6 +11,7 @@ import hmac
 import json
 import mimetypes
 import queue
+import re
 import secrets
 import shutil
 import socketserver
@@ -484,6 +485,11 @@ class Throttle:
 
 
 
+def shown_name(name: str) -> str:
+    """Biriktirma diskda `<millisekund>_asl-nom` bo'lib yotadi; foydalanuvchiga asl nomi ko'rinsin."""
+    return re.sub(r"^\d{13}_(?=.)", "", str(name or ""))
+
+
 def attached_names(files) -> list[str]:
     """Biriktirmalarning ko'rinadigan nomlari.
 
@@ -881,7 +887,9 @@ def make_handler(app: App):
             if page is not None:
                 return self._send(200, page.encode(), "text/html; charset=utf-8", csp=preview.CSP)
             ctype = FILE_TYPES.get(path.suffix.lower(), "application/octet-stream")  # .html faqat ko'rinishda ochiladi
-            self._send(200, path.read_bytes(), ctype, download=name)
+            # Content-Disposition brauzerdagi download= atributidan ustun turadi, shuning uchun
+            # biriktirmaning diskdagi vaqt belgisi emas, foydalanuvchi bergan nom yuboriladi.
+            self._send(200, path.read_bytes(), ctype, download=shown_name(name))
 
         def _stream(self, chat_id: int, local_desktop: bool = False):
             """Suhbat hodisalari oqimi (SSE). Ulanish uzilguncha ochiq turadi."""
