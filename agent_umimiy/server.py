@@ -19,7 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import attachments, config, preview, remote
+from . import attachments, config, preview, remote, skills
 from .server_page import PAGE
 from .store import SESSION_DAYS, Store, StoreError
 
@@ -424,6 +424,21 @@ def make_handler(app: App):
                     return self._json(200, {"lang": cfg.get("lang", "uz") if cfg.get("lang") in ("uz", "ru", "en") else "uz",
                                             "theme": cfg.get("theme", "dark") if cfg.get("theme") in ("dark", "light") else "dark",
                                             "accent": cfg.get("accent", "violet") if cfg.get("accent") in ("violet", "blue", "cyan", "emerald") else "violet"})
+                if url.path == "/api/workspace":
+                    self._user()
+                    cfg = config.read(app.config_file)
+                    # Return metadata only: never expose MCP commands, headers, env vars, tokens or local paths.
+                    mcp = [{"name": str(x.get("name", "")), "transport": str(x.get("transport", "stdio")),
+                            "enabled": bool(x.get("enabled", True))} for x in cfg.get("mcp", []) if isinstance(x, dict)]
+                    discovered = skills.discover(cfg.get("project") or None) if cfg.get("skills", True) else []
+                    project = Path(cfg.get("project")).name if isinstance(cfg.get("project"), str) and cfg.get("project") else ""
+                    return self._json(200, {"project": project, "plugins": mcp,
+                                            "skills": [{"name": x.name, "description": x.description, "source": x.source}
+                                                       for x in discovered],
+                                            "automation": {"available": False, "reason": "Jadval va triggerlar moduli hali ulanmagan"},
+                                            "database": {"engine": "SQLite", "status": "connected",
+                                                         "users": len(store.users()), "chats": sum(
+                                                             len(store.chats(uid)) for uid, in store._all("SELECT id FROM users"))}})
                 if url.path == "/api/stream":
                     user_id, _ = self._user()
                     return self._stream(self._chat(user_id, parse_qs(url.query).get("chat", [""])[0]))
