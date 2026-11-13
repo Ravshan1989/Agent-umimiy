@@ -11,6 +11,7 @@ type Agent = { name: string; model?: string };
 type Chat = { id: number; title: string };
 type RecordItem = { k: string; text?: string; name?: string; agent?: string; meta?: string; err?: boolean; files?: string[]; kind?: string };
 type Upload = { name: string; data: string };
+type MemoryItem = { id: string; fact: string };
 type EventMessage = { type: string; records?: RecordItem[]; live?: Record<string, string>; busy?: boolean; record?: RecordItem; agent?: string; text?: string };
 
 const nav = [
@@ -18,6 +19,7 @@ const nav = [
   { label: "Suhbat", icon: MessageCircle },
   { label: "Agentlar", icon: Bot },
   { label: "Fayllar", icon: Folder },
+  { label: "Xotira", icon: Sparkles },
   { label: "Plaginlar", icon: Plug },
   { label: "Avtomatlashtirish", icon: Workflow },
   { label: "Sozlamalar", icon: Settings },
@@ -53,6 +55,8 @@ function App() {
   const [live, setLive] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [files, setFiles] = useState<Upload[]>([]);
+  const [memoryItems, setMemoryItems] = useState<MemoryItem[]>([]);
+  const [memoryFact, setMemoryFact] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authName, setAuthName] = useState("");
   const [password, setPassword] = useState("");
@@ -221,7 +225,7 @@ function App() {
     }
   }
 
-  async function logout() {
+  async function loadMemory() {\n    try { const data = await api<{ items: MemoryItem[] }>("/api/memory"); setMemoryItems(data.items); }\n    catch (err) { setError(err instanceof Error ? err.message : "Xotira yuklanmadi"); }\n  }\n\n  async function saveMemory(event: FormEvent) {\n    event.preventDefault();\n    if (!memoryFact.trim()) return;\n    try { await api("/api/memory/remember", { fact: memoryFact.trim() }); setMemoryFact(""); await loadMemory(); }\n    catch (err) { setError(err instanceof Error ? err.message : "Xotira saqlanmadi"); }\n  }\n\n  async function deleteMemory(id: string) {\n    if (!window.confirm("Ushbu xotira yozuvi o‘chirilsinmi?")) return;\n    try { await api("/api/memory/delete", { id }); await loadMemory(); }\n    catch (err) { setError(err instanceof Error ? err.message : "Xotira o‘chirilmadi"); }\n  }\n\n  async function logout() {
     await api("/api/logout", {}).catch(() => {});
     showAuth();
   }
@@ -259,7 +263,7 @@ function App() {
         </div>
         <nav>
           {nav.map(({ label, icon: Icon }) => (
-            <button key={label} className={active === label ? "nav-item selected" : "nav-item"} onClick={() => { setActive(label); setMobileNav(false); }}>
+            <button key={label} className={active === label ? "nav-item selected" : "nav-item"} onClick={() => { setActive(label); setMobileNav(false); if (label === "Xotira") loadMemory(); }}>
               <Icon size={18} /><span>{label}</span>{active === label && <ArrowUpRight size={15} />}
             </button>
           ))}
@@ -352,6 +356,19 @@ function App() {
                 <button type="button" className="icon-btn" title="Fayl biriktirish" onClick={() => document.getElementById("upload-files")?.click()}><Paperclip /></button>
                 <button type="submit" className="send-btn" disabled={!busy && !message.trim() && !files.length}>{busy ? "■" : <Send size={17} />}</button>
               </form>
+            </section>
+          ) : active === "Xotira" ? (
+            <section className="panel list-panel">
+              <div className="panel-heading"><h2><Sparkles /> Shaxsiy xotira</h2><span className="status">{memoryItems.length} ta yozuv</span></div>
+              <p className="muted-note">Bu yozuvlar faqat sizning akkauntingizga tegishli. Agent xotiraga o‘zi yozolmaydi; saqlashni siz tasdiqlaysiz.</p>
+              <form className="memory-form" onSubmit={saveMemory}>
+                <input value={memoryFact} onChange={(e) => setMemoryFact(e.target.value)} maxLength={1000} placeholder="Eslab qolish kerak bo‘lgan ma’lumot…" />
+                <button className="primary-button" disabled={!memoryFact.trim()}>Saqlash</button>
+              </form>
+              {memoryItems.map((item) => (
+                <div className="memory-row" key={item.id}><div><b>{item.fact}</b><small>ID: {item.id}</small></div><button className="chat-delete" onClick={() => deleteMemory(item.id)}>O‘chirish</button></div>
+              ))}
+              {!memoryItems.length && <p className="muted-note">Hozircha saqlangan xotira yo‘q.</p>}
             </section>
           ) : active === "Agentlar" ? (
             <section className="panel list-panel">
