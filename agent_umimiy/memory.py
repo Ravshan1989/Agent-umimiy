@@ -47,7 +47,7 @@ def _write(path: Path, items: list[dict]) -> None:
     except (AttributeError, OSError):
         pass
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
-        json.dump(items[-MAX_ITEMS:], fh, ensure_ascii=False, indent=2)
+        json.dump(items, fh, ensure_ascii=False, indent=2)
     tmp.replace(path)
     try:
         path.chmod(0o600)
