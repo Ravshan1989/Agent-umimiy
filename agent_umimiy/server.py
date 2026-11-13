@@ -8,6 +8,7 @@ Ulanish oddiy HTTP: ishonchli lokal tarmoqda ishlating yoki oldiga HTTPS beruvch
 from __future__ import annotations
 
 import json
+import ipaddress
 import mimetypes
 import queue
 import shutil
@@ -76,6 +77,7 @@ class App:
 
     def __init__(self, store: Store, config_file: str | None = None):
         self.store, self.config_file = store, config_file
+        self.httpd = None
         self.lock = threading.Lock()
         self.channels: dict[int, Channel] = {}
 
@@ -414,6 +416,19 @@ def make_handler(app: App):
                     return self._send(200, asset.read_bytes(), content_type)
                 if url.path == "/manifest.webmanifest":
                     return self._send(200, MANIFEST, "application/manifest+json")
+                if url.path == "/api/host/info":
+                    try:
+                        is_host = ipaddress.ip_address(self.client_address[0]).is_loopback
+                    except ValueError:
+                        is_host = False
+                    if not is_host or app.httpd is None:
+                        return self._json(200, {"is_host": False})
+                    return self._json(200, {
+                        "is_host": True,
+                        "addresses": urls(app.httpd),
+                        "invite": store.invite(),
+                        "port": app.httpd.server_port,
+                    })
                 if url.path in ICONS:
                     return self._send(200, (STATIC_DIR / url.path[1:]).read_bytes(), "image/png")
                 if url.path == "/api/me":
@@ -480,6 +495,15 @@ def make_handler(app: App):
         def _post(self, path: str, body: dict) -> tuple[dict, str]:
             """So'rovni bajaradi: (javob, o'rnatiladigan cookie)."""
             ip = self._ip()
+            if path == "/api/host/firewall":
+                try:
+                    is_host = ipaddress.ip_address(ip).is_loopback
+                except ValueError:
+                    is_host = False
+                if not is_host or app.httpd is None:
+                    raise Refused("Firewall faqat server ishlayotgan kompyuterdan sozlanadi.", 403)
+                ok, message = remote.open_firewall(app.httpd.server_port)
+                return {"ok": ok, "message": message}, ""
             if path in ("/api/login", "/api/register"):
                 if throttle.locked(ip):
                     raise Refused("Juda ko'p noto'g'ri urinish. 10 daqiqadan keyin qayta urining.", 429)
@@ -608,8 +632,10 @@ class Server(ThreadingHTTPServer):
 
 
 def create(store: Store, host: str = "127.0.0.1", port: int = 0, config_file: str | None = None) -> Server:
-    httpd = Server((host, port), make_handler(App(store, config_file)))
+    application = App(store, config_file)
+    httpd = Server((host, port), make_handler(application))
     httpd.store = store
+    application.httpd = httpd
     return httpd
 
 
@@ -658,3 +684,35 @@ def run(host: str, port: int, config_file: str | None = None) -> None:
     finally:
         httpd.server_close()
         httpd.store.close()
+
+
+def run_embedded(config_file: str | None = None) -> None:
+    """Bitta asosiy kompyuterda markaziy server va yangi UI oynasini birga yuritadi."""
+    httpd = None
+    try:
+        cfg = config.read(config_file)
+        port = int(cfg.get("server_port", 8080))
+        cfg["server"] = True
+        config.write(cfg, config_file)
+        httpd = start("0.0.0.0", port, config_file)
+        import webview
+
+        webview.create_window(
+            "Agent Umimiy", f"http://127.0.0.1:{httpd.server_port}/", width=1360, height=900, min_size=(960, 640)
+        )
+        webview.start(gui="edgechromium", storage_path=str(config.user_dir() / "webview"))
+    except Exception as exc:
+        import ctypes
+
+        ctypes.windll.user32.MessageBoxW(
+            None,
+            f"Asosiy serverni ishga tushirib bo'lmadi. Port {config.read(config_file).get('server_port', 8080)} yoki WebView2 Runtime holatini tekshiring.\n\n{exc}",
+            "Agent Umimiy — serverni ishga tushirish",
+            0x10,
+        )
+    finally:
+        if httpd is not None:
+            stop(httpd)
+
+
+
