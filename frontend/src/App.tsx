@@ -314,7 +314,7 @@ function App() {
           <button className="icon-btn menu-btn" onClick={() => setMobileNav(true)} aria-label="Menyu"><Menu /></button>
           <div className="search"><Search size={17} /><input placeholder="Suhbatlar va agentlar..." disabled /></div>
           <select className="agent-select" value={agent} onChange={(e) => setAgent(e.target.value)} aria-label="Agent tanlash">
-            {agents.map((item) => <option key={item.name} value={item.name}>{item.name === "auto" ? "Avtomatik agent" : item.name}</option>)}
+            {agents.map((item) => <option key={item.name} value={item.name}>{item.name === "auto" ? item.model || "Automatic selection" : item.name}</option>)}
           </select>
           <div className="server-pill"><i /> Server: Ulangan</div>
           <button className="icon-btn" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} title="Mavzuni almashtirish">◐</button>
