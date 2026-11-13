@@ -76,3 +76,8 @@ footer{display:flex;align-items:center;gap:15px;color:var(--muted);font-size:10p
 .agent-card .row-copy{flex:1;min-width:0}.agent-card .primary-button{padding:8px 12px;font-size:11px;flex:none}
 .file-row a{font-size:11px;color:#93c5fd;text-decoration:none;white-space:nowrap}
 .file-row a:hover{text-decoration:underline}
+
+.memory-form{display:flex;gap:9px;margin:14px 0}.memory-form input{flex:1;min-width:0;padding:11px 13px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--text)}
+.memory-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 4px;border-top:1px solid var(--line)}
+.memory-row>div{min-width:0}.memory-row b{display:block;font-size:12px;font-weight:500;overflow-wrap:anywhere}.memory-row small{display:block;color:var(--muted);font-size:10px;margin-top:5px}
+@media(max-width:600px){.memory-form{flex-direction:column}.memory-form .primary-button{width:100%}}
