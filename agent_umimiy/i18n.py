@@ -44,6 +44,7 @@ TR: dict[str, dict[str, str]] = {
 
     # — Oyna va dialog sarlavhalari —
     "Agent sozlamasi": {"ru": "Настройка агента", "en": "Agent settings"},
+    "Rasm uchun model (ixtiyoriy)": {"ru": "Модель для изображений (необязательно)", "en": "Vision model (optional)"},
     "Sozlamalar": {"ru": "Настройки", "en": "Settings"},
     "Shaxsiy xotira": {"ru": "Личная память", "en": "Personal memory"},
     "Saqlangan xotira yozuvlari": {"ru": "Сохранённые записи памяти", "en": "Saved memory entries"},
