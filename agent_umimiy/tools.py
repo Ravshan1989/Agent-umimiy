@@ -53,6 +53,7 @@ class Context:
     skills: bool = True  # ko'nikmalar (SKILL.md)
     files_dir: str | None = None  # agent yaratgan hujjatlar (Word, Excel...) saqlanadigan papka
     allow_private: bool = False  # faqat testlar uchun
+    memory_file: str | None = None  # web rejimida foydalanuvchiga xos xotira fayli
 
     @property
     def active(self) -> bool:
@@ -361,15 +362,15 @@ class Toolbox:
 
     # ---- local memory ----
     def t_memory_search(self, query: str, limit: int = 5) -> str:
-        return memory.search(query, limit)
+        return memory.search(query, limit, self.ctx.memory_file)
 
     def t_memory_remember(self, fact: str) -> str:
         self._approve_once("memory_remember", "Xotiraga ma'lumot saqlanadi", str(fact)[:1000])
-        return memory.remember(fact)
+        return memory.remember(fact, self.ctx.memory_file)
 
     def t_memory_forget(self, id: str) -> str:
         self._approve_once("memory_forget", "Xotiradagi ma'lumot o'chiriladi", f"Xotira ID: {id}")
-        return memory.forget(id)
+        return memory.forget(id, self.ctx.memory_file)
 
     # ---- asboblar ----
     def t_list_dir(self, path: str = "") -> str:
