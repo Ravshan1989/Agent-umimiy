@@ -1,5 +1,6 @@
 import base64
 import json
+import socket
 import sys
 import tempfile
 import threading
@@ -13,7 +14,7 @@ from unittest import mock
 from agent_umimiy import attachments as att
 from agent_umimiy.orchestrator import Orchestrator
 from agent_umimiy.providers import build_agent
-from agent_umimiy.tools import Context, Toolbox, _parse_ddg
+from agent_umimiy.tools import Context, Toolbox, _parse_ddg, _public_sockaddrs, ToolError
 from tests.test_tools import serve
 
 PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
@@ -155,6 +156,12 @@ class WebTests(unittest.TestCase):
         self.assertTrue(tb2.run("web_fetch", {"url": url})[1])
         self.assertTrue(tb2.run("web_fetch", {"url": "file:///etc/passwd"})[1])
         self.assertTrue(tb2.run("web_fetch", {"url": "http://localhost:1/"})[1])
+
+    def test_shared_address_space_is_blocked(self):
+        info = (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("100.64.12.34", 443))
+        with mock.patch("agent_umimiy.tools.socket.getaddrinfo", return_value=[info]):
+            with self.assertRaises(ToolError):
+                _public_sockaddrs("rebinding.example", 443, False)
 
     def test_pdf_extraction_stops_after_page_limit(self):
         from agent_umimiy import attachments
