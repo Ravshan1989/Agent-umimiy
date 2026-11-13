@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import difflib
 import hashlib
+import http.client
+import ssl
 import html
 import ipaddress
 import json
@@ -688,7 +690,8 @@ class Toolbox:
 
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (AgentUmimiy)", "Accept-Language": "uz,en"})
         try:
-            with urllib.request.build_opener(Guard).open(req, timeout=timeout) as r:
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _PinnedHTTPHandler(allow), _PinnedHTTPSHandler(allow), Guard)
+            with opener.open(req, timeout=timeout) as r:
                 body = r.read(limit)
                 ctype = r.headers.get("Content-Type", "")
                 m = re.search(r"charset=([\w-]+)", ctype)
@@ -717,6 +720,89 @@ class Toolbox:
         return "Brauzerda ochildi."
 
 
+def _public_sockaddrs(host: str, port: int, allow_private: bool):
+    try:
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except socket.gaierror as exc:
+        raise ToolError(f"Manzil topilmadi: {host}") from exc
+    if not infos:
+        raise ToolError(f"Manzil topilmadi: {host}")
+    shared = ipaddress.ip_network("100.64.0.0/10")
+    checked = []
+    for family, socktype, proto, canonname, sockaddr in infos:
+        ip = ipaddress.ip_address(str(sockaddr[0]).split("%", 1)[0])
+        if not allow_private and (not ip.is_global or ip in shared):
+            raise ToolError("Faqat ochiq internet manzillariga ruxsat bor; ichki, CGNAT yoki maxsus IP manzillar bloklangan.")
+        checked.append((family, socktype, proto, sockaddr))
+    return checked
+
+
+class _PinnedHTTPConnection(http.client.HTTPConnection):
+    def __init__(self, host, *args, allow_private=False, **kwargs):
+        self.allow_private = allow_private
+        super().__init__(host, *args, **kwargs)
+
+    def connect(self):
+        last_error = None
+        for family, socktype, proto, sockaddr in _public_sockaddrs(self.host, self.port, self.allow_private):
+            sock = socket.socket(family, socktype, proto)
+            try:
+                sock.settimeout(self.timeout)
+                if self.source_address:
+                    sock.bind(self.source_address)
+                sock.connect(sockaddr)
+                self.sock = sock
+                return
+            except OSError as exc:
+                last_error = exc
+                sock.close()
+        raise OSError(f"Xavfsiz manzilga ulanib bo'lmadi: {last_error}")
+
+
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    def __init__(self, host, *args, allow_private=False, **kwargs):
+        self.allow_private = allow_private
+        super().__init__(host, *args, **kwargs)
+
+    def connect(self):
+        last_error = None
+        for family, socktype, proto, sockaddr in _public_sockaddrs(self.host, self.port, self.allow_private):
+            sock = socket.socket(family, socktype, proto)
+            try:
+                sock.settimeout(self.timeout)
+                if self.source_address:
+                    sock.bind(self.source_address)
+                sock.connect(sockaddr)
+                self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
+                return
+            except OSError as exc:
+                last_error = exc
+                sock.close()
+        raise OSError(f"Xavfsiz manzilga TLS ulanish o'rnatilmadi: {last_error}")
+
+
+class _PinnedHTTPHandler(urllib.request.HTTPHandler):
+    def __init__(self, allow_private):
+        super().__init__()
+        self.allow_private = allow_private
+
+    def http_open(self, req):
+        factory = lambda host, **kwargs: _PinnedHTTPConnection(host, allow_private=self.allow_private, **kwargs)
+        return self.do_open(factory, req)
+
+
+class _PinnedHTTPSHandler(urllib.request.HTTPSHandler):
+    def __init__(self, allow_private):
+        super().__init__()
+        self.allow_private = allow_private
+
+    def https_open(self, req):
+        factory = lambda host, **kwargs: _PinnedHTTPSConnection(
+            host, allow_private=self.allow_private, context=self._context,
+            check_hostname=self._check_hostname, **kwargs)
+        return self.do_open(factory, req)
+
+
 def _origin(url: str) -> str:
     parsed = urllib.parse.urlparse(url)
     port = parsed.port or (443 if parsed.scheme.lower() == "https" else 80)
@@ -729,14 +815,14 @@ def _check_url(url: str, allow_private: bool):
         raise ToolError("Faqat login-parolsiz http/https manzillar ruxsat etiladi.")
     if allow_private:
         return
+    # DNS tekshiruvi socket ulanayotgan paytda, aynan o'sha IP'ga ulanish bilan birga bajariladi.
+    # Aks holda oldindan tekshirish va HTTP kutubxonasining keyingi DNS so'rovi orasida rebinding mumkin.
     try:
-        infos = socket.getaddrinfo(u.hostname, None)
-    except socket.gaierror:
-        raise ToolError(f"Manzil topilmadi: {u.hostname}")
-    for info in infos:
-        ip = ipaddress.ip_address(info[4][0])
-        if not ip.is_global:
-            raise ToolError("Faqat ochiq internet manzillariga ruxsat bor; ichki yoki maxsus IP manzillar bloklangan.")
+        ip = ipaddress.ip_address(u.hostname.split("%", 1)[0])
+    except ValueError:
+        return
+    if not allow_private and (not ip.is_global or ip in ipaddress.ip_network("100.64.0.0/10")):
+        raise ToolError("Faqat ochiq internet manzillariga ruxsat bor; ichki, CGNAT yoki maxsus IP manzillar bloklangan.")
 
 
 class _Text(HTMLParser):
