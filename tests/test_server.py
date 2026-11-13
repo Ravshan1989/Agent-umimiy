@@ -128,6 +128,19 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(c.call("/api/logout", {})[0], 200)
         self.assertEqual(c.call("/api/me")[0], 401)
 
+
+    def test_web_settings_are_authenticated_validated_and_persisted(self):
+        client = self.user("Ali")
+        self.assertEqual(client.call("/api/settings")[0], 200)
+        code, data = client.call("/api/settings", {"lang": "ru", "theme": "light", "accent": "cyan"})
+        self.assertEqual(code, 200)
+        self.assertEqual(data, {"ok": True, "lang": "ru", "theme": "light", "accent": "cyan"})
+        code, data = client.call("/api/settings")
+        self.assertEqual(code, 200)
+        self.assertEqual(data, {"lang": "ru", "theme": "light", "accent": "cyan"})
+        self.assertEqual(client.call("/api/settings", {"lang": "xx", "theme": "light", "accent": "cyan"})[0], 400)
+        self.assertEqual(Client(self.base).call("/api/settings")[0], 401)
+
     def test_chat_stream_history_and_isolation(self):
         ali, vali = self.user("Ali"), self.user("Vali")
         chat = ali.call("/api/chat/new", {})[1]["id"]
