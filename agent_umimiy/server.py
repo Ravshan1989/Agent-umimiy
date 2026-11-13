@@ -15,6 +15,7 @@ import threading
 import time
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import mimetypes
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
@@ -395,7 +396,17 @@ def make_handler(app: App):
             url = urlparse(self.path)
             try:
                 if url.path == "/":
+                    index = STATIC_WEB_DIR / "index.html"
+                    if index.is_file():
+                        return self._send(200, index.read_bytes(), "text/html; charset=utf-8")
                     return self._send(200, PAGE.encode(), "text/html; charset=utf-8")
+                if url.path.startswith("/assets/"):
+                    root = STATIC_WEB_DIR.resolve()
+                    asset = (STATIC_WEB_DIR / url.path.lstrip("/")).resolve()
+                    if root not in asset.parents or not asset.is_file():
+                        raise Refused("Fayl topilmadi.", 404)
+                    content_type = mimetypes.guess_type(asset.name)[0] or "application/octet-stream"
+                    return self._send(200, asset.read_bytes(), content_type)
                 if url.path == "/manifest.webmanifest":
                     return self._send(200, MANIFEST, "application/manifest+json")
                 if url.path in ICONS:
