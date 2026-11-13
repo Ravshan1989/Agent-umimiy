@@ -28,6 +28,20 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 - **Oyna o'lchami**: oyna ekrandan katta ochilmaydi, kichik noutbuklarda to'liq ekranga o'tadi.
 - `/api/workspace` mahalliy ma'lumotni (loyiha papkasi, MCP plaginlar, skills) faqat
   dasturning o'z oynasiga beradi, `--serve` rejimidagi veb-foydalanuvchilarga bermaydi.
+- **Agentning yolg'on javoblari**: endi u qurollari borligini bilmay "menda bunday imkoniyat
+  yo'q" demaydi, bajarmagan ishni "bajardim" deb aytmaydi va tekshirmasdan dasturni
+  "o'rnatilgan" demaydi. Yangi `check_program` asbobi oq ro'yxatdagi dasturlarni
+  (ffmpeg, node, git, ...) haqiqatan tekshiradi.
+- **Buyruq vaqti tugashi**: odatiy chegara 300, eng ko'pi 900 soniya; to'xtatilganda
+  olingan chiqish yo'qolmaydi va buyruq qisman bajarilgan bo'lishi mumkinligi aytiladi.
+  Windows'da chegara endi haqiqatan ishlaydi: jarayon bolalari bilan birga o'ldiriladi
+  (ilgari `shell=True` tufayli faqat cmd.exe o'lar, buyruq esa davom etardi).
+- **Biriktirilgan fayllar**: suhbatga yuklangan fayl endi `files/<suhbat>/uploads/` ichida
+  saqlanadi, interfeysda bosiladigan havola bo'lib chiqadi va yuklab olinadi; suhbat
+  o'chirilganda u ham o'chadi. Ilgari fayl umumiy papkaga boshqa nom bilan tushib,
+  qaytib olinmas edi.
+- **CI yig'ish**: to'plam tekshiruvidagi `ls` quvuri `pipefail` bilan xato qaytarib,
+  Windows yig'ilishini yiqitar edi; tekshiruv endi Windows bilan cheklangan.
 
 ## [0.3.0] — 2026-11-12
 

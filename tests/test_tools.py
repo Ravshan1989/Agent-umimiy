@@ -2,11 +2,14 @@ import json
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from unittest import mock
 
 from agent_umimiy import gitutil
+from agent_umimiy import tools as tools_mod
 from agent_umimiy.orchestrator import Orchestrator
 from agent_umimiy.providers import build_agent
 from agent_umimiy.tools import Context, Toolbox, project_notes
@@ -164,6 +167,37 @@ class ToolboxTests(unittest.TestCase):
         out, err = self.tb.run("run_command", {"command": "echo salom"})
         self.assertIn("salom", out)
         self.assertIn("exit code: 0", out)
+
+    def test_timed_out_command_keeps_its_output_and_warns_about_partial_work(self):
+        slow = (f"{sys.executable} -c \"import sys,time; print('boshlandi', flush=True); time.sleep(30)\"")
+        started = time.monotonic()
+        out, err = self.tb.run("run_command", {"command": slow, "timeout": 2})
+        # Chegaradan keyin buyruq bolalari bilan o'ldiriladi: aks holda shell=True bilan nabira jarayon
+        # ishlashda davom etadi va chaqiruv 30 soniya osilib qoladi.
+        self.assertLess(time.monotonic() - started, 20, "buyruq chegaradan keyin ham ishlashda davom etdi")
+        self.assertTrue(err, out)
+        self.assertIn("qisman", out)  # agent ishni bajarilgan deb o'ylamasin
+        self.assertIn("900", out)  # kattaroq chegara bilan qayta urinish mumkinligi aytiladi
+        self.assertIn("boshlandi", out)  # to'xtatilgunga qadar olingan chiqish yo'qolmaydi
+
+    def test_slow_command_finishes_when_the_timeout_is_large_enough(self):
+        quick = f"{sys.executable} -c \"import time; time.sleep(1); print('tugadi')\""
+        out, err = self.tb.run("run_command", {"command": quick, "timeout": 60})
+        self.assertFalse(err, out)
+        self.assertIn("tugadi", out)
+
+    def test_check_program_reports_the_truth_and_refuses_other_names(self):
+        """Agent dasturni tekshira olsin, lekin bu orqali o'zboshimcha buyruq ishga tushira olmasin."""
+        out, err = self.tb.run("check_program", {"name": "python"})
+        self.assertFalse(err, out)
+        self.assertIn("o'rnatilgan", out)
+        out, err = self.tb.run("check_program", {"name": "bunday-dastur-yo'q; echo salom"})
+        self.assertTrue(err)
+        self.assertIn("Faqat shu dasturlarni", out)
+        with mock.patch.object(tools_mod.shutil, "which", return_value=None):
+            out, err = self.tb.run("check_program", {"name": "ffmpeg"})
+        self.assertFalse(err, out)
+        self.assertIn("o'rnatilmagan", out)
 
     def test_run_command_asks(self):
         self.answer = "no"

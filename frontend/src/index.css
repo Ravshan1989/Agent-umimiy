@@ -195,3 +195,5 @@ button.text-link{cursor:pointer;font-size:11.5px;color:#5aa2ff}button.text-link:
 
 .employee-settings{display:grid;gap:10px}.employee-row{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card)}.employee-row .row-copy{flex:1;min-width:100px}.employee-row .secondary-btn{white-space:nowrap}.employee-row .danger-btn{color:#ff9aaa;border-color:#743849}.employee-settings>.secondary-btn{justify-self:start}
 @media(max-width:700px){.employee-row{align-items:stretch;flex-wrap:wrap}.employee-row .row-copy{flex-basis:100%}}
+
+.message-bubble small.attached{display:flex;flex-wrap:wrap;gap:4px 10px}.message-bubble small.attached a{color:inherit;text-decoration:underline;cursor:pointer}.message-bubble small.attached a:hover{color:#fff}

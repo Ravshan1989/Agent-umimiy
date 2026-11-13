@@ -23,7 +23,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import attachments, config, mcp as mcplib, preview, remote, skills
+from . import attachments, config, preview, remote, skills
+from . import mcp as mcplib
 from .server_page import PAGE
 from .store import SESSION_DAYS, Store, StoreError
 
@@ -46,6 +47,8 @@ FILE_TYPES = {
     ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     ".csv": "text/csv; charset=utf-8", ".json": "application/json; charset=utf-8",
     ".txt": "text/plain; charset=utf-8", ".md": "text/plain; charset=utf-8",
+    ".pdf": "application/pdf", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".gif": "image/gif", ".webp": "image/webp",
 }
 ICONS = {"/icon-192.png": 192, "/icon-512.png": 512, "/apple-touch-icon.png": 180}
 # Telefonda «Bosh ekranga qo'shish» orqali ilova kabi ochilishi uchun (PWA)
@@ -130,6 +133,10 @@ class App:
     def files_dir(self, chat_id: int) -> Path:
         """Shu suhbatda agent yaratgan fayllar papkasi."""
         return config.user_dir() / "files" / str(chat_id)
+
+    def uploads_dir(self, chat_id: int) -> Path:
+        """Shu suhbatga foydalanuvchi biriktirgan fayllar papkasi."""
+        return self.files_dir(chat_id) / "uploads"
 
     def network_info(self) -> dict:
         server = self.network_server
@@ -307,7 +314,9 @@ class App:
         try:
             for f in files:
                 try:
-                    atts.append(attachments.save_upload(config.upload_dir(), f.get("name", "fayl"), f.get("data", "")))
+                    # Suhbat papkasiga saqlanadi: shundagina foydalanuvchi uni qaytib yuklab ola oladi
+                    # va suhbat o'chirilganda biriktirmalar ham o'chadi.
+                    atts.append(attachments.save_upload(self.uploads_dir(chat_id), f.get("name", "fayl"), f.get("data", "")))
                 except attachments.AttachError as exc:
                     raise Refused(str(exc))
             if not text and not atts:
@@ -315,7 +324,9 @@ class App:
             prompt = text or "Biriktirilgan fayl(lar)ni ko'rib chiq va qisqacha tushuntir."
             if not self.store.title(chat_id):
                 self.store.set_title(chat_id, prompt.replace("\n", " ")[:TITLE_LEN])
-            self._record(chat_id, {"k": "user", "text": prompt, "files": [a.name for a in atts]})
+            # Ikkala nom ham kerak: "name" ko'rsatiladi, "file" esa diskdagi (vaqt belgili) nom — havola shu bilan ishlaydi.
+            self._record(chat_id, {"k": "user", "text": prompt,
+                                   "files": [{"name": a.name, "file": Path(a.path).name} for a in atts]})
             self._publish(chat_id, {"type": "busy", "agent": agent})
             with self.lock:
                 ch = self._channel(chat_id)
@@ -350,9 +361,9 @@ class App:
                     if item.get("k") == "user":
                         save_turn()
                         pending_user = str(item.get("text", ""))
-                        names = item.get("files") or []
+                        names = attached_names(item.get("files"))
                         if names:
-                            pending_user += "\n\nBiriktirilgan fayllar: " + ", ".join(map(str, names))
+                            pending_user += "\n\nBiriktirilgan fayllar: " + ", ".join(names)
                         pending_answer = None
                     elif item.get("k") == "agent" and pending_user is not None and not item.get("err"):
                         pending_answer = str(item.get("text", ""))
@@ -471,6 +482,21 @@ class Throttle:
             self.sends[user_id] = attempts + [now]
             return True
 
+
+
+def attached_names(files) -> list[str]:
+    """Biriktirmalarning ko'rinadigan nomlari.
+
+    Yangi yozuvlar {"name": ..., "file": ...} ko'rinishida, eskilari esa oddiy matn:
+    ikkalasi ham ishlashi kerak, aks holda modelga dict'ning xom matni tushadi.
+    """
+    out = []
+    for item in files or []:
+        if isinstance(item, dict):
+            out.append(str(item.get("name") or item.get("file") or "fayl"))
+        elif isinstance(item, str):
+            out.append(item)
+    return out
 
 
 def safe_file_path(base, name: str) -> Path | None:
@@ -846,7 +872,7 @@ def make_handler(app: App):
 
         def _file(self, chat_id: int, name: str, view: bool):
             """Agent shu suhbatda yaratgan fayl: yuklab beradi yoki (view) qum qutisidagi ko'rinish sahifasini beradi."""
-            path = safe_file_path(app.files_dir(chat_id), name)
+            path = safe_file_path(app.files_dir(chat_id), name) or safe_file_path(app.uploads_dir(chat_id), name)
             if path is None:
                 raise Refused("Fayl topilmadi.", 404)
             if path.stat().st_size > MAX_DOWNLOAD:

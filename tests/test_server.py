@@ -245,7 +245,9 @@ class ServerTests(unittest.TestCase):
         note = {"name": "../eslatma.txt", "data": base64.b64encode(b"muhim matn").decode()}
         self.assertEqual(ali.call("/api/send", {"chat": chat, "text": "", "agent": "aks", "files": [note]})[0], 200)
         self.assertIn(".._eslatma.txt", ali.records(chat)[-1]["text"])
-        self.assertEqual([p.parent for p in (self.d / "uploads").iterdir()], [self.d / "uploads"])
+        uploads = self.d / "files" / str(chat) / "uploads"  # biriktirmalar shu suhbat papkasida qoladi
+        self.assertEqual([p.parent for p in uploads.iterdir()], [uploads])
+        self.assertFalse((self.d / "uploads").exists())
         self.assertEqual(ali.call("/api/send", {"chat": chat, "text": " ", "agent": "aks"})[0], 400)
         self.assertEqual(ali.call("/api/send", {"chat": chat, "text": "x", "agent": "buyruq"})[0], 400)
         self.assertEqual(ali.call("/api/chat/new", {}, ctype="text/plain")[0], 415)  # boshqa saytdagi forma
@@ -289,6 +291,29 @@ class ServerTests(unittest.TestCase):
             for i in range(8):
                 self.store.add_record(chat, {"n": i})
         self.assertEqual([r["n"] for r in self.store.records(chat)], [3, 4, 5, 6, 7])
+
+    def test_attached_file_can_be_downloaded_back_from_its_own_chat(self):
+        """Foydalanuvchi biriktirgan fayl suhbat papkasida saqlanadi va faqat egasiga qaytariladi."""
+        ali, vali = self.user("Ali"), self.user("Vali")
+        chat = ali.call("/api/chat/new", {})[1]["id"]
+        data = base64.b64encode(b"rasm-baytlari").decode()
+        code, body = ali.call("/api/send", {"chat": chat, "text": "Shu rasmni ko'r", "agent": "aks",
+                                            "files": [{"name": "rasm.png", "data": data}]})
+        self.assertEqual(code, 200, body)
+        attached = next(r["files"] for r in ali.records(chat) if r.get("k") == "user" and r.get("files"))
+        self.assertEqual(attached[0]["name"], "rasm.png")
+        stored = attached[0]["file"]
+        self.assertTrue(stored.endswith("rasm.png"), stored)
+        self.assertNotEqual(stored, "rasm.png")  # diskda vaqt belgili nom bilan yotadi
+        url = f"/api/file?chat={chat}&name=" + urllib.parse.quote(stored)
+        with urllib.request.urlopen(urllib.request.Request(self.base + url, headers={"Cookie": ali.cookie})) as r:
+            self.assertEqual(r.read(), b"rasm-baytlari")
+            self.assertEqual(r.headers["Content-Type"], "image/png")
+            self.assertIn("attachment", r.headers["Content-Disposition"])
+        self.assertEqual(vali.call(url)[0], 404)  # begona suhbat
+        self.assertEqual(Client(self.base).call(url)[0], 401)
+        self.assertEqual(ali.call("/api/chat/delete", {"chat": chat})[0], 200)
+        self.assertFalse((self.d / "files" / str(chat)).exists())  # biriktirmalar ham o'chadi
 
     def test_created_file_download_is_private(self):
         ali, vali = self.user("Ali"), self.user("Vali")

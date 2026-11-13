@@ -77,6 +77,14 @@ class StoreTests(unittest.TestCase):
 
 
 class InstructionsAndTodo(unittest.TestCase):
+    def test_honesty_rules_are_given_to_both_project_and_chat_agents(self):
+        """Agent qurollari borligini bilmay rad etmasin va bajarmagan ishni bajardim demasin."""
+        for ctx in (Context(root=str(Path(tempfile.mkdtemp()))), Context(), Context(remote_user=True)):
+            sp = system_prompt(ctx)
+            self.assertIn("never answer that you have no such ability", sp)
+            self.assertIn("Never report work as done", sp)
+            self.assertIn("is installed or available unless you checked", sp)
+
     def test_project_instructions_in_system_prompt(self):
         d = tempfile.mkdtemp()
         self.assertNotIn("Project instructions", system_prompt(Context(root=d)))

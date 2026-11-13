@@ -10,7 +10,8 @@ import { Toaster, toast } from "sonner";
 
 type Agent = { name: string; model?: string };
 type Chat = { id: number; title?: string };
-type RecordItem = { k: string; text?: string; name?: string; agent?: string; meta?: string; err?: boolean; files?: string[]; kind?: string };
+type Attached = string | { name?: string; file?: string };  // eski yozuvlar oddiy matn, yangilari diskdagi nom bilan
+type RecordItem = { k: string; text?: string; name?: string; agent?: string; meta?: string; err?: boolean; files?: Attached[]; kind?: string };
 type LiveState = Record<string, string>;
 type WebSettings = { lang: "uz" | "ru" | "en"; theme: "dark" | "light"; accent: "violet" | "blue" | "cyan" | "emerald" };
 type NetworkInfo = { enabled: boolean; urls: string[]; port: number; invite: string; error: string };
@@ -429,7 +430,11 @@ function App() {
     </> : <div className="messages">
       {records.map((record, index) => record.k === "act"
         ? <div className="activity-line" key={index}>{record.agent}: {record.text}{record.kind === "file" && <a href={fileHref(record.text)} download><Download size={12} /> Yuklab olish</a>}</div>
-        : <div className={record.k === "user" ? "message-row user-message" : "message-row"} key={index}><div className="message-avatar">{record.k === "user" ? user.slice(0, 1).toUpperCase() : <Bot size={17} />}</div><div className="message-body"><b>{record.k === "user" ? user : record.name || record.agent || "Agent"}</b><div className={record.err ? "message-bubble error" : "message-bubble"}>{record.text}{record.files?.length ? <small>📎 {record.files.join(", ")}</small> : null}</div>{record.meta && <small className="message-meta">{record.meta}</small>}</div></div>)}
+        : <div className={record.k === "user" ? "message-row user-message" : "message-row"} key={index}><div className="message-avatar">{record.k === "user" ? user.slice(0, 1).toUpperCase() : <Bot size={17} />}</div><div className="message-body"><b>{record.k === "user" ? user : record.name || record.agent || "Agent"}</b><div className={record.err ? "message-bubble error" : "message-bubble"}>{record.text}{record.files?.length ? <small className="attached">{record.files.map((file, i) => {
+                  const shown = typeof file === "string" ? file : (file.name || file.file || "fayl");
+                  const stored = typeof file === "string" ? "" : file.file;  // eski yozuvlarda diskdagi nom saqlanmagan
+                  return <span key={i}>📎 {stored ? <a href={fileHref(stored)} download={shown}>{shown}</a> : shown}</span>;
+                })}</small> : null}</div>{record.meta && <small className="message-meta">{record.meta}</small>}</div></div>)}
       {Object.entries(live).map(([name, text]) => <div className="message-row" key={name}><div className="message-avatar"><Bot size={17} /></div><div className="message-body"><b>{name} <span className="typing-label">yozmoqda…</span></b><div className="message-bubble live">{text}</div></div></div>)}
       {busy && !Object.keys(live).length && <div className="typing-indicator"><span /><span /><span /> Agent javob tayyorlamoqda…</div>}
       <div ref={messagesEnd} />

@@ -168,7 +168,7 @@ function copy(text,btn){var t=document.createElement('textarea');t.value=text;do
 function agentRow(name,meta,html,err){var c=err?'var(--err)':color(String(name).split(' ')[0]);
  return add('<div class="av" style="background:'+c+'">'+esc((name||'?')[0].toUpperCase())+'</div><div class="col"><div class="nm" style="color:'+c+'">'+esc(name)+(meta?'<span>'+esc(meta)+'</span>':'')+'</div><div class="b'+(err?' err':'')+'">'+html+'</div></div>','row')}
 function rec(r){
- if(r.k==='user'){var f=(r.files&&r.files.length)?'<div class="files">▣ '+r.files.map(esc).join(' &nbsp; ▣ ')+'</div>':'';
+ if(r.k==='user'){var f=(r.files&&r.files.length)?'<div class="files">▣ '+r.files.map(function(x){return esc(typeof x==='string'?x:(x&&(x.name||x.file))||'fayl')}).join(' &nbsp; ▣ ')+'</div>':'';
   add('<div class="col">'+f+'<div class="b">'+md(r.text)+'</div></div>','row u')}
  else if(r.k==='agent'){var row=agentRow(r.name,r.meta,md(r.text),r.err);
   if(!r.err){var b=document.createElement('button');b.className='cp';b.textContent='Nusxalash';b.onclick=function(){copy(r.text,b)};row.querySelector('.col').appendChild(b)}}
