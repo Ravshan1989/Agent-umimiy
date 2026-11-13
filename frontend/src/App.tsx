@@ -257,7 +257,7 @@ function App() {
         {activeView === "Sozlamalar" && <section className="panel settings-page">
           <div className="panel-heading"><h2><Settings /> Sozlamalar</h2><span className="text-link">Xavfsiz web sozlamalari</span></div>
           <div className="settings-grid">
-            <label>Interfeys tili<select value={settings.lang} disabled={settingsSaving} onChange={(e) => void saveSettings({ ...settings, lang: e.target.value as WebSettings["lang"] })}><option value="uz">O‘zbekcha</option><option value="ru">Русский</option><option value="en">English</option></select></label>
+            <div className="settings-info"><b>Interfeys tili</b><span>O‘zbekcha · boshqa tillar tarjimasi hali ulanmagan</span></div>
             <label>Ko‘rinish<select value={settings.theme} disabled={settingsSaving} onChange={(e) => void saveSettings({ ...settings, theme: e.target.value as WebSettings["theme"] })}><option value="dark">Qorong‘i</option><option value="light">Yorug‘</option></select></label>
             <label>Asosiy rang<select value={settings.accent} disabled={settingsSaving} onChange={(e) => void saveSettings({ ...settings, accent: e.target.value as WebSettings["accent"] })}><option value="violet">Neon binafsha</option><option value="blue">Ko‘k</option><option value="cyan">Moviy</option><option value="emerald">Zumrad</option></select></label>
           </div>
