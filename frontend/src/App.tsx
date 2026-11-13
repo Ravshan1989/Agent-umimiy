@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { FormEvent } from "react";
 import { motion } from "framer-motion";
 import {
   Activity, ArrowUpRight, Bot, Boxes, Check, ChevronDown, FileSpreadsheet,
@@ -123,7 +124,7 @@ function App() {
     return () => source.close();
   }, [user, chatId, refresh]);
 
-  async function authenticate(event: React.FormEvent) {
+  async function authenticate(event: FormEvent) {
     event.preventDefault();
     setError("");
     try {
@@ -190,7 +191,7 @@ function App() {
     });
   }
 
-  async function sendMessage(event?: React.FormEvent) {
+  async function sendMessage(event?: FormEvent) {
     event?.preventDefault();
     if (busy) {
       if (chatId !== null) await api("/api/stop", { chat: chatId }).catch(() => {});
@@ -347,7 +348,7 @@ function App() {
               {files.length > 0 && <div className="pending-files">{files.map((file, index) => <span key={index}>📎 {file.name}<button onClick={() => setFiles((items) => items.filter((_, i) => i !== index))}>×</button></span>)}</div>}
               <form className="chat-composer" onSubmit={sendMessage}>
                 <input ref={inputRef} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Xabaringizni yozing…" />
-                <input type="file" multiple hidden ref={undefined} id="upload-files" onChange={(e) => { addFiles(e.target.files); e.currentTarget.value = ""; }} />
+                <input type="file" multiple hidden id="upload-files" onChange={(e) => { addFiles(e.target.files); e.currentTarget.value = ""; }} />
                 <button type="button" className="icon-btn" title="Fayl biriktirish" onClick={() => document.getElementById("upload-files")?.click()}><Paperclip /></button>
                 <button type="submit" className="send-btn" disabled={!busy && !message.trim() && !files.length}>{busy ? "■" : <Send size={17} />}</button>
               </form>
