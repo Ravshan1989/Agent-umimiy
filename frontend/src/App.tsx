@@ -353,6 +353,40 @@ function App() {
                 <button type="submit" className="send-btn" disabled={!busy && !message.trim() && !files.length}>{busy ? "■" : <Send size={17} />}</button>
               </form>
             </section>
+          ) : active === "Agentlar" ? (
+            <section className="panel list-panel">
+              <div className="panel-heading"><h2><Bot /> Haqiqiy ulangan agentlar</h2></div>
+              <p className="muted-note">Quyidagi ro‘yxat Python server sozlamalaridan olinadi.</p>
+              <div className="agent-cards">
+                {agents.map((item) => (
+                  <article className="agent-card" key={item.name}>
+                    <div className="file-icon blue"><Bot /></div>
+                    <div className="row-copy"><b>{item.name === "auto" ? "Avtomatik tanlash" : item.name}</b><span>{item.model || "Serverdagi agent"}</span></div>
+                    <button className="primary-button" onClick={() => { setAgent(item.name); setActive("Suhbat"); }}>Tanlash</button>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : active === "Fayllar" ? (
+            <section className="panel list-panel">
+              <div className="panel-heading"><h2><Folder /> Joriy suhbat fayllari</h2></div>
+              <p className="muted-note">Agent yaratgan va server saqlagan fayllar.</p>
+              {records.filter((item) => item.k === "act" && item.kind === "file").map((item, index) => (
+                <div className="file-row" key={index}>
+                  <div className="file-icon word"><FileText /></div>
+                  <b>{item.text}</b>
+                  <a href={`/api/file?chat=${chatId}&name=${encodeURIComponent(item.text || "")}`}>Yuklab olish</a>
+                </div>
+              ))}
+              {!records.some((item) => item.k === "act" && item.kind === "file") && <p className="muted-note">Bu suhbatda hali yaratilgan fayl yo‘q. Agentdan Word yoki Excel fayl yaratishni so‘rang.</p>}
+            </section>
+          ) : active === "Sozlamalar" ? (
+            <section className="panel placeholder-panel">
+              <Settings size={38} /><h2>Sozlamalar</h2>
+              <p>Interfeys mavzusi va joriy server sessiyasini boshqarish.</p>
+              <button className="primary-button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>Mavzuni {theme === "dark" ? "yorug‘" : "qorong‘i"} qilish</button>
+              <button className="text-button" onClick={logout}>Hisobdan chiqish</button>
+            </section>
           ) : (
             <section className="panel placeholder-panel">
               <Bot size={38} /><h2>{active}</h2>
