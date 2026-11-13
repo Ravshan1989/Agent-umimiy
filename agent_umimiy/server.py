@@ -8,6 +8,7 @@ Ulanish oddiy HTTP: ishonchli lokal tarmoqda ishlating yoki oldiga HTTPS beruvch
 from __future__ import annotations
 
 import json
+import mimetypes
 import queue
 import shutil
 import socketserver
@@ -18,7 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import attachments, config, preview, remote
+from . import attachments, config, preview, remote, skills
 from .server_page import PAGE
 from .store import SESSION_DAYS, Store, StoreError
 
@@ -32,8 +33,8 @@ MAX_DOWNLOAD = 50 * 1024 * 1024
 TITLE_LEN = 40
 LOCAL_ONLY = ("cli",)  # serverda buyruq ishga tushiradigan agent turlari: veb-foydalanuvchilarga berilmaydi
 STATIC_DIR = Path(__file__).parent / "static"
-PAGE_CSP = ("default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
-            "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'")
+PAGE_CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'")
 # Yaratiladigan fayl turlari (tizim sozlamasiga bog'liq bo'lmasligi uchun aniq ro'yxat)
 FILE_TYPES = {
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -395,7 +396,21 @@ def make_handler(app: App):
             url = urlparse(self.path)
             try:
                 if url.path == "/":
+                    web_index = STATIC_DIR / "web" / "index.html"
+                    if web_index.is_file():
+                        return self._send(200, web_index.read_bytes(), "text/html; charset=utf-8")
                     return self._send(200, PAGE.encode(), "text/html; charset=utf-8")
+                if url.path.startswith("/assets/"):
+                    web_root = (STATIC_DIR / "web").resolve()
+                    asset = (web_root / url.path.lstrip("/")).resolve()
+                    try:
+                        asset.relative_to(web_root)
+                    except ValueError:
+                        raise Refused("Fayl topilmadi.", 404)
+                    if not asset.is_file():
+                        raise Refused("Fayl topilmadi.", 404)
+                    content_type = mimetypes.guess_type(asset.name)[0] or "application/octet-stream"
+                    return self._send(200, asset.read_bytes(), content_type)
                 if url.path == "/manifest.webmanifest":
                     return self._send(200, MANIFEST, "application/manifest+json")
                 if url.path in ICONS:
@@ -403,6 +418,27 @@ def make_handler(app: App):
                 if url.path == "/api/me":
                     user_id, name = self._user()
                     return self._json(200, {"user": name, "agents": app.agents(), "chats": store.chats(user_id)})
+                if url.path == "/api/settings":
+                    self._user()
+                    cfg = config.read(app.config_file)
+                    return self._json(200, {"lang": cfg.get("lang", "uz") if cfg.get("lang") in ("uz", "ru", "en") else "uz",
+                                            "theme": cfg.get("theme", "dark") if cfg.get("theme") in ("dark", "light") else "dark",
+                                            "accent": cfg.get("accent", "violet") if cfg.get("accent") in ("violet", "blue", "cyan", "emerald") else "violet"})
+                if url.path == "/api/workspace":
+                    self._user()
+                    cfg = config.read(app.config_file)
+                    # Return metadata only: never expose MCP commands, headers, env vars, tokens or local paths.
+                    mcp = [{"name": str(x.get("name", "")), "transport": str(x.get("transport", "stdio")),
+                            "enabled": bool(x.get("enabled", True))} for x in cfg.get("mcp", []) if isinstance(x, dict)]
+                    discovered = skills.discover(cfg.get("project") or None) if cfg.get("skills", True) else []
+                    project = Path(cfg.get("project")).name if isinstance(cfg.get("project"), str) and cfg.get("project") else ""
+                    return self._json(200, {"project": project, "plugins": mcp,
+                                            "skills": [{"name": x.name, "description": x.description, "source": x.source}
+                                                       for x in discovered],
+                                            "automation": {"available": False, "reason": "Jadval va triggerlar moduli hali ulanmagan"},
+                                            "database": {"engine": "SQLite", "status": "connected",
+                                                         "users": len(store.users()), "chats": sum(
+                                                             len(store.chats(uid)) for uid, in store._all("SELECT id FROM users"))}})
                 if url.path == "/api/stream":
                     user_id, _ = self._user()
                     return self._stream(self._chat(user_id, parse_qs(url.query).get("chat", [""])[0]))
@@ -478,6 +514,14 @@ def make_handler(app: App):
                 store.drop_session(self._token())
                 return {"ok": True}, self._cookie("", 0)
             user_id, _ = self._user()
+            if path == "/api/settings":
+                cfg = config.read(app.config_file)
+                lang, theme, accent = body.get("lang", cfg.get("lang", "uz")), body.get("theme", cfg.get("theme", "dark")), body.get("accent", cfg.get("accent", "violet"))
+                if lang not in ("uz", "ru", "en") or theme not in ("dark", "light") or accent not in ("violet", "blue", "cyan", "emerald"):
+                    raise Refused("Sozlama qiymati noto'g'ri.")
+                cfg.update({"lang": lang, "theme": theme, "accent": accent})
+                config.write(cfg, app.config_file)
+                return {"ok": True, "lang": lang, "theme": theme, "accent": accent}, ""
             if path == "/api/chat/new":
                 if len(store.chats(user_id)) >= 100:
                     raise Refused("Bir foydalanuvchi ko'pi bilan 100 ta suhbat yaratishi mumkin.", 429)

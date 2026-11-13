@@ -78,6 +78,21 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(c.call("/api/me")[0], 401)
         self.assertEqual(c.call("/api/chat/new", {})[0], 401)
 
+    def test_built_react_frontend_is_served_when_present(self):
+        web = self.d / "static" / "web"
+        assets = web / "assets"
+        assets.mkdir(parents=True)
+        (web / "index.html").write_text('<!doctype html><title>Agent Umumiy React</title><script type="module" src="/assets/app.js"></script>', encoding="utf-8")
+        (assets / "app.js").write_text("window.agentUmumiy = true;", encoding="utf-8")
+        with mock.patch.object(server, "STATIC_DIR", self.d / "static"):
+            with urllib.request.urlopen(self.base + "/") as response:
+                page = response.read()
+                self.assertIn(b"Agent Umumiy React", page)
+                self.assertIn("default-src 'self'", response.headers["Content-Security-Policy"])
+            with urllib.request.urlopen(self.base + "/assets/app.js") as response:
+                self.assertEqual(response.read(), b"window.agentUmumiy = true;")
+                self.assertIn("javascript", response.headers["Content-Type"])
+
     def test_installable_as_phone_app(self):
         with urllib.request.urlopen(self.base + "/") as r:
             self.assertIn(b'rel="manifest" href="/manifest.webmanifest"', r.read())
@@ -112,6 +127,41 @@ class ServerTests(unittest.TestCase):
                                         {"name": "aks", "model": ""}])  # CLI agent veb-foydalanuvchilarga berilmaydi
         self.assertEqual(c.call("/api/logout", {})[0], 200)
         self.assertEqual(c.call("/api/me")[0], 401)
+
+
+    def test_workspace_status_is_authenticated_and_redacts_plugin_secrets(self):
+        cfg_path = self.d / "agents.json"
+        cfg_path.write_text(json.dumps({"web": False, "project": "C:/work/demo-project",
+            "mcp": [{"name": "github", "transport": "http", "url": "https://example.test/mcp",
+                     "headers": "Authorization: Bearer TOP_SECRET", "env": "TOKEN=TOP_SECRET"}],
+            "agents": [{"name": "aks", "type": "echo"}]}))
+        httpd = server.create(self.store, config_file=str(cfg_path))
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        self.addCleanup(httpd.server_close)
+        self.addCleanup(httpd.shutdown)
+        client = Client(f"http://127.0.0.1:{httpd.server_port}")
+        self.assertEqual(client.call("/api/workspace")[0], 401)
+        self.assertEqual(client.call("/api/register", {"name": "TestUser", "password": PASSWORD,
+                                                       "invite": self.store.invite()})[0], 200)
+        code, data = client.call("/api/workspace")
+        self.assertEqual(code, 200)
+        self.assertEqual(data["project"], "demo-project")
+        self.assertEqual(data["plugins"], [{"name": "github", "transport": "http", "enabled": True}])
+        self.assertEqual(data["database"]["engine"], "SQLite")
+        self.assertNotIn("TOP_SECRET", json.dumps(data))
+        self.assertNotIn("example.test", json.dumps(data))
+
+    def test_web_settings_are_authenticated_validated_and_persisted(self):
+        client = self.user("Ali")
+        self.assertEqual(client.call("/api/settings")[0], 200)
+        code, data = client.call("/api/settings", {"lang": "ru", "theme": "light", "accent": "cyan"})
+        self.assertEqual(code, 200)
+        self.assertEqual(data, {"ok": True, "lang": "ru", "theme": "light", "accent": "cyan"})
+        code, data = client.call("/api/settings")
+        self.assertEqual(code, 200)
+        self.assertEqual(data, {"lang": "ru", "theme": "light", "accent": "cyan"})
+        self.assertEqual(client.call("/api/settings", {"lang": "xx", "theme": "light", "accent": "cyan"})[0], 400)
+        self.assertEqual(Client(self.base).call("/api/settings")[0], 401)
 
     def test_chat_stream_history_and_isolation(self):
         ali, vali = self.user("Ali"), self.user("Vali")

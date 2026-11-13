@@ -8,6 +8,7 @@ on:
         required: false
         default: ""
   push:
+    branches: ["feature/ultra-modern-full-integration"]
     tags: ["v*"]
 
 permissions:
@@ -29,6 +30,12 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Ultra zamonaviy web interfeysni yig'ish
+        working-directory: frontend
+        run: npm install && npm run build
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -38,16 +45,22 @@ jobs:
       - run: >
           python -m PyInstaller --noconfirm --clean --windowed
           --hidden-import pypdf --hidden-import qrcode --hidden-import PIL.ImageGrab
-          --add-data agent_umimiy/static:agent_umimiy/static
+          --add-data "agent_umimiy/static${{ runner.os == 'Windows' && ';' || ':' }}agent_umimiy/static"
           --name AgentUmimiy app.py
       - name: Yig'ilgan dasturni sinash (veb-server rejimi)
         run: |
           dist/AgentUmimiy/AgentUmimiy --serve --host 127.0.0.1 --port 8123 &
           for i in $(seq 1 30); do
-            curl -sf http://127.0.0.1:8123/icon-192.png -o /dev/null && exit 0
+            if curl -sf http://127.0.0.1:8123/ -o /tmp/agent-umimiy-index.html; then break; fi
             sleep 1
           done
-          exit 1
+          test -s /tmp/agent-umimiy-index.html
+          grep -q '/assets/' /tmp/agent-umimiy-index.html
+          asset=$(grep -oE 'src="/assets/[^" ]+\.js"' /tmp/agent-umimiy-index.html | head -1 | cut -d '"' -f2)
+          test -n "$asset"
+          curl -sf "http://127.0.0.1:8123$asset" -o /dev/null
+          curl -sf http://127.0.0.1:8123/manifest.webmanifest -o /dev/null
+          curl -sf http://127.0.0.1:8123/icon-192.png -o /dev/null
       - if: runner.os == 'Windows'
         name: O'rnatuvchi (Inno Setup)
         shell: cmd
