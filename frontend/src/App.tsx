@@ -400,7 +400,7 @@ function App() {
                 {agents.map((item) => (
                   <article className="agent-card" key={item.name}>
                     <div className="file-icon blue"><Bot /></div>
-                    <div className="row-copy"><b>{item.name === "auto" ? "Avtomatik tanlash" : item.name}</b><span>{item.model || "Serverdagi agent"}</span></div>
+                    <div className="row-copy"><b>{item.name === "auto" ? item.model || "Automatic selection" : item.name}</b><span>{item.model || "Serverdagi agent"}</span></div>
                     <button className="primary-button" onClick={() => { setAgent(item.name); setActive("Suhbat"); }}>Tanlash</button>
                   </article>
                 ))}
