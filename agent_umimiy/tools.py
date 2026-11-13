@@ -252,7 +252,7 @@ def _memory_guidance(ctx: Context) -> str:
     policy = (" Local memory is available. Search it before answering relevant user-specific questions. "
               "Save durable facts or preferences only when the user explicitly asks you to remember them. "
               "Use memory_forget only when the user asks you to forget a saved fact. Never save passwords, API keys, "
-              "or other secrets. Memory is stored on this computer.")
+              "or other secrets. Memory is private to this account or desktop profile; web accounts never share memory files.")
     if ctx.readonly:
         return policy + " This is a read-only task: you may search memory but must not add or remove entries."
     return policy
