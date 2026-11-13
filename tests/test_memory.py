@@ -31,6 +31,14 @@ class MemoryTests(unittest.TestCase):
         self.assertIn("tasdig", output.lower())
         self.assertFalse(path.exists())
 
+    def test_legacy_entries_above_limit_are_preserved_on_delete(self):
+        legacy = [{"id": str(i), "fact": f"legacy {i}"} for i in range(memory.MAX_ITEMS + 1)]
+        memory._write(self.alice, legacy)
+        memory.forget(str(memory.MAX_ITEMS), self.alice)
+        items = memory.list_items(self.alice)
+        self.assertEqual(len(items), memory.MAX_ITEMS)
+        self.assertEqual(items[0]["fact"], "legacy 0")
+
     def test_maximum_does_not_silently_drop_old_entries(self):
         memory._write(self.alice, [{"id": str(i), "fact": f"fact {i}"} for i in range(memory.MAX_ITEMS)])
         result = memory.remember("yangi fakt", self.alice)
