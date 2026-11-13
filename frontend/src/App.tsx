@@ -14,6 +14,7 @@ type RecordItem = { k: string; text?: string; name?: string; agent?: string; met
 type LiveState = Record<string, string>;
 type WebSettings = { lang: "uz" | "ru" | "en"; theme: "dark" | "light"; accent: "violet" | "blue" | "cyan" | "emerald" };
 type ApiError = Error & { code?: number };
+type Workspace = { project: string; plugins: { name: string; transport: string; enabled: boolean }[]; skills: { name: string; description: string; source: string }[]; automation: { available: boolean; reason: string }; database: { engine: string; status: string; users: number; chats: number } };
 const MAX_FILE = 15 * 1024 * 1024;
 
 async function api<T>(path: string, body?: unknown): Promise<T> {
@@ -64,6 +65,8 @@ function App() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [settings, setSettings] = useState<WebSettings>({ lang: "uz", theme: "dark", accent: "violet" });
   const [settingsSaving, setSettingsSaving] = useState(false);
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [workspaceError, setWorkspaceError] = useState("");
   const [activeView, setActiveView] = useState("Bosh sahifa");
   const [search, setSearch] = useState("");
   const eventSource = useRef<EventSource | null>(null);
@@ -132,6 +135,14 @@ function App() {
   }, [openChat]);
 
   useEffect(() => { messagesEnd.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [records, live]);
+  useEffect(() => {
+    if (!user || !["Loyihalar", "Plaginlar", "Avtomatlashtirish", "Ma’lumotlar bazasi"].includes(activeView)) return;
+    let alive = true;
+    setWorkspaceError("");
+    api<Workspace>("/api/workspace").then((data) => { if (alive) setWorkspace(data); })
+      .catch((error) => { if (alive) setWorkspaceError((error as Error).message); });
+    return () => { alive = false; };
+  }, [activeView, user]);
 
   async function submitAuth(event: FormEvent) {
     event.preventDefault(); setAuthBusy(true);
@@ -240,7 +251,7 @@ function App() {
       <nav>
         {[["Bosh sahifa",LayoutDashboard],["Suhbat",MessageSquare],["Agentlar",Bot],["Fayllar",Folder],["Loyihalar",Database],["Plaginlar",Zap],["Avtomatlashtirish",Clock3],["Hisobotlar",Activity],["Ma’lumotlar bazasi",Database],["Sozlamalar",Settings]].map(([label, Icon]) => {
           const I = Icon as typeof LayoutDashboard;
-          return <button key={label as string} disabled={!["Bosh sahifa", "Suhbat", "Agentlar", "Fayllar", "Hisobotlar", "Sozlamalar"].includes(label as string)} title={["Bosh sahifa", "Suhbat", "Agentlar", "Fayllar", "Hisobotlar", "Sozlamalar"].includes(label as string) ? label as string : "Bu bo‘lim web versiyasiga hali ulanmagan"} className={activeView === label ? "nav-item selected" : "nav-item"} onClick={() => { setActiveView(label as string); setMobileNav(false); if (label === "Suhbat" && chatId === null) void createChat(); }}><I size={17} /><span>{label as string}</span></button>;
+          return <button key={label as string} disabled={false} title={label as string} className={activeView === label ? "nav-item selected" : "nav-item"} onClick={() => { setActiveView(label as string); setMobileNav(false); if (label === "Suhbat" && chatId === null) void createChat(); }}><I size={17} /><span>{label as string}</span></button>;
         })}
       </nav>
       <div className="sidebar-section"><div className="sidebar-section-title">SO‘NGGI SUHBATLAR <button onClick={createChat} title="Yangi suhbat"><Plus size={14} /></button></div>
@@ -254,6 +265,32 @@ function App() {
         <div className="server-pill"><i /> Server: Ulangan</div><button className="icon-btn" onClick={() => void saveSettings({ ...settings, theme: theme === "dark" ? "light" : "dark" })} title="Mavzuni almashtirish">{theme === "dark" ? <Sun /> : <Moon />}</button>
       </header>
       <div className="content">
+        {["Loyihalar", "Plaginlar", "Avtomatlashtirish", "Ma’lumotlar bazasi"].includes(activeView) && <section className="panel settings-page">
+          <div className="panel-heading"><h2><Database /> {activeView}</h2><span className="text-link">Serverdan olingan ma’lumot</span></div>
+          {workspaceError && <p className="settings-note">{workspaceError}</p>}
+          {!workspace && !workspaceError && <div className="empty-state"><Loader2 className="spin" /> Ma’lumot yuklanmoqda…</div>}
+          {workspace && activeView === "Loyihalar" && <>
+            <div className="agent-row"><div className="file-icon blue"><Folder /></div><div className="row-copy"><b>{workspace.project || "Loyiha tanlanmagan"}</b><span>Server konfiguratsiyasidagi faol loyiha</span></div><span className="online"><i /> {workspace.project ? "Ulangan" : "Sozlanmagan"}</span></div>
+            <p className="settings-note">Loyiha katalogi va fayllari masofadan ochilmaydi. Bu yerda faqat xavfsiz holat ma’lumoti ko‘rsatiladi.</p>
+          </>}
+          {workspace && activeView === "Plaginlar" && <>
+            <div className="panel-heading"><b>MCP ulanishlari</b><span className="text-link">{workspace.plugins.length} ta</span></div>
+            {workspace.plugins.length ? workspace.plugins.map((plugin) => <div className="agent-row" key={plugin.name}><div className="file-icon cyan"><Zap /></div><div className="row-copy"><b>{plugin.name}</b><span>{plugin.transport} · maxfiy sozlamalar yashirilgan</span></div><span className={plugin.enabled ? "online" : "text-link"}>{plugin.enabled ? "Yoqilgan" : "O‘chirilgan"}</span></div>) : <div className="empty-state">Hozircha MCP plaginlari sozlanmagan.</div>}
+            <div className="panel-heading"><b>Ko‘nikmalar (Skills)</b><span className="text-link">{workspace.skills.length} ta</span></div>
+            {workspace.skills.map((skill) => <div className="agent-row" key={skill.name}><div className="file-icon blue"><Sparkles /></div><div className="row-copy"><b>{skill.name}</b><span>{skill.description || skill.source}</span></div></div>)}
+            <p className="settings-note">Ulanishlarni qo‘shish, tahrirlash va qayta ulash hozircha desktop sozlamalarida bajariladi.</p>
+          </>}
+          {workspace && activeView === "Avtomatlashtirish" && <div className="empty-state"><Clock3 /><b>Avtomatlashtirish hali ulanmagan</b><span>{workspace.automation.reason}. Bu bo‘lim hozircha vazifa yaratmaydi yoki fon rejimida ishga tushmaydi.</span></div>}
+          {workspace && activeView === "Ma’lumotlar bazasi" && <>
+            <div className="stats-grid">
+              <article className="stat-card violet"><div className="stat-copy"><span>Ma’lumotlar ombori</span><b>{workspace.database.engine}</b></div></article>
+              <article className="stat-card blue"><div className="stat-copy"><span>Holati</span><b>{workspace.database.status === "connected" ? "Ulangan" : workspace.database.status}</b></div></article>
+              <article className="stat-card pink"><div className="stat-copy"><span>Foydalanuvchilar</span><b>{workspace.database.users}</b></div></article>
+              <article className="stat-card amber"><div className="stat-copy"><span>Suhbatlar</span><b>{workspace.database.chats}</b></div></article>
+            </div>
+            <p className="settings-note">Ma’lumotlar bazasi holati ko‘rsatiladi. SQL buyruqlari, zaxira nusxa va o‘chirish amallari xavfsizlik uchun web orqali ochilmagan.</p>
+          </>}
+        </section>}
         {activeView === "Sozlamalar" && <section className="panel settings-page">
           <div className="panel-heading"><h2><Settings /> Sozlamalar</h2><span className="text-link">Xavfsiz web sozlamalari</span></div>
           <div className="settings-grid">
