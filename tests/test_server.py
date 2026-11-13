@@ -135,9 +135,6 @@ class ServerTests(unittest.TestCase):
             "mcp": [{"name": "github", "transport": "http", "url": "https://example.test/mcp",
                      "headers": "Authorization: Bearer TOP_SECRET", "env": "TOKEN=TOP_SECRET"}],
             "agents": [{"name": "aks", "type": "echo"}]}))
-        self.httpd.RequestHandlerClass  # keep server fixture alive
-        # The endpoint reads the app config passed to the HTTP handler at server creation.
-        app = server.App(self.store, str(cfg_path))
         httpd = server.create(self.store, config_file=str(cfg_path))
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
         self.addCleanup(httpd.server_close)
