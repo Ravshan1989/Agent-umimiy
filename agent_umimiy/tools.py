@@ -728,7 +728,7 @@ def _public_sockaddrs(host: str, port: int, allow_private: bool):
         raise ToolError(f"Manzil topilmadi: {host}")
     shared = ipaddress.ip_network("100.64.0.0/10")
     checked = []
-    for family, socktype, proto, canonname, sockaddr in infos:
+    for family, socktype, proto, _canonname, sockaddr in infos:
         ip = ipaddress.ip_address(str(sockaddr[0]).split("%", 1)[0])
         if not allow_private and (not ip.is_global or ip in shared):
             raise ToolError("Faqat ochiq internet manzillariga ruxsat bor; ichki, CGNAT yoki maxsus IP manzillar bloklangan.")
