@@ -67,7 +67,7 @@ def _lines(url: str, payload: dict, headers: dict, sse: bool = False) -> Iterato
                 yield raw.decode("utf-8", errors="replace").rstrip("\r\n")
     except urllib.error.HTTPError as exc:
         body = exc.read(MAX_ERROR_BODY + 1).decode(errors="replace")
-        raise AgentError(_friendly_http_error(exc.code, body)) from exc
+        raise AgentError(_friendly_http_error(exc.code, body), status=exc.code) from exc
     except urllib.error.URLError as exc:
         raise AgentError(f"Ulanish xatosi: {exc.reason}") from exc
     except OSError as exc:  # oqim o'rtasida uzilish yoki vaqt tugashi
