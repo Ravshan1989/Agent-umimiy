@@ -14,7 +14,7 @@ from unittest import mock
 from agent_umimiy import attachments as att
 from agent_umimiy.orchestrator import Orchestrator
 from agent_umimiy.providers import build_agent
-from agent_umimiy.tools import Context, Toolbox, _parse_ddg, _public_sockaddrs, ToolError
+from agent_umimiy.tools import Context, Toolbox, ToolError, _parse_ddg, _public_sockaddrs
 from tests.test_tools import serve
 
 PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
