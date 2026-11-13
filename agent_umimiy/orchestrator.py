@@ -10,6 +10,7 @@ from .tools import Context
 
 MODES = ("auto", "single", "broadcast", "pipeline", "consensus")
 READ_ONLY_MODES = ("broadcast", "consensus")
+MAX_AGENTS = 16
 
 
 class Orchestrator:
@@ -26,6 +27,10 @@ class Orchestrator:
     def __init__(self, agents: list[Agent], judge: str | None = None, routes: dict | None = None):
         if not agents:
             raise ValueError("Kamida bitta agent kerak")
+        if len(agents) > MAX_AGENTS:
+            raise ValueError(f"Bir loyihada ko'pi bilan {MAX_AGENTS} ta agent ishlatish mumkin.")
+        if len({a.name for a in agents}) != len(agents):
+            raise ValueError("Agent nomlari takrorlanmasligi kerak.")
         self.agents = {a.name: a for a in agents}
         self.judge = judge or agents[0].name
         self.routes = routes or {}  # {"agent": ["kalit", "so'z"]}
@@ -36,8 +41,11 @@ class Orchestrator:
 
     def _delegate(self, name: str, prompt: str, frm: str) -> str:
         """Bir agent boshqasidan yordam so'raydi: o'qiy oladi, o'zgartira olmaydi, o'zi yana so'ray olmaydi."""
+        target = self._get(name)
+        if target.kind == "cli":
+            raise ValueError("Xavfsizlik uchun CLI agentni boshqa agent nomidan chaqirib bo'lmaydi.")
         child = dataclasses.replace(self.ctx, readonly=True, delegate=None, always=set())
-        r = copy.copy(self._get(name)).ask(f"[{frm} agent sizdan so'rayapti]\n{prompt}", [], child, None)
+        r = copy.copy(target).ask(f"[{frm} agent sizdan so'rayapti]\\n{prompt}", [], child, None)
         return r.text if r.ok else f"[{name} javob bera olmadi: {r.error}]"
 
     def reset(self):
@@ -63,7 +71,12 @@ class Orchestrator:
         files = list(files or [])
         if mode not in MODES:
             raise ValueError(f"Noma'lum rejim: {mode}")
-        agents = [self._get(n) for n in targets] if targets else list(self.agents.values())
+        names = list(dict.fromkeys(targets)) if targets else list(self.agents)
+        agents = [self._get(n) for n in names]
+        if mode in READ_ONLY_MODES:
+            agents = [a for a in agents if a.kind != "cli"]
+            if not agents:
+                raise ValueError("Faqat o'qish rejimida CLI agent ishlatilmaydi; API agentni tanlang.")
         self.ctx.cancel.clear()
         if self.ctx.mcp:
             self.ctx.mcp.wait_ready(8)  # plaginlar hali ulanayotgan bo'lsa, biroz kutamiz
@@ -88,7 +101,7 @@ class Orchestrator:
             good = [r for r in results if r.ok]
             if len(good) > 1:
                 joined = "\n\n".join(f"--- {r.agent} ---\n{r.text}" for r in good)
-                judge = self._get(self.judge)
+                judge = next((a for a in agents if a.name == self.judge), agents[0])
                 final = judge.ask(
                     f"Savol: {prompt}\n\nQuyidagi agentlar javob berdi:\n{joined}\n\n"
                     "Ularni solishtirib, eng to'g'ri va to'liq yagona javob tuz.",

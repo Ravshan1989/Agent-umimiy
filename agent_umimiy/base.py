@@ -17,7 +17,9 @@ class Result:
 
 
 class AgentError(Exception):
-    pass
+    def __init__(self, message: str, status: int | None = None):
+        super().__init__(message)
+        self.status = status
 
 
 class Agent(ABC):
@@ -62,7 +64,7 @@ class Agent(ABC):
                     text = self._ask_tools(prompt, history, Toolbox(ctx, self.name))
                 except AgentError as exc:
                     # model asboblarni qo'llamasa (masalan, kichik lokal model) — oddiy chatga qaytamiz
-                    if not str(exc).startswith(("HTTP 400", "HTTP 404", "HTTP 422")):
+                    if getattr(exc, "status", None) not in (400, 404, 422):
                         raise
                     text = self._ask(plain, history)
             else:

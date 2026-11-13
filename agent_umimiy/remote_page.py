@@ -5,7 +5,8 @@ PAGE = r"""<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d0f16">
 <title>Agent Umimiy</title>
-<style>
+<style>#lang{flex:none;width:auto;max-width:105px;padding:7px 8px;background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:9px;font:inherit}
+
 :root{--bg:#0d0f16;--side:#121521;--card:#1a1e2e;--hi:#232842;--line:#2a3047;--fg:#e8eaf4;--mut:#8b92ab;--acc:#7c6cff;--acc2:#9a8dff;--user:#5a49ee;--ok:#34d399;--err:#f87171;--warn:#fbbf24;--code:#080a10}
 *{box-sizing:border-box}html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--fg);font:15px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;display:flex;flex-direction:column;
@@ -42,7 +43,7 @@ textarea{flex:1;resize:none;background:var(--card);color:var(--fg);border:1px so
 .empty{text-align:center;color:var(--mut);margin-top:18vh}.empty div{font-size:40px}
 </style></head><body>
 <div id="banner">Ulanish yo'q — qayta urinilmoqda…</div>
-<header><select id="chat" aria-label="Suhbat"></select><button id="new" title="Yangi suhbat">＋</button><button id="close" title="Suhbatni yopish">✕</button></header>
+<header><select id="lang" aria-label="Til" title="Til"><option value="uz">O‘zbekcha</option><option value="ru">Русский</option><option value="en">English</option></select><select id="chat" aria-label="Suhbat"></select><button id="new" title="Yangi suhbat">＋</button><button id="close" title="Suhbatni yopish">✕</button></header>
 <div id="sub"><span id="proj"></span><select id="mode" style="background:transparent;color:var(--mut);border:0;font-size:12px"></select></div>
 <div id="msgs"></div><div id="asks"></div><div id="chips"></div>
 <form id="f"><input type="file" id="file" multiple hidden accept="image/*,.pdf,.docx,.xlsx,.pptx,.csv,.tsv,.txt,.md,.json,.py,.js,.html,.log">
@@ -50,8 +51,18 @@ textarea{flex:1;resize:none;background:var(--card);color:var(--fg);border:1px so
 <textarea id="t" rows="1" placeholder="Xabar yozing…"></textarea>
 <button type="submit" class="rb send" id="go" title="Yuborish">↑</button></form>
 <script>
+var WEB_TR={ru:{"Yangi suhbat":"Новый чат","Chiqish":"Выйти","Xabar yozing…":"Введите сообщение…","Fayl biriktirish":"Прикрепить файл","Yuborish":"Отправить","Nusxalash":"Копировать","Nusxalandi ✓":"Скопировано ✓","Yuklab olish":"Скачать","Yopish":"Закрыть","Kirish":"Войти","Ro'yxatdan o'tish":"Зарегистрироваться","Ism":"Имя","Parol":"Пароль","Taklif kodi":"Код приглашения","Suhbat":"Чат","Suhbatni yopish":"Закрыть чат","Rad etish":"Отклонить","Doim":"Всегда","Ruxsat":"Разрешить","Qanday yordam bera olaman?":"Чем могу помочь?","Xabar yozing.":"Напишите сообщение.","Ulanish yo'q — qayta urinilmoqda…":"Нет соединения — повторная попытка…","Loyiha:":"Проект:","agent faol":"агент(ов) активно","Suhbat o'chirilsinmi?":"Удалить чат?","O'chirish":"Удалить","To'xtatish":"Остановить","Reja":"План","yozmoqda…":"печатает…","ruxsat so'ramoqda":"запрашивает разрешение","Til":"Язык","O‘zbekcha":"Узбекский"},en:{"Yangi suhbat":"New chat","Chiqish":"Sign out","Xabar yozing…":"Type a message…","Fayl biriktirish":"Attach file","Yuborish":"Send","Nusxalash":"Copy","Nusxalandi ✓":"Copied ✓","Yuklab olish":"Download","Yopish":"Close","Kirish":"Sign in","Ro'yxatdan o'tish":"Sign up","Ism":"Name","Parol":"Password","Taklif kodi":"Invite code","Suhbat":"Chat","Suhbatni yopish":"Close chat","Rad etish":"Reject","Doim":"Always","Ruxsat":"Allow","Qanday yordam bera olaman?":"How can I help?","Xabar yozing.":"Type a message.","Ulanish yo'q — qayta urinilmoqda…":"Connection lost — retrying…","Loyiha:":"Project:","agent faol":"active agent(s)","Suhbat o'chirilsinmi?":"Delete this chat?","O'chirish":"Delete","To'xtatish":"Stop","Reja":"Plan","yozmoqda…":"is typing…","ruxsat so'ramoqda":"requests permission","Til":"Language","O‘zbekcha":"Uzbek"}};
+var webLang="uz",webText0=new WeakMap(),webAttr0=new WeakMap();
+try{webLang=localStorage.getItem("agent_umimiy_lang")||"uz"}catch(e){}
+function webText(n){if(!n||!n.nodeValue)return;var s=webText0.get(n);if(s===undefined){s=n.nodeValue;webText0.set(n,s)}var k=s.trim(),v=WEB_TR[webLang]&&WEB_TR[webLang][k];if(v!==undefined){var i=s.indexOf(k);n.nodeValue=s.slice(0,i)+v+s.slice(i+k.length)}}
+function webAttr(el,a){var o=webAttr0.get(el)||{};if(o[a]===undefined)o[a]=el.getAttribute(a);webAttr0.set(el,o);var s=o[a],v=s&&WEB_TR[webLang]&&WEB_TR[webLang][s.trim()];if(v!==undefined)el.setAttribute(a,v)}
+function webTree(root){if(!root)return;if(root.nodeType===3){webText(root);return}if(root.nodeType!==1&&root.nodeType!==9)return;if(root.nodeType===1){if(/^(SCRIPT|STYLE|TEXTAREA|CODE|PRE)$/.test(root.tagName))return;["placeholder","title","aria-label"].forEach(function(a){if(root.hasAttribute(a))webAttr(root,a)})}var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),n;while((n=w.nextNode()))webText(n);if(root.querySelectorAll)root.querySelectorAll("[placeholder],[title],[aria-label]").forEach(function(e){["placeholder","title","aria-label"].forEach(function(a){if(e.hasAttribute(a))webAttr(e,a)})})}
+function webLanguage(code){webLang=["uz","ru","en"].indexOf(code)>=0?code:"uz";try{localStorage.setItem("agent_umimiy_lang",webLang)}catch(e){}document.documentElement.lang=webLang;webTree(document.body);var p=document.getElementById("lang");if(p)p.value=webLang}
+function webInit(){var p=document.getElementById("lang");if(p)p.addEventListener("change",function(){webLanguage(this.value)});webLanguage(webLang);if(window.MutationObserver)new MutationObserver(function(rs){rs.forEach(function(r){if(r.type==="characterData")webText(r.target);else if(r.type==="attributes")webAttr(r.target,r.attributeName);else Array.prototype.forEach.call(r.addedNodes,function(n){webTree(n)})})}).observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:["placeholder","title","aria-label"]})}
+
+webInit();
 (function(){
-var T=new URLSearchParams(location.search).get('t')||sessionStorage.getItem('t')||'';
+var T=new URLSearchParams(location.hash.slice(1)).get('t')||new URLSearchParams(location.search).get('t')||sessionStorage.getItem('t')||'';
 try{sessionStorage.setItem('t',T)}catch(e){}
 history.replaceState(null,'',location.pathname);
 var $=function(i){return document.getElementById(i)};

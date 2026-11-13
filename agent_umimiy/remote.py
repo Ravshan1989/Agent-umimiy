@@ -18,6 +18,48 @@ from urllib.parse import parse_qs, urlparse
 from .remote_page import PAGE
 
 MAX_BODY = 40 * 1024 * 1024
+MAX_CONNECTIONS = 32
+
+
+class RequestBodyError(ValueError):
+    def __init__(self, message: str, status: int = 400, close: bool = False):
+        super().__init__(message)
+        self.status, self.close = status, close
+
+
+def read_json_body(stream, headers) -> dict:
+    raw_size = headers.get("Content-Length")
+    if raw_size is None or not str(raw_size).isascii() or not str(raw_size).isdecimal():
+        raise RequestBodyError("Content-Length noto'g'ri.")
+    size = int(raw_size)
+    if size < 0:
+        raise RequestBodyError("Content-Length invalid.")
+    if size > MAX_BODY:
+        raise RequestBodyError("Hajm juda katta.", 413, True)
+    raw = stream.read(size)
+    if len(raw) != size:
+        raise RequestBodyError("So'rov tanasi to'liq kelmadi.", 400, True)
+    try:
+        payload = json.loads(raw or b"{}")
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise RequestBodyError("JSON noto'g'ri.") from exc
+    if not isinstance(payload, dict):
+        raise RequestBodyError("JSON noto'g'ri.")
+    return payload
+
+
+def _prune_failures(fails: dict[str, list[float]], now: float, window: float = 600, cap: int = 4096):
+    for address, attempts in list(fails.items()):
+        active = [stamp for stamp in attempts if now - stamp < window]
+        if active:
+            fails[address] = active
+        else:
+            fails.pop(address, None)
+    if len(fails) >= cap:
+        for address in list(fails)[:max(1, cap // 16)]:
+            fails.pop(address, None)
+
+
 ACTIONS = {"/api/send": "send", "/api/stop": "stop", "/api/approve": "approve", "/api/new": "new",
            "/api/close": "close", "/api/mode": "mode"}
 
@@ -73,11 +115,12 @@ FIREWALL_RULE = "Agent Umimiy"
 
 
 def firewall_script(port: int, exe: str | None = None) -> str:
-    """Administrator sifatida bajariladigan .bat: avval shu dastur uchun Windows o'zi yaratgan to'suvchi qoidalar
-    (ruxsat oynasida «Bekor» bosilganda paydo bo'ladi, ular ruxsat qoidasidan ustun!) o'chiriladi, so'ng ruxsat qo'shiladi."""
+    """Administrator .bat: faqat Agent Umimiy nomli avvalgi qoidani yangilaydi va yangi ruxsat qo'shadi.
+    Boshqa dastur yoki foydalanuvchi yaratgan firewall qoidalariga tegmaydi."""
+    if not 1 <= port <= 65535:
+        raise ValueError("Firewall porti 1 dan 65535 gacha bo'lishi kerak.")
     lines = ["@echo off", f'netsh advfirewall firewall delete rule name="{FIREWALL_RULE}" >nul 2>&1']
-    if exe:
-        lines.append(f'netsh advfirewall firewall delete rule name=all program="{exe}" >nul 2>&1')
+    # Boshqa dastur qoidalarini o'chirmaymiz: foydalanuvchining mavjud bloklash siyosati saqlanadi.
     lines.append("netsh " + firewall_args(port, exe))
     lines.append("exit /b 0")
     return "\r\n".join(lines) + "\r\n"
@@ -85,6 +128,8 @@ def firewall_script(port: int, exe: str | None = None) -> str:
 
 def firewall_args(port: int, exe: str | None = None) -> str:
     """Windows xavfsizlik devori uchun kiruvchi ulanish qoidasi (netsh argumentlari)."""
+    if not 1 <= port <= 65535:
+        raise ValueError("Firewall porti 1 dan 65535 gacha bo'lishi kerak.")
     args = f'advfirewall firewall add rule name="{FIREWALL_RULE}" dir=in action=allow protocol=TCP localport={port} profile=any enable=yes'
     return args + (f' program="{exe}"' if exe else "")
 
@@ -121,6 +166,8 @@ def open_firewall(port: int) -> tuple[bool, str]:
 
 class RemoteServer:
     def __init__(self, handler, token: str, port: int = 8765, host: str = "0.0.0.0"):
+        if not 0 <= port <= 65535:
+            raise ValueError("Server porti 0 dan 65535 gacha bo'lishi kerak.")
         self.handler, self.token, self.host = handler, token, host
         self.port = port
         self.httpd: ThreadingHTTPServer | None = None
@@ -134,6 +181,10 @@ class RemoteServer:
         class H(BaseHTTPRequestHandler):
             protocol_version = "HTTP/1.1"
             server_version = "AgentUmimiy"
+
+            def setup(self):
+                super().setup()
+                self.connection.settimeout(30)
 
             def log_message(self, *a):
                 pass
@@ -189,14 +240,11 @@ class RemoteServer:
                 if not self._auth():
                     return
                 try:
-                    n = int(self.headers.get("Content-Length", "0"))
-                    if n > MAX_BODY:
-                        return self._json(413, {"error": "Hajm juda katta"})
-                    payload = json.loads(self.rfile.read(n) or b"{}")
-                    if not isinstance(payload, dict):
-                        raise ValueError
-                except ValueError:
-                    return self._json(400, {"error": "JSON noto'g'ri"})
+                    payload = read_json_body(self.rfile, self.headers)
+                except RequestBodyError as exc:
+                    if exc.close:
+                        self.close_connection = True
+                    return self._json(exc.status, {"error": str(exc)})
                 self._run(action, payload)
 
             def _run(self, action, payload):
@@ -206,6 +254,32 @@ class RemoteServer:
                     self._json(400, {"error": str(exc)})
 
         class Server(ThreadingHTTPServer):
+            daemon_threads = True
+
+            def __init__(self, *args, **kwargs):
+                self._slots = threading.BoundedSemaphore(MAX_CONNECTIONS)
+                super().__init__(*args, **kwargs)
+
+            def process_request(self, request, client_address):
+                if not self._slots.acquire(blocking=False):
+                    try:
+                        request.sendall(b"HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Length: 0\r\n\r\n")
+                    except OSError:
+                        pass
+                    self.shutdown_request(request)
+                    return
+                try:
+                    super().process_request(request, client_address)
+                except Exception:
+                    self._slots.release()
+                    raise
+
+            def process_request_thread(self, request, client_address):
+                try:
+                    super().process_request_thread(request, client_address)
+                finally:
+                    self._slots.release()
+
             def server_bind(self):  # standart usul socket.getfqdn() ni chaqiradi: Windows'da soniyalab qotib qolishi mumkin
                 socketserver.TCPServer.server_bind(self)
                 self.server_name, self.server_port = self.server_address[0], self.server_address[1]
@@ -233,11 +307,13 @@ class RemoteServer:
     def fail(self, ip: str):
         with self.lock:
             now = time.time()
+            _prune_failures(self.fails, now)
             self.fails[ip] = [t for t in self.fails.get(ip, []) if now - t < 600] + [now]
 
     def locked(self, ip: str) -> bool:
         with self.lock:
             now = time.time()
+            _prune_failures(self.fails, now)
             return len([t for t in self.fails.get(ip, []) if now - t < 600]) >= 20
 
     def selftest(self, ip: str, timeout: float = 2.0) -> tuple[bool, str]:
@@ -251,4 +327,4 @@ class RemoteServer:
             return False, f"Server {ip}:{self.port} da javob bermadi ({exc})."
 
     def url(self, host: str | None = None) -> str:
-        return f"http://{host or lan_ip()}:{self.port}/?t={self.token}"
+        return f"http://{host or lan_ip()}:{self.port}/#t={self.token}"

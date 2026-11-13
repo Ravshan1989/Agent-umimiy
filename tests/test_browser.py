@@ -122,16 +122,16 @@ class BrowserToolTests(unittest.TestCase):
     def test_site_and_click_permissions_and_typing_asks_each_time(self):
         out, err = self.tb.run("browser_open", {"url": self.url})
         self.assertFalse(err, out)
-        self.assertEqual(self.asked[0][1], "browser:127.0.0.1")
+        self.assertTrue(self.asked[0][1].startswith("browser:http://127.0.0.1:"))
         self.tb.run("browser_open", {"url": self.url})
         self.assertEqual(len(self.asked), 1)  # shu sayt uchun qayta so'ralmaydi
         btn = next(l.split(". <", 1)[0].strip() for l in out.splitlines() if ". <button>" in l and "Yuborish" in l)
         self.tb.run("browser_click", {"id": int(btn)})
-        self.assertEqual(self.asked[-1][1], "browser_action:127.0.0.1")
+        self.assertTrue(self.asked[-1][1].startswith("browser_action:http://127.0.0.1:"))
         n = next(l.split(". <", 1)[0].strip() for l in out.splitlines() if ". <input" in l and "Ismingiz" in l)
         self.tb.run("browser_type", {"id": int(n), "text": "a"})
         self.tb.run("browser_type", {"id": int(n), "text": "b"})
-        self.assertEqual([a[1] for a in self.asked].count("browser_type"), 2)
+        self.assertEqual(sum(a[1].startswith("browser-type:http://127.0.0.1:") for a in self.asked), 2)
 
     def test_denied_click_does_not_execute_page_action(self):
         out, err = self.tb.run("browser_open", {"url": self.url})

@@ -8,6 +8,7 @@ Ulanish oddiy HTTP: ishonchli lokal tarmoqda ishlating yoki oldiga HTTPS beruvch
 from __future__ import annotations
 
 import json
+import mimetypes
 import queue
 import shutil
 import socketserver
@@ -24,10 +25,16 @@ from .store import SESSION_DAYS, Store, StoreError
 
 MAX_BODY = 40 * 1024 * 1024
 MAX_FILES = 6
+MAX_PROMPT = 100_000
+MAX_LIVE_TEXT = 200_000
+SSE_QUEUE_SIZE = 256
+MAX_CONNECTIONS = 64
+MAX_DOWNLOAD = 50 * 1024 * 1024
 TITLE_LEN = 40
 LOCAL_ONLY = ("cli",)  # serverda buyruq ishga tushiradigan agent turlari: veb-foydalanuvchilarga berilmaydi
 STATIC_DIR = Path(__file__).parent / "static"
-PAGE_CSP = ("default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
+STATIC_WEB_DIR = STATIC_DIR / "web"
+PAGE_CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'")
 # Yaratiladigan fayl turlari (tizim sozlamasiga bog'liq bo'lmasligi uchun aniq ro'yxat)
 FILE_TYPES = {
@@ -73,7 +80,7 @@ class App:
         self.channels: dict[int, Channel] = {}
 
     # ---- agentlar ----
-    def orchestrator(self):
+    def orchestrator(self, user_id: int | None = None):
         cfg = config.read(self.config_file)
         cfg["agents"] = [a for a in cfg["agents"] if a.get("type") not in LOCAL_ONLY]
         orch = config.build(cfg)
@@ -81,6 +88,8 @@ class App:
         ctx.root = ctx.confirm = ctx.mcp = None
         ctx.browser = False
         ctx.web, ctx.skills = bool(cfg.get("web", True)), bool(cfg.get("skills", True))
+        if user_id is not None:
+            ctx.memory_file = str(config.user_dir() / "memories" / f"{int(user_id)}.json")
         return orch
 
     def files_dir(self, chat_id: int) -> Path:
@@ -88,7 +97,9 @@ class App:
         return config.user_dir() / "files" / str(chat_id)
 
     def agents(self) -> list[dict]:
-        return [{"name": "auto", "model": "Avtomatik — o‘zi tanlaydi"}] + [
+        lang = config.read(self.config_file).get("lang", "uz")
+        automatic = {"uz": "Avtomatik — o‘zi tanlaydi", "ru": "Автоматический выбор", "en": "Automatic selection"}
+        return [{"name": "auto", "model": automatic.get(lang, automatic["uz"])}] + [
             {"name": a.name, "model": a.options.get("model", "")} for a in self.orchestrator().agents.values()
         ]
 
@@ -102,7 +113,7 @@ class App:
             if record is not None:
                 self.store.add_record(chat_id, record)
             for q in ch.subs:
-                q.put(event)
+                self._enqueue(q, event)
 
     def _record(self, chat_id: int, record: dict) -> None:
         self._publish(chat_id, {"type": "record", "record": record}, record)
@@ -114,16 +125,29 @@ class App:
             return self._record(chat_id, {"k": "act", "agent": agent, "kind": kind, "text": text})
         with self.lock:
             ch = self._channel(chat_id)
-            ch.live[agent] = "" if kind == "turn" else ch.live.get(agent, "") + text
+            ch.live[agent] = "" if kind == "turn" else (ch.live.get(agent, "") + text)[-MAX_LIVE_TEXT:]
             for q in ch.subs:
-                q.put({"type": kind, "agent": agent, "text": text})
+                self._enqueue(q, {"type": kind, "agent": agent, "text": text})
+
+    @staticmethod
+    def _enqueue(q: queue.Queue, event: dict) -> None:
+        try:
+            q.put_nowait(event)
+        except queue.Full:
+            # Slow SSE clients are disconnected; reconnect receives a full database snapshot.
+            while True:
+                try:
+                    q.get_nowait()
+                except queue.Empty:
+                    break
+            q.put_nowait({"type": "overflow"})
 
     def subscribe(self, chat_id: int) -> queue.Queue:
         """Tinglovchi navbati; birinchi hodisa — suhbatning hozirgi to'liq holati."""
-        q: queue.Queue = queue.Queue()
+        q: queue.Queue = queue.Queue(maxsize=SSE_QUEUE_SIZE)
         with self.lock:
             ch = self._channel(chat_id)
-            q.put({"type": "init", "records": self.store.records(chat_id), "live": dict(ch.live), "busy": ch.busy})
+            self._enqueue(q, {"type": "init", "records": self.store.records(chat_id), "live": dict(ch.live), "busy": ch.busy})
             ch.subs.add(q)
         return q
 
@@ -136,30 +160,61 @@ class App:
                     del self.channels[chat_id]
 
     # ---- amallar ----
-    def send(self, chat_id: int, text: str, agent: str, files: list[dict]) -> None:
-        orch = self.orchestrator()
+    def send(self, chat_id: int, text: str, agent: str, files: list[dict], user_id: int | None = None) -> None:
+        if not isinstance(agent, str):
+            raise Refused("Agent tanlovi noto'g'ri.")
+        if not isinstance(files, list) or any(not isinstance(item, dict) for item in files):
+            raise Refused("Fayllar ro'yxati noto'g'ri.")
+        orch = self.orchestrator(user_id)
         if agent != "auto" and agent not in orch.agents:
             raise Refused("Bu agent mavjud emas. Sahifani yangilang.")
         orch.ctx.files_dir = str(self.files_dir(chat_id))
-        try:
-            atts = [attachments.save_upload(config.upload_dir(), f.get("name", "fayl"), f.get("data", ""))
-                    for f in files[:MAX_FILES]]
-        except attachments.AttachError as exc:
-            raise Refused(str(exc))
+        if len(files) > MAX_FILES:
+            raise Refused(f"Bir xabarda ko'pi bilan {MAX_FILES} ta fayl yuborish mumkin.")
+        if not isinstance(text, str):
+            raise Refused("Xabar matni noto'g'ri.")
         text = text.strip()
-        if not text and not atts:
-            raise Refused("Xabar bo'sh.")
-        prompt = text or "Biriktirilgan fayl(lar)ni ko'rib chiq va qisqacha tushuntir."
+        if len(text) > MAX_PROMPT:
+            raise Refused(f"Xabar {MAX_PROMPT} belgidan oshmasin.")
+        # Suhbatni oldindan band qilamiz: band chatga kelgan fayllar diskka yozilmaydi.
         with self.lock:
             ch = self._channel(chat_id)
             if ch.busy:
                 raise Refused("Agent hozir band. To'xtatib, qayta urining.")
-            ch.busy, ch.cancel, ch.live = True, orch.ctx.cancel, {}
-        if not self.store.title(chat_id):
-            self.store.set_title(chat_id, prompt.replace("\n", " ")[:TITLE_LEN])
-        self._record(chat_id, {"k": "user", "text": prompt, "files": [a.name for a in atts]})
-        self._publish(chat_id, {"type": "busy", "agent": agent})
-        threading.Thread(target=self._work, args=(chat_id, orch, prompt, agent, atts), daemon=True).start()
+            try:
+                self.store.title(chat_id)
+            except IndexError:
+                raise Refused("Suhbat topilmadi.", 404)
+            ch.busy, ch.cancel, ch.live = True, None, {}
+        atts = []
+        try:
+            for f in files:
+                try:
+                    atts.append(attachments.save_upload(config.upload_dir(), f.get("name", "fayl"), f.get("data", "")))
+                except attachments.AttachError as exc:
+                    raise Refused(str(exc))
+            if not text and not atts:
+                raise Refused("Xabar bo'sh.")
+            prompt = text or "Biriktirilgan fayl(lar)ni ko'rib chiq va qisqacha tushuntir."
+            if not self.store.title(chat_id):
+                self.store.set_title(chat_id, prompt.replace("\n", " ")[:TITLE_LEN])
+            self._record(chat_id, {"k": "user", "text": prompt, "files": [a.name for a in atts]})
+            self._publish(chat_id, {"type": "busy", "agent": agent})
+            with self.lock:
+                ch = self._channel(chat_id)
+                ch.cancel = orch.ctx.cancel
+            threading.Thread(target=self._work, args=(chat_id, orch, prompt, agent, atts), daemon=True).start()
+        except Exception:
+            for att in atts:
+                try:
+                    Path(att.path).unlink(missing_ok=True)
+                except OSError:
+                    pass
+            with self.lock:
+                ch = self.channels.get(chat_id)
+                if ch:
+                    ch.busy, ch.cancel, ch.live = False, None, {}
+            raise
 
     def _work(self, chat_id: int, orch, prompt: str, agent: str, atts: list) -> None:
         try:
@@ -183,7 +238,7 @@ class App:
                 ch = self._channel(chat_id)
                 ch.busy, ch.cancel, ch.live = False, None, {}
                 for q in ch.subs:
-                    q.put({"type": "done"})
+                    self._enqueue(q, {"type": "done"})
                 if not ch.subs:
                     del self.channels[chat_id]
 
@@ -209,17 +264,68 @@ class Throttle:
 
     def __init__(self):
         self.fails: dict[str, list[float]] = {}
+        self.sends: dict[int, list[float]] = {}
         self.lock = threading.Lock()
+
+    def _prune(self, now: float) -> None:
+        for address, attempts in list(self.fails.items()):
+            active = [stamp for stamp in attempts if now - stamp < self.WINDOW]
+            if active:
+                self.fails[address] = active
+            else:
+                self.fails.pop(address, None)
+        if len(self.fails) >= 4096:
+            for address in list(self.fails)[:256]:
+                self.fails.pop(address, None)
 
     def fail(self, ip: str) -> None:
         with self.lock:
             now = time.time()
+            self._prune(now)
             self.fails[ip] = [t for t in self.fails.get(ip, []) if now - t < self.WINDOW] + [now]
 
     def locked(self, ip: str) -> bool:
         with self.lock:
             now = time.time()
+            self._prune(now)
             return len([t for t in self.fails.get(ip, []) if now - t < self.WINDOW]) >= self.LIMIT
+
+    def allow_send(self, user_id: int) -> bool:
+        """Bir foydalanuvchining LLM xarajatini cheklash: 60 soniyada 20 ta yuborish."""
+        with self.lock:
+            now = time.time()
+            for uid, attempts in list(self.sends.items()):
+                active = [stamp for stamp in attempts if now - stamp < 60]
+                if active:
+                    self.sends[uid] = active
+                else:
+                    self.sends.pop(uid, None)
+            if len(self.sends) >= 4096 and user_id not in self.sends:
+                for uid in list(self.sends)[:256]:
+                    self.sends.pop(uid, None)
+            attempts = self.sends.get(user_id, [])
+            if len(attempts) >= 20:
+                return False
+            self.sends[user_id] = attempts + [now]
+            return True
+
+
+
+def safe_file_path(base, name: str) -> Path | None:
+    """Foydalanuvchi faylini faqat suhbat papkasi ichidan, symlink'larsiz tanlaydi."""
+    if not isinstance(name, str) or not name or name != Path(name).name:
+        return None
+    try:
+        root = Path(base).resolve()
+        candidate = root / name
+        if candidate.is_symlink():
+            return None
+        path = candidate.resolve(strict=True)
+        if root not in path.parents or not path.is_file():
+            return None
+        return path
+    except (OSError, RuntimeError, ValueError):
+        return None
 
 
 def make_handler(app: App):
@@ -227,6 +333,10 @@ def make_handler(app: App):
 
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
+
+        def setup(self):
+            super().setup()
+            self.connection.settimeout(30)  # sekin yuboriladigan so'rovlar server oqimini band qilmasin
         server_version = "AgentUmimiy"
 
         def log_message(self, *a):
@@ -291,7 +401,17 @@ def make_handler(app: App):
             url = urlparse(self.path)
             try:
                 if url.path == "/":
+                    index = STATIC_WEB_DIR / "index.html"
+                    if index.is_file():
+                        return self._send(200, index.read_bytes(), "text/html; charset=utf-8")
                     return self._send(200, PAGE.encode(), "text/html; charset=utf-8")
+                if url.path.startswith("/assets/"):
+                    root = STATIC_WEB_DIR.resolve()
+                    asset = (STATIC_WEB_DIR / url.path.lstrip("/")).resolve()
+                    if root not in asset.parents or not asset.is_file():
+                        raise Refused("Fayl topilmadi.", 404)
+                    content_type = mimetypes.guess_type(asset.name)[0] or "application/octet-stream"
+                    return self._send(200, asset.read_bytes(), content_type)
                 if url.path == "/manifest.webmanifest":
                     return self._send(200, MANIFEST, "application/manifest+json")
                 if url.path in ICONS:
@@ -299,6 +419,11 @@ def make_handler(app: App):
                 if url.path == "/api/me":
                     user_id, name = self._user()
                     return self._json(200, {"user": name, "agents": app.agents(), "chats": store.chats(user_id)})
+                if url.path == "/api/memory":
+                    user_id, _ = self._user()
+                    from . import memory
+                    path = config.user_dir() / "memories" / f"{user_id}.json"
+                    return self._json(200, {"items": memory.list_items(path)})
                 if url.path == "/api/stream":
                     user_id, _ = self._user()
                     return self._stream(self._chat(user_id, parse_qs(url.query).get("chat", [""])[0]))
@@ -310,6 +435,8 @@ def make_handler(app: App):
                 raise Refused("Topilmadi.", 404)
             except Refused as exc:
                 self._json(exc.code, {"error": str(exc)})
+            except Exception:
+                self._json(500, {"error": "Ichki server xatoligi."})
 
         def do_POST(self):
             try:
@@ -318,18 +445,19 @@ def make_handler(app: App):
                 self._json(exc.code, {"error": str(exc)})
             except StoreError as exc:
                 self._json(400, {"error": str(exc)})
+            except Exception:
+                self._json(500, {"error": "Ichki server xatoligi. Qayta urinib ko'ring."})
 
         def _body(self) -> dict:
             # JSON turi talab qilinadi: boshqa saytdagi forma bunday so'rov yubora olmaydi (CSRF himoyasi)
-            if not self.headers.get("Content-Type", "").startswith("application/json"):
+            if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
                 raise Refused("Noto'g'ri so'rov.", 415)
             raw_size = self.headers.get("Content-Length")
             if raw_size is None:
                 raise Refused("Content-Length sarlavhasi yo'q.")
-            try:
-                size = int(raw_size)
-            except (TypeError, ValueError):
+            if not str(raw_size).isascii() or not str(raw_size).isdecimal():
                 raise Refused("Noto'g'ri so'rov.")
+            size = int(raw_size)
             # Manfiy uzunlik rfile.read(-1) ni ulanish EOF bo'lguncha kutishga majbur
             # qilishi mumkin; juda katta uzunlik esa xotirani tugatishi mumkin.
             if size < 0:
@@ -371,16 +499,33 @@ def make_handler(app: App):
                 store.drop_session(self._token())
                 return {"ok": True}, self._cookie("", 0)
             user_id, _ = self._user()
+            if path == "/api/memory/delete":
+                from . import memory
+                item_id = str(body.get("id", "")).strip()
+                if not item_id:
+                    raise Refused("Xotira ID ko'rsatilmagan.")
+                memory.forget(item_id, config.user_dir() / "memories" / f"{user_id}.json")
+                return {"ok": True}, ""
+            if path == "/api/memory/remember":
+                from . import memory
+                fact = str(body.get("fact", "")).strip()
+                if not fact:
+                    raise Refused("Saqlanadigan ma'lumot bo'sh.")
+                return {"message": memory.remember(fact, config.user_dir() / "memories" / f"{user_id}.json")}, ""
             if path == "/api/chat/new":
+                if len(store.chats(user_id)) >= 100:
+                    raise Refused("Bir foydalanuvchi ko'pi bilan 100 ta suhbat yaratishi mumkin.", 429)
                 return {"id": store.new_chat(user_id)}, ""
             chat_id = self._chat(user_id, body.get("chat"))
             if path == "/api/chat/delete":
                 app.delete_chat(chat_id)
             elif path == "/api/send":
+                if not throttle.allow_send(user_id):
+                    raise Refused("Yuborish limiti: 60 soniyada 20 ta xabar. Biroz kuting.", 429)
                 files = body.get("files") or []
                 if not isinstance(files, list) or not all(isinstance(f, dict) for f in files):
                     raise Refused("Noto'g'ri so'rov.")
-                app.send(chat_id, str(body.get("text", "")), str(body.get("agent", "")), files)
+                app.send(chat_id, str(body.get("text", "")), str(body.get("agent", "")), files, user_id=user_id)
             elif path == "/api/stop":
                 app.stop(chat_id)
             else:
@@ -389,9 +534,11 @@ def make_handler(app: App):
 
         def _file(self, chat_id: int, name: str, view: bool):
             """Agent shu suhbatda yaratgan fayl: yuklab beradi yoki (view) qum qutisidagi ko'rinish sahifasini beradi."""
-            path = app.files_dir(chat_id) / name
-            if not name or name != Path(name).name or not path.is_file():
+            path = safe_file_path(app.files_dir(chat_id), name)
+            if path is None:
                 raise Refused("Fayl topilmadi.", 404)
+            if path.stat().st_size > MAX_DOWNLOAD:
+                raise Refused("Fayl 50 MB dan katta; uni kichikroq qismlarga ajrating.", 413)
             page = preview.page(path) if view else None
             if page is not None:
                 return self._send(200, page.encode(), "text/html; charset=utf-8", csp=preview.CSP)
@@ -411,11 +558,14 @@ def make_handler(app: App):
                 self.close_connection = True
                 while True:
                     try:
-                        chunk = "data: " + json.dumps(q.get(timeout=15), ensure_ascii=False) + "\n\n"
+                        event = q.get(timeout=15)
+                        chunk = "data: " + json.dumps(event, ensure_ascii=False) + "\n\n"
                     except queue.Empty:
-                        chunk = ": ping\n\n"  # ulanish tirikligini bildiradi va uzilganini aniqlaydi
+                        event, chunk = None, ": ping\n\n"  # ulanish tirikligini bildiradi va uzilganini aniqlaydi
                     self.wfile.write(chunk.encode())
                     self.wfile.flush()
+                    if event and event.get("type") == "overflow":
+                        break  # EventSource qayta ulanadi va to'liq tarixni init orqali oladi
             except OSError:
                 pass  # brauzer yopildi
             finally:
@@ -427,6 +577,30 @@ def make_handler(app: App):
 class Server(ThreadingHTTPServer):
     daemon_threads = True
     store: Store
+
+    def __init__(self, *args, **kwargs):
+        self._slots = threading.BoundedSemaphore(MAX_CONNECTIONS)
+        super().__init__(*args, **kwargs)
+
+    def process_request(self, request, client_address):
+        if not self._slots.acquire(blocking=False):
+            try:
+                request.sendall(b"HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Length: 0\r\n\r\n")
+            except OSError:
+                pass
+            self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except Exception:
+            self._slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._slots.release()
 
     def server_bind(self):  # standart usul socket.getfqdn() ni chaqiradi: Windows'da soniyalab qotib qolishi mumkin
         socketserver.TCPServer.server_bind(self)

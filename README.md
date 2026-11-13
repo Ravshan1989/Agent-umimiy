@@ -2,7 +2,7 @@
 
 # 🤖 Agent Umimiy
 
-**Barcha AI agentlarni bitta desktop ilovada birlashtiruvchi o'zbekcha dastur**
+**Barcha AI agentlarni bitta desktop ilovada birlashtiruvchi ko'p tilli dastur**
 
 Claude, ChatGPT, Gemini, Ollama va boshqa modellar bilan bitta oynada ishlang:
 agentlar fayllaringizni o'qiydi, tahrirlaydi, brauzerni boshqaradi va bir-biriga yordam beradi.
@@ -11,7 +11,7 @@ agentlar fayllaringizni o'qiydi, tahrirlaydi, brauzerni boshqaradi va bir-biriga
 ![Versiya](https://img.shields.io/badge/versiya-0.3.0-orange)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Litsenziya](https://img.shields.io/badge/litsenziya-MIT-green)
-![Til](https://img.shields.io/badge/interfeys-o'zbek%20tilida-1EB53A)
+![Til](https://img.shields.io/badge/interfeys-UZ%20%7C%20RU%20%7C%20EN-1EB53A)
 [![Testlar](https://github.com/Ravshan1989/Agent-umimiy/actions/workflows/tests.yml/badge.svg)](https://github.com/Ravshan1989/Agent-umimiy/actions/workflows/tests.yml)
 
 [📥 Yuklab olish](#-ornatish) · [✨ Imkoniyatlar](#-imkoniyatlar) · [⚙️ Sozlash](#️-sozlash) · [📖 Qo'llanma](#-batafsil-qollanma) · [👨‍💻 Dasturchilar](#-dasturchilar-uchun)
@@ -25,10 +25,9 @@ agentlar fayllaringizni o'qiydi, tahrirlaydi, brauzerni boshqaradi va bir-biriga
 ## 📌 Bu nima?
 
 **Agent Umimiy** — bir nechta sun'iy intellekt agentlarini bitta joyga yig'adigan desktop ilova.
-Har bir xizmat uchun alohida sayt yoki dastur ochish shart emas: hammasi bitta qulay, qorong'i
-mavzudagi oynada, **to'liq o'zbek tilida**.
+Har bir xizmat uchun alohida sayt yoki dastur ochish shart emas: hammasi bitta qulay oynada. Desktop, telefon va veb interfeyslarida o'zbek, rus va ingliz tillarini tanlash mumkin. Ruscha va inglizcha tarjimalar qisman: ayrim dinamik xabarlar, agent javoblari va kam ishlatiladigan matnlar o'zbekcha qolishi mumkin.
 
-Ilova kompyuteringizdagi mavjud agentlarni **o'zi topadi** — hech narsa yozib o'tirishingiz kerak emas.
+Desktop interfeys tilini **Sozlamalar → Interfeys tili** orqali tanlang. Ilova kompyuteringizdagi mavjud agentlarni **o'zi topadi** — hech narsa yozib o'tirishingiz kerak emas.
 
 ## 📸 Ko'rinishi
 
@@ -59,6 +58,7 @@ Ilova kompyuteringizdagi mavjud agentlarni **o'zi topadi** — hech narsa yozib 
 | 📚 | **Ko'nikmalar (Skills)** | `SKILL.md` ko'rsatmalari bilan agentga ish uslubini o'rgatish. `~/.claude/skills` papkasi ham avtomatik topiladi |
 | 📱 | **Telefondan boshqarish** | QR-kodni skanerlang — chat telefon brauzerida ochiladi, ruxsat so'rovlari ham telefonga keladi |
 | 💾 | **Suhbatlar saqlanadi** | Dasturni yopib ochganingizda suhbatlar joyida qoladi |
+| 🧠 | **Shaxsiy xotira** | Saqlangan ma’lumotlarni ko‘rish va o‘chirish; veb-foydalanuvchilarning xotirasi akkaunt bo‘yicha ajratiladi |
 | 🌿 | **Git yordamchisi** | Loyihadagi Git holatini oddiy tilda ko'rsatadi |
 
 ## 📥 O'rnatish
@@ -115,10 +115,14 @@ Loyiha papkasida `CLAUDE.md` yoki `AGENTS.md` fayli bo'lsa, agent uni har doim h
 
 ## 🔒 Xavfsizlik
 
-- Agent fayllarni faqat **siz tanlagan loyiha papkasida** o'zgartiradi.
-- Buyruq ishga tushirish va fayl yozish **ruxsatingiz bilan** bajariladi.
-- Brauzer alohida profilda ishlaydi — asosiy brauzeringiz ma'lumotlariga tegmaydi.
-- API kalitlaringiz faqat sizning kompyuteringizda saqlanadi.
+- O'rnatilgan fayl asboblari tanlangan loyiha papkasidan tashqariga chiqmaydi.
+- **Shell buyruqlari, CLI-agentlar va MCP plaginlari OS darajasida sandbox qilinmagan**; ular joriy foydalanuvchi huquqlariga ega. Tasdiqlashdan oldin buyruq va plagin manbasini tekshiring.
+- API kalitlari va suhbatlar lokal diskda shifrlanmagan saqlanadi; ilova katalogiga fayl ruxsatlari qo'yiladi.
+- Veb rejimida xotira har bir akkaunt uchun alohida faylda saqlanadi; agent xotiraga yozish/o‘chirishni avtomatik bajara olmaydi. Foydalanuvchi xotirani interfeysdan boshqaradi.
+- Brauzer alohida profil ishlatadi. HTML ko'rinish oynasida tashqi resurslar bloklanadi; iframe navigatsiyasi barcha brauzerlarda kafolatli cheklanmasligi mumkin.
+- Telefon boshqaruvi HTTP: faqat ishonchli Wi-Fi yoki Tailscale/VPN kabi shifrlangan tunnelda ishlating.
+
+Batafsil ma'lumot: [Xavfsizlik siyosati](SECURITY.md).
 
 ## 📖 Batafsil qo'llanma
 
@@ -130,8 +134,7 @@ Yuqoridagi **«Loyiha papkasini tanlash»** tugmasi bilan o'z loyihangiz papkasi
 - fayl **yaratadi / tahrirlaydi** va **buyruq ishga tushiradi** (testlar, o'rnatish...) — **har safar ruxsat so'raydi**, o'zgarish (diff) ko'rsatiladi;
 - «Shu suhbatda doim ruxsat» tugmasi ruxsat so'rashni o'chiradi; **■** tugmasi ishni to'xtatadi.
 
-Xavfsizlik: agent faqat tanlangan papka ichida ishlaydi (tashqariga chiqolmaydi, `.git` ga tegmaydi). «Hammasi birga» va «Kengash» rejimlarida bir nechta agent bir vaqtda ishlagani uchun ular **faqat o'qiydi**.
-`claude`, `codex` kabi CLI agentlar tanlangan papkada ishga tushadi.
+Xavfsizlik: ichki fayl asboblari tanlangan loyiha papkasidan tashqariga chiqmaydi va `.git` ga tegmaydi. `run_command`, CLI-agentlar va MCP plaginlari esa joriy foydalanuvchi huquqlari bilan ishlaydi; OS sandbox yo'q. Buyruq va plaginlarni tasdiqlashdan oldin tekshiring. «Hammasi birga» va «Kengash» rejimlarida CLI-agentlar ishga tushmaydi; fayl yozish, shell, brauzer va MCP amallari o'chiriladi. Boshqa agentga topshirish orqali ham CLI ishga tushirilmaydi.
 
 **Git** tugmasi: nima o'zgargani (oddiy tilda), o'zgarishlarni ko'rish, **Saqlash (commit)**, **Yuborish (push)**, **Olish (pull)**. Git kompyuteringizda o'rnatilgan bo'lishi kerak (git-scm.com); parollar sizning Git sozlamangizdan olinadi.
 

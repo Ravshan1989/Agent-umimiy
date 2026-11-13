@@ -1,7 +1,7 @@
 """Jonli ko'rinish: agent yaratgan faylni brauzerda chat yonida ko'rsatish uchun HTML sahifa.
 
-Sahifa har doim qum qutisida (sandbox) ochiladi: skript ishlashi mumkin, lekin dastur manziliga, cookie'larga va
-API'ga yo'l yo'q; tarmoqdan faqat tanilgan CDN'lardagi kutubxonalarni yuklay oladi.
+Sahifa har doim qum qutisida (sandbox) ochiladi: skript ishlashi mumkin, lekin dastur manziliga, cookie'larga,
+API'ga yoki tashqi resurs yuklashga yo'l yo'q. Brauzerning o'z iframe navigatsiyasi barcha brauzerlarda to'liq kafolatlanmaydi; maxfiy hujjatlarni ishonchsiz HTML sifatida ochmang.
 """
 from __future__ import annotations
 
@@ -10,13 +10,13 @@ from pathlib import Path
 
 from . import docs
 
-CDN = "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com"
-CSP = ("sandbox allow-scripts allow-popups; default-src 'none'; "
-       f"script-src 'unsafe-inline' {CDN}; style-src 'unsafe-inline' {CDN}; font-src data: {CDN}; "
-       "img-src data: blob: https:; frame-ancestors 'self'")
+CSP = ("sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
+       "font-src data:; img-src data: blob:; form-action 'none'; base-uri 'none'; object-src 'none'; "
+       "navigate-to 'none'; frame-ancestors 'self'")
 TABLES, TEXTS = (".csv", ".xlsx"), (".txt", ".md", ".json")
 KINDS = (".html",) + TABLES + TEXTS
 MAX_ROWS, MAX_SHEETS = 500, 10
+MAX_PREVIEW_BYTES = 10 * 1024 * 1024
 STYLE = """<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
 body{margin:0;padding:14px;font:14px/1.45 "Segoe UI",system-ui,Arial,sans-serif;color:#1c2030;background:#fff}
 h2{font-size:15px;margin:18px 0 8px}h2:first-child{margin-top:0}.wrap{overflow:auto;border:1px solid #d8dbe6;border-radius:8px}
@@ -58,6 +58,10 @@ def _tables(path: Path) -> str:
 def page(path: Path) -> str | None:
     """Faylning ko'rinish sahifasi; bu turdagi fayl ko'rsatilmasa None (u faqat yuklab olinadi)."""
     suffix = path.suffix.lower()
+    if suffix not in KINDS:
+        return None
+    if path.stat().st_size > MAX_PREVIEW_BYTES:
+        return STYLE + "<p>Ko'rinish uchun fayl 10 MB dan kichik bo'lishi kerak. Faylni yuklab oling.</p>"
     if suffix == ".html":
         return path.read_text(encoding="utf-8", errors="replace")
     try:

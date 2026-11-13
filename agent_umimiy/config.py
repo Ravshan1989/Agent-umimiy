@@ -9,6 +9,8 @@ from pathlib import Path
 from .orchestrator import Orchestrator
 from .providers import build_agent
 
+MAX_CONFIG_BYTES = 1024 * 1024
+MAX_AGENTS = 16
 DEFAULT = {"judge": "", "routes": {}, "agents": [], "project": "", "mcp": [], "remote": False, "server": False,
            "lang": "uz", "theme": "dark", "accent": "violet"}
 
@@ -20,7 +22,14 @@ def user_dir() -> Path:
         base = Path.home() / "Library" / "Application Support"
     else:
         base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-    return base / "AgentUmimiy"
+    path = base / "AgentUmimiy"
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        if os.name != "nt":
+            path.chmod(0o700)
+    except OSError:
+        pass
+    return path
 
 
 def upload_dir() -> Path:
@@ -43,22 +52,45 @@ def config_path(path: str | None = None) -> Path:
 def read(path: str | None = None) -> dict:
     p = config_path(path)
     if p.exists():
-        return {**DEFAULT, **json.loads(p.read_text(encoding="utf-8"))}
+        if p.stat().st_size > MAX_CONFIG_BYTES:
+            raise ValueError("agents.json fayli 1 MB dan katta.")
+        data = json.loads(p.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            raise ValueError("agents.json ildiz elementi obyekt bo'lishi kerak.")
+        return {**DEFAULT, **data}
     return json.loads(json.dumps(DEFAULT))
 
 
 def write(cfg: dict, path: str | None = None) -> None:
+    if not isinstance(cfg, dict):
+        raise ValueError("Konfiguratsiya obyekt bo'lishi kerak.")
     p = config_path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
+    payload = json.dumps(cfg, indent=2, ensure_ascii=False).encode("utf-8")
+    if len(payload) > MAX_CONFIG_BYTES:
+        raise ValueError("Konfiguratsiya 1 MB dan katta bo'lmasligi kerak.")
+    tmp = p.with_suffix(p.suffix + ".tmp")
+    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     try:
-        p.chmod(0o600)  # API kalitlar bor
+        if hasattr(os, "fchmod"):
+            os.fchmod(fd, 0o600)
     except OSError:
         pass
+    with os.fdopen(fd, "wb") as fh:
+        fh.write(payload)
+    os.replace(tmp, p)
 
 
 def build(cfg: dict) -> Orchestrator:
-    agents = [build_agent(a) for a in cfg.get("agents", []) if a.get("enabled", True)]
+    raw_agents = cfg.get("agents", [])
+    if not isinstance(raw_agents, list) or any(not isinstance(a, dict) for a in raw_agents):
+        raise ValueError("agents sozlamasi ro'yxat bo'lishi va har bir agent obyekt bo'lishi kerak.")
+    if any(str(a.get("name", "")).strip().casefold() == "auto" for a in raw_agents if a.get("enabled", True)):
+        raise ValueError("'auto' nomi band: bu nom veb va avtomatik rejim uchun ajratilgan. Agentga boshqa nom bering.")
+    enabled = [a for a in raw_agents if a.get("enabled", True)]
+    if len(enabled) > MAX_AGENTS:
+        raise ValueError(f"Ko'pi bilan {MAX_AGENTS} ta agent sozlash mumkin.")
+    agents = [build_agent(a) for a in enabled]
     if not agents:
         agents = [build_agent({"name": "demo", "type": "echo", "description": "Demo (agent sozlanmagan)"})]
     names = {a.name for a in agents}

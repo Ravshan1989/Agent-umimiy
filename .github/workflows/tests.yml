@@ -12,35 +12,80 @@ on:
       - "LICENSE"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  test:
+  test-linux:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.9", "3.11", "3.13"]
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@v7
       - name: Python ${{ matrix.python-version }} o'rnatish
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
-
       - name: Ixtiyoriy kutubxonalar
-        run: python -m pip install --upgrade pip && pip install pypdf qrcode pillow python-docx openpyxl
-
-      - name: Testlar (oyna sinovlari uchun virtual ekran bilan)
+        run: python -m pip install --upgrade pip && pip install pypdf qrcode pillow python-docx openpyxl python-pptx
+      - name: Testlar (virtual ekran bilan)
         run: xvfb-run -a python -m unittest discover -s tests -t . -v
+
+  test-windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Python ${{ matrix.python-version }} o'rnatish
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Ixtiyoriy kutubxonalar
+        run: python -m pip install --upgrade pip; pip install pypdf qrcode pillow python-docx openpyxl python-pptx
+      - name: Testlar
+        run: python -m unittest discover -s tests -t . -v
 
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - name: ruff o'rnatish
         run: pip install ruff
       - name: Lint (ruff)
         run: ruff check .
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Kutubxonalarni o'rnatish
+        run: python -m pip install --upgrade pip pypdf qrcode pillow python-docx openpyxl python-pptx pip-audit
+      - name: Zaif kutubxonalarni tekshirish
+        run: pip-audit --strict
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - name: Node.js o'rnatish
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Frontend kutubxonalarini o'rnatish
+        run: npm install
+      - name: TypeScript va Vite build
+        run: npm run build

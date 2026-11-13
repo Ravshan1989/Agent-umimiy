@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 
 SESSION_DAYS = 30
+MAX_RECORDS_PER_CHAT = 5000
 INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # adashtiradigan 0/O, 1/I harflarsiz
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -45,8 +46,14 @@ def _digest(token: str) -> str:
 
 class Store:
     def __init__(self, path: Path | str):
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
         self.lock = threading.Lock()
         self.db = sqlite3.connect(str(path), check_same_thread=False, isolation_level=None)
+        try:
+            path.chmod(0o600)
+        except OSError:
+            pass
         self.db.execute("PRAGMA foreign_keys = ON")
         self.db.execute("PRAGMA journal_mode = WAL")
         self.db.executescript(SCHEMA)
@@ -81,6 +88,8 @@ class Store:
             raise StoreError("Ism 2 dan 32 gacha belgidan iborat bo'lsin.")
         if len(password) < 8:
             raise StoreError("Parol kamida 8 belgidan iborat bo'lsin.")
+        if len(password) > 1024:
+            raise StoreError("Parol 1024 belgidan oshmasin.")
         salt = secrets.token_bytes(16)
         try:
             return self._run("INSERT INTO users (name, salt, hash) VALUES (?, ?, ?)",
@@ -89,6 +98,8 @@ class Store:
             raise StoreError("Bu ism band. Boshqa ism tanlang.")
 
     def check_user(self, name: str, password: str) -> int | None:
+        if not isinstance(name, str) or not isinstance(password, str) or not 2 <= len(name.strip()) <= 32 or len(password) > 1024:
+            return None
         rows = self._all("SELECT id, salt, hash FROM users WHERE name = ?", (name.strip(),))
         if rows and hmac.compare_digest(_hash(password, rows[0][1]), rows[0][2]):
             return rows[0][0]
@@ -145,6 +156,9 @@ class Store:
 
     def add_record(self, chat_id: int, record: dict) -> None:
         self._run("INSERT INTO records (chat_id, body) VALUES (?, ?)", (chat_id, json.dumps(record, ensure_ascii=False)))
+        self._run("DELETE FROM records WHERE chat_id = ? AND id NOT IN "
+                  "(SELECT id FROM records WHERE chat_id = ? ORDER BY id DESC LIMIT ?)",
+                  (chat_id, chat_id, MAX_RECORDS_PER_CHAT))
 
     def records(self, chat_id: int) -> list[dict]:
         return [json.loads(r[0]) for r in self._all("SELECT body FROM records WHERE chat_id = ? ORDER BY id", (chat_id,))]

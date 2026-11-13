@@ -9,7 +9,7 @@ from pathlib import Path
 from agent_umimiy import gitutil
 from agent_umimiy.orchestrator import Orchestrator
 from agent_umimiy.providers import build_agent
-from agent_umimiy.tools import Context, Toolbox
+from agent_umimiy.tools import Context, Toolbox, project_notes
 
 
 def _sse(events) -> bytes:
@@ -65,6 +65,22 @@ def serve(script):
     return srv, seen
 
 
+class ProjectNotesTests(unittest.TestCase):
+    def test_instruction_symlink_is_rejected_and_content_is_bounded(self):
+        root = Path(tempfile.mkdtemp())
+        outside = root.parent / (root.name + "-outside.md")
+        outside.write_text("SECRET")
+        link = root / "CLAUDE.md"
+        try:
+            link.symlink_to(outside)
+        except (OSError, NotImplementedError):
+            self.skipTest("Symlink yaratish huquqi yo'q")
+        self.assertEqual(project_notes(str(root)), "")
+        link.unlink()
+        link.write_text("x" * 30_000)
+        self.assertLessEqual(len(project_notes(str(root))), 20_200)
+
+
 class ToolboxTests(unittest.TestCase):
     def setUp(self):
         self.d = tempfile.mkdtemp()
@@ -115,11 +131,31 @@ class ToolboxTests(unittest.TestCase):
         self.assertTrue(self.tb.run("run_command", {"command": "echo hi"})[1])
         self.assertEqual(len(self.asked), 1)  # readonly rejimda so'ralmaydi ham
 
-    def test_always_allows_without_asking_again(self):
+    def test_always_approval_is_scoped_to_one_file(self):
         self.answer = "always"
         self.tb.run("write_file", {"path": "1.txt", "content": "1"})
         self.tb.run("write_file", {"path": "2.txt", "content": "2"})
-        self.assertEqual(len(self.asked), 1)
+        self.tb.run("write_file", {"path": "1.txt", "content": "updated"})
+        self.assertEqual(len(self.asked), 2)
+
+    def test_create_document_requires_approval(self):
+        folder = self.root / "out"
+        self.ctx.files_dir = str(folder)
+        self.answer = "no"
+        self.assertTrue(self.tb.run("create_document", {"name": "report.txt", "content": "hello"})[1])
+        self.assertFalse((folder / "report.txt").exists())
+        self.assertEqual(self.asked[-1][1], "create:report.txt")
+        self.answer = "yes"
+        out, err = self.tb.run("create_document", {"name": "report.txt", "content": "hello"})
+        self.assertFalse(err, out)
+        self.assertTrue((folder / "report.txt").is_file())
+
+    def test_always_run_permission_is_scoped_to_exact_command(self):
+        self.answer = "always"
+        self.tb.run("run_command", {"command": "echo same"})
+        self.tb.run("run_command", {"command": "echo same"})
+        self.tb.run("run_command", {"command": "echo different"})
+        self.assertEqual(len(self.asked), 2)
 
     def test_search_list_run(self):
         (self.root / "m.py").write_text("def foo():\n    return 1\n")
@@ -132,7 +168,7 @@ class ToolboxTests(unittest.TestCase):
     def test_run_command_asks(self):
         self.answer = "no"
         self.assertTrue(self.tb.run("run_command", {"command": "echo x"})[1])
-        self.assertEqual(self.asked[0][1], "run")
+        self.assertTrue(self.asked[0][1].startswith("run:"))
 
 
 class LoopTests(unittest.TestCase):

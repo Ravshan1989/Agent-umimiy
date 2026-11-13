@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest import mock
 
 from agent_umimiy import config, server
+from agent_umimiy import store as store_module
 from agent_umimiy.store import Store, StoreError
 
 PASSWORD = "parol12345"
@@ -96,6 +97,10 @@ class ServerTests(unittest.TestCase):
         self.assertNotIn("Secure", register("Ali", {}))
         self.assertIn("; Secure", register("Vali", {"X-Forwarded-Proto": "https"}))
 
+    def test_auto_agent_name_is_reserved(self):
+        with self.assertRaisesRegex(ValueError, "nomi band"):
+            config.build({"agents": [{"name": "auto", "type": "echo"}]})
+
     def test_register_needs_invite_and_login_checks_password(self):
         c = Client(self.base)
         self.assertEqual(c.call("/api/register", {"name": "Ali", "password": PASSWORD, "invite": "XATO"})[0], 403)
@@ -107,9 +112,25 @@ class ServerTests(unittest.TestCase):
         c = Client(self.base)
         self.assertEqual(c.call("/api/login", {"name": "ali", "password": PASSWORD})[0], 200)
         code, me = c.call("/api/me")
-        self.assertEqual(me["agents"], [{"name": "aks", "model": ""}])  # CLI agent veb-foydalanuvchilarga berilmaydi
+        self.assertEqual(me["agents"], [{"name": "auto", "model": "Avtomatik — o‘zi tanlaydi"},
+                                        {"name": "aks", "model": ""}])  # CLI agent veb-foydalanuvchilarga berilmaydi
         self.assertEqual(c.call("/api/logout", {})[0], 200)
         self.assertEqual(c.call("/api/me")[0], 401)
+
+    def test_memory_is_isolated_per_web_account(self):
+        ali, vali = self.user("Ali"), self.user("Vali")
+        saved = ali.call("/api/memory/remember", {"fact": "Ali maxsus ma'lumoti"})
+        self.assertEqual(saved[0], 200)
+        self.assertIn("saqlandi", saved[1]["message"].lower())
+        ali_items = ali.call("/api/memory")[1]["items"]
+        self.assertEqual(len(ali_items), 1)
+        item_id = ali_items[0]["id"]
+        self.assertEqual(vali.call("/api/memory")[1]["items"], [])
+        # Vali Ali xotirasini ID orqali ham o'chira olmaydi.
+        vali.call("/api/memory/delete", {"id": item_id})
+        self.assertEqual(ali.call("/api/memory")[1]["items"], ali_items)
+        ali.call("/api/memory/delete", {"id": item_id})
+        self.assertEqual(ali.call("/api/memory")[1]["items"], [])
 
     def test_chat_stream_history_and_isolation(self):
         ali, vali = self.user("Ali"), self.user("Vali")
@@ -139,6 +160,46 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(ali.call("/api/send", {"chat": chat, "text": " ", "agent": "aks"})[0], 400)
         self.assertEqual(ali.call("/api/send", {"chat": chat, "text": "x", "agent": "buyruq"})[0], 400)
         self.assertEqual(ali.call("/api/chat/new", {}, ctype="text/plain")[0], 415)  # boshqa saytdagi forma
+
+    def test_send_throttle_limits_each_user(self):
+        throttle = server.Throttle()
+        for _ in range(20):
+            self.assertTrue(throttle.allow_send(10))
+        self.assertFalse(throttle.allow_send(10))
+        self.assertTrue(throttle.allow_send(11))
+
+    def test_safe_file_path_rejects_symlink_escape(self):
+        import os
+        base = self.d / "chat-files"
+        base.mkdir()
+        outside = self.d / "secret.txt"
+        outside.write_text("secret")
+        link = base / "leak.txt"
+        try:
+            os.symlink(outside, link)
+        except (OSError, NotImplementedError):
+            self.skipTest("Symlink yaratish huquqi yo'q")
+        self.assertIsNone(server.safe_file_path(base, "leak.txt"))
+        self.assertIsNone(server.safe_file_path(base, "../secret.txt"))
+        self.assertIsNone(server.safe_file_path(base, "missing.txt"))
+
+    def test_web_input_limits_and_file_count(self):
+        user_id = self.store.add_user("Ali", PASSWORD)
+        chat = self.store.new_chat(user_id)
+        app = server.App(self.store, str(self.d / "agents.json"))
+        with self.assertRaises(server.Refused):
+            app.send(chat, "x", "auto", [{}] * (server.MAX_FILES + 1))
+        with self.assertRaises(server.Refused):
+            app.send(chat, "x" * (server.MAX_PROMPT + 1), "auto", [])
+        self.assertEqual(self.store.records(chat), [])
+
+    def test_chat_records_are_capped(self):
+        user_id = self.store.add_user("Ali", PASSWORD)
+        chat = self.store.new_chat(user_id)
+        with mock.patch.object(store_module, "MAX_RECORDS_PER_CHAT", 5):
+            for i in range(8):
+                self.store.add_record(chat, {"n": i})
+        self.assertEqual([r["n"] for r in self.store.records(chat)], [3, 4, 5, 6, 7])
 
     def test_created_file_download_is_private(self):
         ali, vali = self.user("Ali"), self.user("Vali")
