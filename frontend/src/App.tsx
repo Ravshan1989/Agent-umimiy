@@ -234,7 +234,7 @@ function App() {
 
   if (!user) return <div className={`auth-screen ${theme}`}><Toaster richColors position="top-right" /><div className="auth-card panel"><Robot /><div className="eyebrow"><Sparkles size={14} /> Yagona AI ekotizimi</div><h1>Agent Umumiy</h1><p>{register ? "Yangi hisob yarating" : "Hisobingizga kiring"}</p><form onSubmit={submitAuth}><label>Foydalanuvchi nomi<input required minLength={2} value={authName} onChange={(e) => setAuthName(e.target.value)} autoComplete="username" /></label><label>Parol<input required minLength={8} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={register ? "new-password" : "current-password"} /></label>{register && <label>Taklif kodi<input required value={invite} onChange={(e) => setInvite(e.target.value)} /></label>}<button className="primary-btn" disabled={authBusy}>{authBusy ? <Loader2 className="spin" /> : <ShieldCheck size={17} />}{register ? "Ro‘yxatdan o‘tish" : "Kirish"}</button></form><button className="switch-auth" onClick={() => setRegister(!register)}>{register ? "Hisobim bor — kirish" : "Hisobim yo‘q — ro‘yxatdan o‘tish"}</button><small>Server egasidan taklif kodini oling.</small></div></div>;
 
-  return <div className={`app-shell ${theme}`}><Toaster richColors position="top-right" />
+  return <div className={`app-shell ${theme} accent-${settings.accent}`}><Toaster richColors position="top-right" />
     <aside className={mobileNav ? "sidebar open" : "sidebar"}>
       <div className="brand"><div className="brand-mark">AU</div><div><b>Agent Umumiy</b><span>AI platformasi</span></div><button className="icon-btn mobile-close" onClick={() => setMobileNav(false)}><X /></button></div>
       <nav>
