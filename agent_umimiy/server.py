@@ -79,7 +79,7 @@ class App:
         self.channels: dict[int, Channel] = {}
 
     # ---- agentlar ----
-    def orchestrator(self):
+    def orchestrator(self, user_id: int | None = None):
         cfg = config.read(self.config_file)
         cfg["agents"] = [a for a in cfg["agents"] if a.get("type") not in LOCAL_ONLY]
         orch = config.build(cfg)
@@ -87,6 +87,8 @@ class App:
         ctx.root = ctx.confirm = ctx.mcp = None
         ctx.browser = False
         ctx.web, ctx.skills = bool(cfg.get("web", True)), bool(cfg.get("skills", True))
+        if user_id is not None:
+            ctx.memory_file = str(config.user_dir() / "memories" / f"{int(user_id)}.json")
         return orch
 
     def files_dir(self, chat_id: int) -> Path:
@@ -155,12 +157,12 @@ class App:
                     del self.channels[chat_id]
 
     # ---- amallar ----
-    def send(self, chat_id: int, text: str, agent: str, files: list[dict]) -> None:
+    def send(self, chat_id: int, user_id: int, text: str, agent: str, files: list[dict]) -> None:
         if not isinstance(agent, str):
             raise Refused("Agent tanlovi noto'g'ri.")
         if not isinstance(files, list) or any(not isinstance(item, dict) for item in files):
             raise Refused("Fayllar ro'yxati noto'g'ri.")
-        orch = self.orchestrator()
+        orch = self.orchestrator(user_id)
         if agent != "auto" and agent not in orch.agents:
             raise Refused("Bu agent mavjud emas. Sahifani yangilang.")
         orch.ctx.files_dir = str(self.files_dir(chat_id))
@@ -414,6 +416,11 @@ def make_handler(app: App):
                 if url.path == "/api/me":
                     user_id, name = self._user()
                     return self._json(200, {"user": name, "agents": app.agents(), "chats": store.chats(user_id)})
+                if url.path == "/api/memory":
+                    user_id, _ = self._user()
+                    from . import memory
+                    path = config.user_dir() / "memories" / f"{user_id}.json"
+                    return self._json(200, {"items": memory.list_items(path)})
                 if url.path == "/api/stream":
                     user_id, _ = self._user()
                     return self._stream(self._chat(user_id, parse_qs(url.query).get("chat", [""])[0]))
@@ -489,6 +496,13 @@ def make_handler(app: App):
                 store.drop_session(self._token())
                 return {"ok": True}, self._cookie("", 0)
             user_id, _ = self._user()
+            if path == "/api/memory/delete":
+                from . import memory
+                item_id = str(body.get("id", "")).strip()
+                if not item_id:
+                    raise Refused("Xotira ID ko'rsatilmagan.")
+                memory.forget(item_id, config.user_dir() / "memories" / f"{user_id}.json")
+                return {"ok": True}, ""
             if path == "/api/chat/new":
                 if len(store.chats(user_id)) >= 100:
                     raise Refused("Bir foydalanuvchi ko'pi bilan 100 ta suhbat yaratishi mumkin.", 429)
@@ -502,7 +516,7 @@ def make_handler(app: App):
                 files = body.get("files") or []
                 if not isinstance(files, list) or not all(isinstance(f, dict) for f in files):
                     raise Refused("Noto'g'ri so'rov.")
-                app.send(chat_id, str(body.get("text", "")), str(body.get("agent", "")), files)
+                app.send(chat_id, user_id, str(body.get("text", "")), str(body.get("agent", "")), files)
             elif path == "/api/stop":
                 app.stop(chat_id)
             else:
