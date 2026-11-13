@@ -7,8 +7,8 @@ Ulanish oddiy HTTP: ishonchli lokal tarmoqda ishlating yoki oldiga HTTPS beruvch
 """
 from __future__ import annotations
 
-import json
 import ipaddress
+import json
 import mimetypes
 import queue
 import shutil
