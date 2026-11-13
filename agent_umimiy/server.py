@@ -503,6 +503,12 @@ def make_handler(app: App):
                     raise Refused("Xotira ID ko'rsatilmagan.")
                 memory.forget(item_id, config.user_dir() / "memories" / f"{user_id}.json")
                 return {"ok": True}, ""
+            if path == "/api/memory/remember":
+                from . import memory
+                fact = str(body.get("fact", "")).strip()
+                if not fact:
+                    raise Refused("Saqlanadigan ma'lumot bo'sh.")
+                return {"message": memory.remember(fact, config.user_dir() / "memories" / f"{user_id}.json")}, ""
             if path == "/api/chat/new":
                 if len(store.chats(user_id)) >= 100:
                     raise Refused("Bir foydalanuvchi ko'pi bilan 100 ta suhbat yaratishi mumkin.", 429)
