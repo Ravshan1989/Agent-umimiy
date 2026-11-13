@@ -32,7 +32,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - run: python -m pip install pyinstaller pypdf qrcode pillow python-docx openpyxl python-pptx
+      - run: python -m pip install pyinstaller pywebview pypdf qrcode pillow python-docx openpyxl python-pptx
       - name: React frontend'ni yig'ish
         working-directory: frontend
         run: |
@@ -46,6 +46,7 @@ jobs:
           if [ "${{ runner.os }}" = "Windows" ]; then DATA_SEP=";"; else DATA_SEP=":"; fi
           python -m PyInstaller --noconfirm --clean --windowed \
             --hidden-import pypdf --hidden-import qrcode --hidden-import PIL.ImageGrab \
+            --collect-all webview \
             --add-data "agent_umimiy/static${DATA_SEP}agent_umimiy/static" \
             --name AgentUmimiy app.py
       - name: Yig'ilgan dasturni sinash (veb-server rejimi)
