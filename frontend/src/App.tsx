@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { motion } from "framer-motion";
 import {
-  Activity, ArrowUpRight, Bot, Boxes, Check, FileSpreadsheet,
-  FileText, Folder, LayoutDashboard, Menu, MessageCircle, Paperclip,
+  Activity, ArrowUpRight, Bot, Boxes, Check, Copy, FileSpreadsheet,
+  FileText, Folder, LayoutDashboard, Menu, MessageCircle, Paperclip, Server,
   Plug, Search, Send, Settings, ShieldCheck, Sparkles, Workflow, X, Zap,
 } from "lucide-react";
 
@@ -13,6 +13,7 @@ type RecordItem = { k: string; text?: string; name?: string; agent?: string; met
 type Upload = { name: string; data: string };
 type MemoryItem = { id: string; fact: string };
 type EventMessage = { type: string; records?: RecordItem[]; live?: Record<string, string>; busy?: boolean; record?: RecordItem; agent?: string; text?: string };
+type HostInfo = { is_host: boolean; addresses?: string[]; invite?: string; port?: number };
 
 const nav = [
   { label: "Bosh sahifa", icon: LayoutDashboard },
@@ -63,6 +64,7 @@ function App() {
   const [invite, setInvite] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [hostInfo, setHostInfo] = useState<HostInfo | null>(null);
   const streamRef = useRef<EventSource | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -89,9 +91,14 @@ function App() {
   }, []);
 
   useEffect(() => {
-    refresh().then((me) => {
+    const host = api<HostInfo>("/api/host/info").then((info) => {
+      setHostInfo(info);
+      if (info.is_host && info.invite) setInvite(info.invite);
+    }).catch(() => {});
+    const account = refresh().then((me) => {
       if (me.chats.length) setChatId(me.chats[0].id);
-    }).catch(() => showAuth()).finally(() => setLoading(false));
+    }).catch(() => showAuth());
+    Promise.all([host, account]).finally(() => setLoading(false));
     return () => streamRef.current?.close();
   }, [refresh, showAuth]);
 
@@ -252,6 +259,21 @@ function App() {
     showAuth();
   }
 
+  async function enableFirewall() {
+    if (!window.confirm("Agent Umimiy serveriga shu lokal tarmoqdan kirish uchun Windows Firewall’da ruxsat qo‘shiladi. Davom etilsinmi?")) return;
+    try {
+      const result = await api<{ ok: boolean; message: string }>("/api/host/firewall", {});
+      setError(result.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Firewall sozlanmadi");
+    }
+  }
+
+  async function copyValue(value: string) {
+    try { await navigator.clipboard.writeText(value); setError("Nusxalandi."); }
+    catch { setError("Nusxalab bo‘lmadi; manzil yoki kodni qo‘lda nusxalang."); }
+  }
+
   const filesCount = records.filter((item) => item.k === "act" && item.kind === "file").length;
   const currentChat = chats.find((item) => item.id === chatId);
 
@@ -263,9 +285,20 @@ function App() {
         <div className="brand-mark">AU</div>
         <h1>Agent Umimiy</h1>
         <p>{authMode === "login" ? "Hisobingizga kiring" : "Yangi hisob yarating"}</p>
+        {hostInfo?.is_host && <div className="host-start-card">
+          <b><Server size={16} /> Markaziy server ishga tushdi</b>
+          {authMode === "login" ? <span>Birinchi marta ishlatyapsizmi? “Hisob yaratish”ni bosing. Taklif kodi avtomatik to‘ldiriladi.</span> : <span>Bu asosiy kompyuter. Hamkasblaringizga manzil va taklif kodini bering:</span>}
+          {authMode === "register" && <>
+            {(hostInfo.addresses || []).map((address) => <div className="host-start-value" key={address}><code>{address}</code><button type="button" onClick={() => copyValue(address)}>Nusxalash</button></div>)}
+            <div className="host-start-value"><code>{hostInfo.invite || "Taklif kodi olinmadi"}</code>{hostInfo.invite && <button type="button" onClick={() => copyValue(hostInfo.invite!)}>Nusxalash</button>}</div>
+          </>}
+        </div>}
         <input value={authName} onChange={(e) => setAuthName(e.target.value)} placeholder="Ism" autoComplete="username" required />
         <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Parol" autoComplete={authMode === "login" ? "current-password" : "new-password"} required />
-        {authMode === "register" && <input value={invite} onChange={(e) => setInvite(e.target.value)} placeholder="Taklif kodi" required />}
+        {authMode === "register" && <>
+          <input value={invite} onChange={(e) => setInvite(e.target.value)} placeholder="Taklif kodi" required />
+          {hostInfo?.is_host && <p className="muted-note">Asosiy server shu kompyuterda. Taklif kodi avtomatik kiritildi.</p>}
+        </>}
         {error && <div className="error-message">{error}</div>}
         <button className="primary-button" disabled={!authName.trim() || !password}>{authMode === "login" ? "Kirish" : "Ro‘yxatdan o‘tish"}</button>
         <button type="button" className="text-button" onClick={() => { setAuthMode(authMode === "login" ? "register" : "login"); setError(""); }}>
@@ -420,9 +453,20 @@ function App() {
               {!records.some((item) => item.k === "act" && item.kind === "file") && <p className="muted-note">Bu suhbatda hali yaratilgan fayl yo‘q. Agentdan Word yoki Excel fayl yaratishni so‘rang.</p>}
             </section>
           ) : active === "Sozlamalar" ? (
-            <section className="panel placeholder-panel">
-              <Settings size={38} /><h2>Sozlamalar</h2>
-              <p>Interfeys mavzusi va joriy server sessiyasini boshqarish.</p>
+            <section className="panel list-panel">
+              <div className="panel-heading"><h2><Server /> Markaziy server</h2><span className="status">{hostInfo?.is_host ? "Asosiy kompyuter" : "Ulangan mijoz"}</span></div>
+              {hostInfo?.is_host ? <>
+                <p className="muted-note">Server shu asosiy kompyuterda ishlaydi. Hamkasblar manzilni brauzerga kiritadi; ularga EXE ochish shart emas.</p>
+                <div className="server-admin-block">
+                  <b>Lokal tarmoq manzillari</b>
+                  {(hostInfo.addresses || []).map((address) => <div className="server-admin-row" key={address}><code>{address}</code><button className="text-button" onClick={() => copyValue(address)}><Copy size={14} /> Nusxalash</button></div>)}
+                  <b>Yangi foydalanuvchilar uchun taklif kodi</b>
+                  <div className="server-admin-row"><code className="invite-code">{hostInfo.invite || "—"}</code>{hostInfo.invite && <button className="text-button" onClick={() => copyValue(hostInfo.invite!)}><Copy size={14} /> Nusxalash</button>}</div>
+                  <button className="primary-button" onClick={enableFirewall}>Windows Firewall’da ruxsat berish</button>
+                  <p className="muted-note">UAC so‘rovi chiqsa, administrator ruxsatini tasdiqlang. Ilovani yopganda server ham to‘xtaydi; keyingi ochilishda avtomatik ishga tushadi.</p>
+                  <p className="muted-note">Server HTTP orqali ishlaydi. Faqat ishonchli ishxona Wi‑Fi/LAN tarmog‘ida ulashing.</p>
+                </div>
+              </> : <p className="muted-note">Markaziy serverni ishxonadagi asosiy kompyuter boshqaradi. Server egasidan manzil va taklif kodini oling.</p>}
               <button className="primary-button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>Mavzuni {theme === "dark" ? "yorug‘" : "qorong‘i"} qilish</button>
               <button className="text-button" onClick={logout}>Hisobdan chiqish</button>
             </section>
@@ -441,3 +485,4 @@ function App() {
 }
 
 export default App;
+
