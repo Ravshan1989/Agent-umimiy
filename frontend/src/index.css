@@ -92,3 +92,5 @@ footer{display:flex;align-items:center;gap:15px;color:var(--muted);font-size:10p
 .accent-blue .nav-item.selected,.accent-blue .send-btn,.accent-blue .primary-btn{background:linear-gradient(110deg,#075fba,#176be7 60%,#3989ff)}.accent-blue .brand-mark{background:linear-gradient(135deg,#075fba,#3989ff)}.accent-blue .composer{border-color:#267de0}
 .accent-cyan .nav-item.selected,.accent-cyan .send-btn,.accent-cyan .primary-btn{background:linear-gradient(110deg,#087c91,#08a9bd 60%,#22d3ee)}.accent-cyan .brand-mark{background:linear-gradient(135deg,#087c91,#22d3ee)}.accent-cyan .composer{border-color:#22d3ee}
 .accent-emerald .nav-item.selected,.accent-emerald .send-btn,.accent-emerald .primary-btn{background:linear-gradient(110deg,#08765a,#0b9b78 60%,#34d399)}.accent-emerald .brand-mark{background:linear-gradient(135deg,#08765a,#34d399)}.accent-emerald .composer{border-color:#34d399}
+
+.settings-info{display:grid;gap:7px;border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--text);font-size:11px}.settings-info span{color:var(--muted);font-size:10px}
