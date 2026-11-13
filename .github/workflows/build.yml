@@ -8,6 +8,7 @@ on:
         required: false
         default: ""
   push:
+    branches: ["feature/ultra-modern-full-integration"]
     tags: ["v*"]
 
 permissions:
