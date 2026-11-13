@@ -11,6 +11,7 @@ from pathlib import Path
 _lock = threading.RLock()
 MAX_ITEMS = 500
 MAX_FACT_LENGTH = 1000
+MAX_MEMORY_BYTES = 10 * 1024 * 1024
 _SECRET = re.compile(
     r"(?i)(?:api[_ -]?key|password|passwd|secret|token)\s*[:=]\s*\S+|"
     r"\bsk-(?:or-v1-|proj-|live-)?[A-Za-z0-9_-]{20,}\b|"
@@ -27,7 +28,7 @@ def _path(path: str | Path | None = None) -> Path:
 
 def _read(path: Path) -> list[dict]:
     try:
-        if path.stat().st_size > 1024 * 1024:
+        if path.stat().st_size > MAX_MEMORY_BYTES:
             return []
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
