@@ -193,7 +193,7 @@ def openai_model_for(options: dict, atts: list[Attachment]) -> str:
     model = str(options.get("model", "gpt-4o"))
     host = urlparse(str(options.get("base_url", ""))).hostname or ""
     if host == "openrouter.ai" and model.strip().lower() == "openrouter/free" and any(a.kind == "image" for a in atts):
-        return str(options.get("vision_model") or "nvidia/nemotron-3.5-super-vl:free")
+        return str(options.get("vision_model") or model)
     return model
 
 
