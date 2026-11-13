@@ -113,6 +113,21 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(c.call("/api/logout", {})[0], 200)
         self.assertEqual(c.call("/api/me")[0], 401)
 
+    def test_memory_is_isolated_per_web_account(self):
+        ali, vali = self.user("Ali"), self.user("Vali")
+        saved = ali.call("/api/memory/remember", {"fact": "Ali maxsus ma'lumoti"})
+        self.assertEqual(saved[0], 200)
+        self.assertIn("saqlandi", saved[1]["message"].lower())
+        ali_items = ali.call("/api/memory")[1]["items"]
+        self.assertEqual(len(ali_items), 1)
+        item_id = ali_items[0]["id"]
+        self.assertEqual(vali.call("/api/memory")[1]["items"], [])
+        # Vali Ali xotirasini ID orqali ham o'chira olmaydi.
+        vali.call("/api/memory/delete", {"id": item_id})
+        self.assertEqual(ali.call("/api/memory")[1]["items"], ali_items)
+        ali.call("/api/memory/delete", {"id": item_id})
+        self.assertEqual(ali.call("/api/memory")[1]["items"], [])
+
     def test_chat_stream_history_and_isolation(self):
         ali, vali = self.user("Ali"), self.user("Vali")
         chat = ali.call("/api/chat/new", {})[1]["id"]
