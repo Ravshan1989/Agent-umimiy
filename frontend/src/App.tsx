@@ -254,6 +254,36 @@ function App() {
         <div className="server-pill"><i /> Server: Ulangan</div><button className="icon-btn" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} title="Mavzuni almashtirish">{theme === "dark" ? <Sun /> : <Moon />}</button>
       </header>
       <div className="content">
+        {activeView === "Sozlamalar" && <section className="panel settings-page">
+          <div className="panel-heading"><h2><Settings /> Sozlamalar</h2><span className="text-link">Xavfsiz web sozlamalari</span></div>
+          <div className="settings-grid">
+            <label>Interfeys tili<select value={settings.lang} disabled={settingsSaving} onChange={(e) => void saveSettings({ ...settings, lang: e.target.value as WebSettings["lang"] })}><option value="uz">O‘zbekcha</option><option value="ru">Русский</option><option value="en">English</option></select></label>
+            <label>Ko‘rinish<select value={settings.theme} disabled={settingsSaving} onChange={(e) => void saveSettings({ ...settings, theme: e.target.value as WebSettings["theme"] })}><option value="dark">Qorong‘i</option><option value="light">Yorug‘</option></select></label>
+            <label>Asosiy rang<select value={settings.accent} disabled={settingsSaving} onChange={(e) => void saveSettings({ ...settings, accent: e.target.value as WebSettings["accent"] })}><option value="violet">Neon binafsha</option><option value="blue">Ko‘k</option><option value="cyan">Moviy</option><option value="emerald">Zumrad</option></select></label>
+          </div>
+          <p className="settings-note"><ShieldCheck size={15} /> API kalitlari va maxfiy ma’lumotlar internet orqali ko‘rsatilmaydi yoki o‘zgartirilmaydi.</p>
+          {settingsSaving && <span className="online"><i /> Saqlanmoqda…</span>}
+        </section>}
+        {activeView === "Agentlar" && <section className="panel settings-page">
+          <div className="panel-heading"><h2><Bot /> Agentlar</h2><span className="text-link">{agents.length} ta serverda sozlangan</span></div>
+          {agents.map((agent) => <div className="agent-row" key={agent.name}><div className="file-icon cyan"><Bot /></div><div className="row-copy"><b>{agent.name === "auto" ? "Avtomatik tanlash" : agent.name}</b><span>{agent.model || "Model server konfiguratsiyasidan olinadi"}</span></div><span className="online"><i /> Mavjud</span><button className="secondary-btn" onClick={() => { setSelectedAgent(agent.name); setActiveView("Suhbat"); }}>Suhbat boshlash</button></div>)}
+          <p className="settings-note">Agent qo‘shish va API kalitlarini tahrirlash xavfsizlik sababli desktop sozlamalarida bajariladi.</p>
+        </section>}
+        {activeView === "Fayllar" && <section className="panel settings-page">
+          <div className="panel-heading"><h2><Folder /> Fayllar</h2><span className="text-link">Tanlangan suhbat</span></div>
+          {generatedFiles.length ? generatedFiles.slice().reverse().map((file, i) => <div className="file-row" key={i}><div className="file-icon blue"><FileText /></div><b>{file.text}</b><a href={chatId ? `/api/file?chat=${chatId}&name=${encodeURIComponent(file.text || "")}` : "#"} download><Download size={14} /> Yuklab olish</a></div>) : <div className="empty-state"><FileText /><span>Agent yaratgan fayllar hozircha yo‘q. Chatda fayl yaratishni so‘rang.</span></div>}
+        </section>}
+        {activeView === "Hisobotlar" && <section className="panel settings-page">
+          <div className="panel-heading"><h2><Activity /> Hisobotlar</h2><span className="text-link">Joriy hisob ma’lumotlari</span></div>
+          <div className="stats-grid">
+            <article className="stat-card violet"><div className="stat-icon"><Bot /></div><div className="stat-copy"><span>Agentlar</span><b>{agents.length}</b></div></article>
+            <article className="stat-card blue"><div className="stat-icon"><MessageSquare /></div><div className="stat-copy"><span>Suhbatlar</span><b>{chats.length}</b></div></article>
+            <article className="stat-card pink"><div className="stat-icon"><Activity /></div><div className="stat-copy"><span>Joriy chat javoblari</span><b>{completed}</b></div></article>
+            <article className="stat-card amber"><div className="stat-icon"><Folder /></div><div className="stat-copy"><span>Joriy chat fayllari</span><b>{generatedFiles.length}</b></div></article>
+          </div>
+          <p className="settings-note">Bu ko‘rsatkichlar serverdan olinadi. To‘liq tarixiy tahlil uchun alohida analitika ombori hali mavjud emas.</p>
+        </section>}
+        {(activeView === "Bosh sahifa" || activeView === "Suhbat") && <>
         <section className="hero panel"><div className="hero-mascot"><Robot /></div><div className="hero-copy"><div className="eyebrow"><Sparkles size={14} /> Yagona AI ekotizimi / Boshqaruv paneli</div><h1>Agent Umumiy</h1><p>Sizning ko‘p funksiyali AI yordamchingiz</p><div className="hero-tags"><span><Check /> Hujjatlar bilan ishlash (Word, Excel, PDF)</span><span><Check /> Ma’lumotlarni tahlil va hisobot</span><span><Check /> Web-ma’lumotlarni izlash</span></div></div><div className="hero-glow" /></section>
         <section className="stats-grid">{metrics.map(({ label, value, icon: Icon, color, hint }) => <article className={`stat-card ${color}`} key={label}><div className="stat-icon"><Icon /></div><div className="stat-copy"><span>{label}</span><b>{value}</b><small>{hint}</small></div></article>)}</section>
         <section className="columns">
@@ -274,6 +304,7 @@ function App() {
             <button className={busy ? "send-btn stop-btn" : "send-btn"} type="submit" disabled={!busy && !message.trim() && !attachments.length}>{busy ? <Square size={16} /> : <Send size={17} />}</button></form>
           <div className="composer-foot"><span><ShieldCheck size={13} /> Himoyalangan server sessiyasi</span><span>Enter — yuborish · Shift+Enter — yangi qator</span></div>
         </section>
+        </>}
       </div>
     </main>
   </div>;
