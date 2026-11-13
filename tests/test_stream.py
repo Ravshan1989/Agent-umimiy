@@ -43,6 +43,26 @@ def run(spec: dict, on_event=None):
     return o.run("salom", "single")[0], events
 
 
+class ToolFallbackTests(unittest.TestCase):
+    def test_friendly_404_keeps_status_for_plain_chat_fallback(self):
+        from agent_umimiy.base import Agent
+
+        class NoToolAgent(Agent):
+            supports_tools = True
+
+            def _ask(self, prompt, history):
+                return "Oddiy chat javobi"
+
+            def _ask_tools(self, prompt, history, tb):
+                raise AgentError("Tanlangan model yoki API manzili topilmadi.", status=404)
+
+        agent = NoToolAgent("sinov")
+        from agent_umimiy.tools import Context
+        result = agent.ask("Salom", ctx=Context(web=True))
+        self.assertTrue(result.ok, result.error)
+        self.assertEqual(result.text, "Oddiy chat javobi")
+
+
 class StreamTests(unittest.TestCase):
     def test_text_arrives_in_pieces_and_is_joined(self):
         for kind, resp in (("anthropic", {"content": [{"type": "text", "text": "Salom dunyo"}]}),
