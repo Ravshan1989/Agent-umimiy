@@ -12,6 +12,7 @@ type Agent = { name: string; model?: string };
 type Chat = { id: number; title?: string };
 type RecordItem = { k: string; text?: string; name?: string; agent?: string; meta?: string; err?: boolean; files?: string[]; kind?: string };
 type LiveState = Record<string, string>;
+type WebSettings = { lang: "uz" | "ru" | "en"; theme: "dark" | "light"; accent: "violet" | "blue" | "cyan" | "emerald" };
 type ApiError = Error & { code?: number };
 const MAX_FILE = 15 * 1024 * 1024;
 
@@ -61,6 +62,8 @@ function App() {
   const [selectedAgent, setSelectedAgent] = useState("auto");
   const [mobileNav, setMobileNav] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [settings, setSettings] = useState<WebSettings>({ lang: "uz", theme: "dark", accent: "violet" });
+  const [settingsSaving, setSettingsSaving] = useState(false);
   const [activeView, setActiveView] = useState("Bosh sahifa");
   const [search, setSearch] = useState("");
   const eventSource = useRef<EventSource | null>(null);
@@ -116,6 +119,7 @@ function App() {
       .then((me) => {
         if (!active) return;
         setUser(me.user); setAgents(me.agents || []); setChats(me.chats || []);
+        void api<WebSettings>("/api/settings").then((value) => { setSettings(value); setTheme(value.theme); }).catch(() => undefined);
         setAuthChecked(true);
         if (me.chats?.length) openChat(me.chats[0].id);
       })
@@ -204,6 +208,16 @@ function App() {
   async function logout() {
     try { await api("/api/logout", {}); eventSource.current?.close(); setUser(""); setChatId(null); setRecords([]); setChats([]); }
     catch (error) { toast.error((error as Error).message); }
+  }
+
+  async function saveSettings(next: WebSettings) {
+    setSettingsSaving(true);
+    try {
+      const saved = await api<WebSettings>("/api/settings", next);
+      setSettings(saved); setTheme(saved.theme);
+      toast.success("Sozlamalar saqlandi");
+    } catch (error) { toast.error((error as Error).message); }
+    finally { setSettingsSaving(false); }
   }
 
   const generatedFiles = useMemo(() => records.filter((r) => r.k === "act" && r.kind === "file"), [records]);
