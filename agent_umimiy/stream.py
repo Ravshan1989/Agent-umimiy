@@ -31,7 +31,7 @@ def _friendly_http_error(status: int, body: str) -> str:
     low = message.lower()
     if "no endpoints found" in low and ("image input" in low or "image support" in low):
         return ("Tanlangan model rasmni qabul qilmaydigan endpointga yo'naltirildi. "
-                "OpenRouter modelini nvidia/nemotron-3.5-super-vl:free ga almashtiring. Tafsilot: " + message[:240])
+                "OpenRouter sozlamasidagi vision_model maydoniga hozir mavjud, rasmni qo'llaydigan model nomini kiriting. Tafsilot: " + message[:240])
     if status == 401:
         return "API kalit noto'g'ri yoki bekor qilingan. Kalitni provayder sozlamasidan tekshiring. " + message[:240]
     if status == 402:
