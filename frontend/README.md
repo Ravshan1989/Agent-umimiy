@@ -1,29 +1,31 @@
-# Agent Umimiy — yangi web interfeys
+# Agent Umimiy — React web interfeysi
 
-Bu papka Professional + Futuristik dizayn yo'nalishidagi React prototipidir.
+React + Vite + TypeScript interfeysi mavjud Python veb-server API'siga ulanadi.
 
-## Texnologiyalar
-- React + Vite + TypeScript
-- Tailwind CSS v4
-- shadcn/ui uchun CLI va Radix primitives
-- Framer Motion animatsiyalari
-- Recharts grafiklari uchun
-- Lucide ikonkalari
-- Sonner bildirishnomalari
+## Ishga tushirish (development)
 
-## Ishga tushirish
-```bash
-cd frontend
-npm install
-npm run dev
-```
+1. Python serverni ishga tushiring: `python app.py --serve --host 127.0.0.1 --port 8080`.
+2. Alohida terminalda:
+   `cd frontend`
+   `npm install`
+   `npm run dev`
+3. `http://localhost:5173` manzilini oching. Vite `/api` so‘rovlarini 8080-portdagi Python serverga uzatadi.
 
-Ishlab chiqarish buildi:
-```bash
-npm run build
-```
+Serverning taklif kodi orqali ro‘yxatdan o‘ting yoki mavjud hisobga kiring.
 
-## Muhim integratsiya eslatmasi
-Hozirgi Python backend va Tkinter/telefon/web sahifalari saqlangan. Ushbu frontend alohida UI prototipi sifatida qo'shildi; u hali Python API bilan bog'lanmagan va mavjud web-server tomonidan serve qilinmaydi. Integratsiya bosqichida haqiqiy agentlar, fayllar, suhbatlar, autentifikatsiya va ruxsat oqimlari backend API'lariga ulanadi. Namuna statistikalar va fayl nomlari demo ma'lumotlaridir, real ma'lumot emas.
+## Release build
 
-Dizayn ilhomlari: shadcn/ui ekotizimi, Radix UI va zamonaviy admin dashboard naqshlari. Tashqi repolarning kodlari to'g'ridan-to'g'ri ko'chirilmagan; litsenziya va mualliflik shartlari saqlanishi uchun komponentlar mustaqil yozilgan.
+`npm install && npm run build` buyrug‘i `dist/` papkasini yaratadi. Release workflow uni `agent_umimiy/static/web/` ichiga joylab, PyInstaller orqali Windows va Linux dasturiga qo‘shadi. O‘rnatilgan dasturda React interfeysi asosiy sahifada ochiladi; frontend build mavjud bo‘lmasa, eski HTML sahifa zaxira sifatida ishlaydi.
+
+## Ulangan imkoniyatlar
+
+- Server sessiyasi orqali kirish va ro‘yxatdan o‘tish
+- Suhbatlarni yaratish, tanlash va o‘chirish
+- Haqiqiy agentlar ro‘yxati va agent tanlash
+- SSE orqali oqimli javoblar va ishni to‘xtatish
+- Fayl biriktirish va agent yaratgan fayllarni yuklab olish
+- Haqiqiy server statistikasi; demo raqamlar ishlatilmaydi
+
+## Hozirgi chegaralar
+
+React interfeysi Python serveridagi mavjud web API bilan ishlaydi. Desktop GUI'dagi loyiha papkasi, shell tasdiqlash, brauzer avtomatizatsiyasi va MCP boshqaruvi bu web API'da hozircha mavjud emas. Shu sababli tegishli menyular hozircha bu cheklovni ochiq ko‘rsatadi, ular bajarilmagan ishni bajargandek ko‘rsatmaydi.
