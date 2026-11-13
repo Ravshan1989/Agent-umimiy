@@ -129,6 +129,31 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(c.call("/api/me")[0], 401)
 
 
+    def test_workspace_status_is_authenticated_and_redacts_plugin_secrets(self):
+        cfg_path = self.d / "agents.json"
+        cfg_path.write_text(json.dumps({"web": False, "project": "C:/work/demo-project",
+            "mcp": [{"name": "github", "transport": "http", "url": "https://example.test/mcp",
+                     "headers": "Authorization: Bearer TOP_SECRET", "env": "TOKEN=TOP_SECRET"}],
+            "agents": [{"name": "aks", "type": "echo"}]}))
+        self.httpd.RequestHandlerClass  # keep server fixture alive
+        # The endpoint reads the app config passed to the HTTP handler at server creation.
+        app = server.App(self.store, str(cfg_path))
+        httpd = server.create(self.store, config_file=str(cfg_path))
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        self.addCleanup(httpd.server_close)
+        self.addCleanup(httpd.shutdown)
+        client = Client(f"http://127.0.0.1:{httpd.server_port}")
+        self.assertEqual(client.call("/api/workspace")[0], 401)
+        self.assertEqual(client.call("/api/register", {"name": "TestUser", "password": PASSWORD,
+                                                       "invite": self.store.invite()})[0], 200)
+        code, data = client.call("/api/workspace")
+        self.assertEqual(code, 200)
+        self.assertEqual(data["project"], "demo-project")
+        self.assertEqual(data["plugins"], [{"name": "github", "transport": "http", "enabled": True}])
+        self.assertEqual(data["database"]["engine"], "SQLite")
+        self.assertNotIn("TOP_SECRET", json.dumps(data))
+        self.assertNotIn("example.test", json.dumps(data))
+
     def test_web_settings_are_authenticated_validated_and_persisted(self):
         client = self.user("Ali")
         self.assertEqual(client.call("/api/settings")[0], 200)
