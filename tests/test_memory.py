@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from agent_umimiy import memory
+from agent_umimiy.tools import Context, Toolbox
 
 
 class MemoryTests(unittest.TestCase):
@@ -21,6 +22,14 @@ class MemoryTests(unittest.TestCase):
         self.assertEqual(len(memory.list_items(self.alice)), 1)
         self.assertIn("o'chirildi", memory.forget(item_id, self.alice).lower())
         self.assertEqual(memory.list_items(self.alice), [])
+
+    def test_agent_memory_writes_require_user_confirmation(self):
+        path = self.root / "web-user.json"
+        tb = Toolbox(Context(memory_file=str(path)), "agent")
+        output, failed = tb.run("memory_remember", {"fact": "agent generated secret memory"})
+        self.assertTrue(failed)
+        self.assertIn("tasdig", output.lower())
+        self.assertFalse(path.exists())
 
     def test_maximum_does_not_silently_drop_old_entries(self):
         memory._write(self.alice, [{"id": str(i), "fact": f"fact {i}"} for i in range(memory.MAX_ITEMS)])
