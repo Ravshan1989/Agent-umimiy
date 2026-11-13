@@ -143,7 +143,10 @@ def ollama(o: dict, prompt: str, history: list, tb: Toolbox, files=()) -> str:
         for c in calls:
             args = c["function"].get("arguments") or {}
             if isinstance(args, str):
-                args = json.loads(args or "{}")
+                try:
+                    args = json.loads(args or "{}")
+                except json.JSONDecodeError:
+                    args = {}
             out, _err = tb.run(c["function"]["name"], args)
             messages.append({"role": "tool", "tool_name": c["function"]["name"], "content": out})
         _next_turn(tb)
