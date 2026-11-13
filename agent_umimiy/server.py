@@ -1,17 +1,21 @@
-"""Veb-server rejimi: lokal tarmoqdagi odamlar brauzer orqali kirib, o'z suhbatlarida agentlardan foydalanadi.
+"""Veb-server rejimi: xodimlar tarmoq orqali o'z suhbatlarida agentlardan foydalanadi.
 
-Oynasiz ishlaydi (`agent-umimiy --serve`). Har bir foydalanuvchining o'z logini va suhbatlari bor; javoblar
-brauzerga oqim (Server-Sent Events) bilan boradi. Agentlar bu rejimda serverdagi fayllarga, buyruqlarga,
-brauzerga va plaginlarga tegmaydi: faqat suhbat, biriktirilgan fayllar va (yoqilgan bo'lsa) veb-qidiruv.
+Har bir foydalanuvchining alohida ilova boshqaradigan brauzeri bor. Admin kompyuterining fayllari,
+buyruqlari va plaginlari tarmoq foydalanuvchilariga ochilmaydi.
 Ulanish oddiy HTTP: ishonchli lokal tarmoqda ishlating yoki oldiga HTTPS beruvchi proksi qo'ying.
 """
 from __future__ import annotations
 
+import getpass
+import hmac
 import json
 import mimetypes
 import queue
+import secrets
 import shutil
 import socketserver
+import subprocess
+import sys
 import threading
 import time
 from http.cookies import SimpleCookie
@@ -19,7 +23,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import attachments, config, preview, remote, skills
+from . import attachments, config, mcp as mcplib, preview, remote, skills
 from .server_page import PAGE
 from .store import SESSION_DAYS, Store, StoreError
 
@@ -31,6 +35,7 @@ SSE_QUEUE_SIZE = 256
 MAX_CONNECTIONS = 64
 MAX_DOWNLOAD = 50 * 1024 * 1024
 TITLE_LEN = 40
+DESKTOP_PORT = 47815  # desktop oynasi uchun doimiy port: brauzer xotirasi (vazifalar ro'yxati) saqlanib qoladi
 LOCAL_ONLY = ("cli",)  # serverda buyruq ishga tushiradigan agent turlari: veb-foydalanuvchilarga berilmaydi
 STATIC_DIR = Path(__file__).parent / "static"
 PAGE_CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
@@ -65,7 +70,9 @@ class Channel:
 
     def __init__(self):
         self.subs: set[queue.Queue] = set()
+        self.local_subs: set[queue.Queue] = set()
         self.live: dict[str, str] = {}
+        self.approval: dict | None = None
         self.busy = False
         self.cancel: threading.Event | None = None
 
@@ -77,25 +84,93 @@ class App:
         self.store, self.config_file = store, config_file
         self.lock = threading.Lock()
         self.channels: dict[int, Channel] = {}
+        self.pending_approvals: dict[str, dict] = {}
+        self.mcp_manager = None
+        self.network_server = None
+        self.network_error = ""
+        self.desktop = False  # dastur o'z oynasida ishlayaptimi (run_desktop)
+        self.desktop_token = ""  # oynani avtomatik kiritadigan bir martalik kalit
+        self.classic_at = 0.0  # klassik oyna oxirgi marta qachon ochilgani
 
     # ---- agentlar ----
-    def orchestrator(self):
+    def orchestrator(self, local_desktop: bool = False, chat_id: int | None = None,
+                     user_id: int | None = None):
         cfg = config.read(self.config_file)
-        cfg["agents"] = [a for a in cfg["agents"] if a.get("type") not in LOCAL_ONLY]
+        if not local_desktop:  # web foydalanuvchilariga mahalliy agentlar berilmaydi
+            cfg["agents"] = [a for a in cfg["agents"] if a.get("type") not in LOCAL_ONLY]
         orch = config.build(cfg)
         ctx = orch.ctx
-        ctx.root = ctx.confirm = ctx.mcp = None
-        ctx.browser = False
-        ctx.web, ctx.skills = bool(cfg.get("web", True)), bool(cfg.get("skills", True))
+        if local_desktop:
+            project = cfg.get("project")
+            ctx.root = project if isinstance(project, str) and Path(project).is_dir() else None
+            if chat_id is not None and user_id is not None:
+                ctx.confirm = lambda agent, kind, title, detail: self.request_approval(
+                    chat_id, user_id, agent, kind, title, detail)
+            ctx.browser = bool(cfg.get("browser", True))
+            if self.mcp_manager:
+                self.mcp_manager.configure(cfg.get("mcp", []))
+            ctx.mcp = self.mcp_manager
+            ctx.skills = bool(cfg.get("skills", True))
+        else:
+            ctx.root = None
+            # Employees get a separate app-managed browser and administrator-enabled plugins,
+            # but no direct host files, shell, or skills.
+            ctx.confirm = None
+            ctx.browser = bool(cfg.get("browser", True))
+            ctx.browser_profile = (str(config.user_dir() / "browser-profiles" / f"user-{int(user_id)}-chat-{int(chat_id)}")
+                                   if user_id is not None and chat_id is not None else None)
+            ctx.remote_user = True
+            ctx.skills = False
+            if self.mcp_manager:
+                self.mcp_manager.configure(cfg.get("mcp", []))
+            ctx.mcp = self.mcp_manager
+        ctx.web = bool(cfg.get("web", True))
         return orch
 
     def files_dir(self, chat_id: int) -> Path:
         """Shu suhbatda agent yaratgan fayllar papkasi."""
         return config.user_dir() / "files" / str(chat_id)
 
-    def agents(self) -> list[dict]:
+    def network_info(self) -> dict:
+        server = self.network_server
+        if not server:
+            return {"enabled": False, "urls": [], "port": 0, "invite": "", "error": self.network_error}
+        port = server.server_port
+        return {"enabled": True, "urls": [f"http://{entry['ip']}:{port}/" for entry in remote.local_ips()],
+                "port": port, "invite": self.store.invite(), "error": ""}
+
+    def set_network(self, enabled: bool) -> dict:
+        cfg = config.read(self.config_file)
+        if enabled:
+            if self.network_server:
+                return self.network_info()
+            try:
+                port = int(cfg.get("server_port", 8080))
+            except (TypeError, ValueError):
+                raise Refused("Web-server porti son bo'lishi kerak.")
+            if not 1 <= port <= 65535 or port == DESKTOP_PORT:
+                raise Refused("Web-server porti noto'g'ri yoki desktop portiga teng.")
+            server = Server(("0.0.0.0", port), make_handler(self))
+            server.app, server.store = self, self.store
+            self.network_server = server
+            self.network_error = ""
+            cfg["server"] = True
+            config.write(cfg, self.config_file)
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+        else:
+            server, self.network_server = self.network_server, None
+            self.network_error = ""
+            cfg["server"] = False
+            config.write(cfg, self.config_file)
+            if server:
+                server.shutdown()
+                server.server_close()
+        return self.network_info()
+
+    def agents(self, local_desktop: bool = False) -> list[dict]:
         return [{"name": "auto", "model": "Avtomatik — o‘zi tanlaydi"}] + [
-            {"name": a.name, "model": a.options.get("model", "")} for a in self.orchestrator().agents.values()
+            {"name": a.name, "model": a.options.get("model", "")}
+            for a in self.orchestrator(local_desktop).agents.values()
         ]
 
     # ---- hodisalar ----
@@ -137,13 +212,18 @@ class App:
                     break
             q.put_nowait({"type": "overflow"})
 
-    def subscribe(self, chat_id: int) -> queue.Queue:
+    def subscribe(self, chat_id: int, local_desktop: bool = False) -> queue.Queue:
         """Tinglovchi navbati; birinchi hodisa — suhbatning hozirgi to'liq holati."""
         q: queue.Queue = queue.Queue(maxsize=SSE_QUEUE_SIZE)
         with self.lock:
             ch = self._channel(chat_id)
-            self._enqueue(q, {"type": "init", "records": self.store.records(chat_id), "live": dict(ch.live), "busy": ch.busy})
+            initial = {"type": "init", "records": self.store.records(chat_id), "live": dict(ch.live), "busy": ch.busy}
+            if local_desktop and ch.approval:
+                initial["approval"] = dict(ch.approval)
+            self._enqueue(q, initial)
             ch.subs.add(q)
+            if local_desktop:
+                ch.local_subs.add(q)
         return q
 
     def unsubscribe(self, chat_id: int, q: queue.Queue) -> None:
@@ -151,16 +231,58 @@ class App:
             ch = self.channels.get(chat_id)
             if ch:
                 ch.subs.discard(q)
+                ch.local_subs.discard(q)
                 if not ch.subs and not ch.busy:
                     del self.channels[chat_id]
 
+    def request_approval(self, chat_id: int, user_id: int, agent: str, kind: str,
+                         title: str, detail: str) -> str:
+        """Ask the chat owner before a browser action or local desktop operation."""
+        approval_id = secrets.token_urlsafe(18)
+        result = {"id": approval_id, "chat_id": chat_id, "user_id": user_id,
+                  "answer": "no", "event": threading.Event()}
+        public = {"id": approval_id, "agent": agent, "kind": kind,
+                  "title": title[:300], "detail": detail[:8000]}
+        with self.lock:
+            self.pending_approvals[approval_id] = result
+            ch = self._channel(chat_id)
+            ch.approval = public
+            for q in ch.local_subs:
+                self._enqueue(q, {"type": "approval", "approval": public})
+        result["event"].wait(timeout=300)
+        with self.lock:
+            self.pending_approvals.pop(approval_id, None)
+            ch = self.channels.get(chat_id)
+            if ch and ch.approval and ch.approval.get("id") == approval_id:
+                ch.approval = None
+                for q in ch.local_subs:
+                    self._enqueue(q, {"type": "approval_done", "id": approval_id})
+        return result["answer"]
+
+    def resolve_approval(self, user_id: int, approval_id: str, answer: str) -> None:
+        if answer not in ("yes", "always", "no"):
+            raise Refused("Tasdiq javobi noto'g'ri.")
+        with self.lock:
+            pending = self.pending_approvals.get(approval_id)
+            if not pending or pending["user_id"] != user_id or not self.store.owns(user_id, pending["chat_id"]):
+                raise Refused("Ruxsat so'rovi topilmadi yoki muddati tugadi.", 404)
+            pending["answer"] = answer
+            pending["event"].set()
+
+    def _cancel_approvals(self) -> None:
+        with self.lock:
+            for pending in self.pending_approvals.values():
+                pending["answer"] = "no"
+                pending["event"].set()
+
     # ---- amallar ----
-    def send(self, chat_id: int, text: str, agent: str, files: list[dict]) -> None:
+    def send(self, chat_id: int, text: str, agent: str, files: list[dict],
+             local_desktop: bool = False, user_id: int | None = None) -> None:
         if not isinstance(agent, str):
             raise Refused("Agent tanlovi noto'g'ri.")
         if not isinstance(files, list) or any(not isinstance(item, dict) for item in files):
             raise Refused("Fayllar ro'yxati noto'g'ri.")
-        orch = self.orchestrator()
+        orch = self.orchestrator(local_desktop, chat_id, user_id)
         if agent != "auto" and agent not in orch.agents:
             raise Refused("Bu agent mavjud emas. Sahifani yangilang.")
         orch.ctx.files_dir = str(self.files_dir(chat_id))
@@ -214,6 +336,28 @@ class App:
     def _work(self, chat_id: int, orch, prompt: str, agent: str, atts: list) -> None:
         try:
             orch.history = self.store.history(chat_id)
+            if not orch.history:
+                # Older installs can have visible transcript records without the newer model-history field.
+                # Rebuild user/assistant turns so returning to an existing chat keeps its context.
+                rebuilt = []
+                pending_user = None
+                pending_answer = None
+                def save_turn():
+                    if pending_user is not None and pending_answer is not None:
+                        rebuilt.extend(({"role": "user", "content": pending_user},
+                                        {"role": "assistant", "content": pending_answer}))
+                for item in self.store.records(chat_id):
+                    if item.get("k") == "user":
+                        save_turn()
+                        pending_user = str(item.get("text", ""))
+                        names = item.get("files") or []
+                        if names:
+                            pending_user += "\n\nBiriktirilgan fayllar: " + ", ".join(map(str, names))
+                        pending_answer = None
+                    elif item.get("k") == "agent" and pending_user is not None and not item.get("err"):
+                        pending_answer = str(item.get("text", ""))
+                save_turn()
+                orch.history = rebuilt[-40:]
             orch.ctx.emit = lambda name, kind, text: self._emit(chat_id, name, kind, text)
             if agent == "auto":
                 results = orch.run(prompt, "auto", files=atts)
@@ -242,6 +386,29 @@ class App:
             ch = self.channels.get(chat_id)
             if ch and ch.cancel:
                 ch.cancel.set()
+
+    def shutdown(self, timeout: float = 6.0) -> None:
+        """Dastur yopilayotganda: ishlayotgan agentlarni to'xtatadi va javoblar bazaga yozilishini kutadi."""
+        self._cancel_approvals()
+        with self.lock:
+            for channel in self.channels.values():
+                if channel.cancel:
+                    channel.cancel.set()
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            with self.lock:
+                if not any(channel.busy for channel in self.channels.values()):
+                    break
+            time.sleep(0.05)
+        if self.mcp_manager:
+            self.mcp_manager.shutdown()
+            self.mcp_manager = None
+        network_server, self.network_server = self.network_server, None
+        if network_server:
+            network_server.shutdown()
+            network_server.server_close()
+        from . import browser
+        browser.shutdown()
 
     def delete_chat(self, chat_id: int) -> None:
         with self.lock:
@@ -334,12 +501,38 @@ def make_handler(app: App):
             self.connection.settimeout(30)  # sekin yuboriladigan so'rovlar server oqimini band qilmasin
         server_version = "AgentUmimiy"
 
+        def handle_one_request(self):
+            self.body_read = False  # har bir so'rov uchun qaytadan: ulanish keyingi so'rovga ham ishlatiladi
+            super().handle_one_request()
+
+        def _drain(self):
+            """Javobdan oldin o'qilmagan so'rov tanasini bo'shatadi.
+
+            Aks holda mijoz hali yubormoqchi bo'lgan ma'lumot o'qilmay qoladi va Windows ulanishni RST bilan uzadi:
+            mijoz xato matnini (masalan 415 yoki 401 javobini) o'qiy olmaydi.
+            """
+            if getattr(self, "body_read", False) or self.command not in ("POST", "PUT", "PATCH"):
+                return
+            self.body_read = True
+            raw = self.headers.get("Content-Length", "")
+            if not str(raw).isascii() or not str(raw).isdecimal() or int(raw) > MAX_BODY:
+                self.close_connection = True  # hajmi noma'lum yoki juda katta: o'qimaymiz, ulanishni yopamiz
+                return
+            left = int(raw)
+            while left > 0:
+                chunk = self.rfile.read(min(left, 65536))
+                if not chunk:
+                    self.close_connection = True
+                    return
+                left -= len(chunk)
+
         def log_message(self, *a):
             pass
 
         # ---- javob ----
         def _send(self, code: int, body: bytes, ctype: str = "application/json; charset=utf-8", cookie: str = "",
                   download: str = "", csp: str = PAGE_CSP):
+            self._drain()
             self.send_response(code)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(body)))
@@ -366,6 +559,43 @@ def make_handler(app: App):
 
         def _ip(self) -> str:
             return self._forwarded("X-Forwarded-For") or self.client_address[0]
+
+        def _desktop(self) -> bool:
+            """So'rov dasturning o'z oynasidan kelganmi: desktop rejimi, shu kompyuter, proksisiz."""
+            return (app.desktop and self.client_address[0] in ("127.0.0.1", "::1")
+                    and not self.headers.get("X-Forwarded-For"))
+
+        def _host_ok(self) -> bool:
+            """DNS rebinding himoyasi: desktop rejimida brauzer sayti lokal serverni o'z domeni orqali ocholmaydi."""
+            if not app.desktop or self.client_address[0] not in ("127.0.0.1", "::1"):
+                return True  # --serve rejimi va lokal tarmoq mijozlari: Host ularning manzili bo'ladi
+            host = self.headers.get("Host", "")
+            if host.startswith("[") or host.count(":") == 1:
+                host = host.rsplit(":", 1)[0]
+            return host.strip("[]").lower() in ("", "127.0.0.1", "localhost", "::1")
+
+        def _redirect(self, location: str, cookie: str):
+            self._drain()
+            self.send_response(302)
+            self.send_header("Location", location)
+            self.send_header("Set-Cookie", cookie)
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def _desktop_login(self, token: str):
+            with app.lock:  # kalit bir marta ishlaydi, lekin faqat to'g'ri kelganda kuyadi
+                expected = app.desktop_token
+                ok = bool(expected) and self._desktop() and hmac.compare_digest(token.encode(), expected.encode())
+                if ok:
+                    app.desktop_token = ""
+            if not ok:
+                raise Refused("Topilmadi.", 404)
+            try:
+                name = getpass.getuser()
+            except Exception:
+                name = ""
+            self._redirect("/", self._cookie(store.new_session(store.local_user(name)), SESSION_DAYS * 86400))
 
         def _cookie(self, value: str, age: int) -> str:
             secure = "; Secure" if self._forwarded("X-Forwarded-Proto") == "https" else ""
@@ -395,6 +625,8 @@ def make_handler(app: App):
         def do_GET(self):
             url = urlparse(self.path)
             try:
+                if not self._host_ok():
+                    raise Refused("Topilmadi.", 404)
                 if url.path == "/":
                     web_index = STATIC_DIR / "web" / "index.html"
                     if web_index.is_file():
@@ -415,23 +647,40 @@ def make_handler(app: App):
                     return self._send(200, MANIFEST, "application/manifest+json")
                 if url.path in ICONS:
                     return self._send(200, (STATIC_DIR / url.path[1:]).read_bytes(), "image/png")
+                if url.path == "/api/desktop-login":
+                    return self._desktop_login(parse_qs(url.query).get("token", [""])[0])
                 if url.path == "/api/me":
                     user_id, name = self._user()
-                    return self._json(200, {"user": name, "agents": app.agents(), "chats": store.chats(user_id)})
+                    local_desktop = self._desktop()
+                    return self._json(200, {"user": name, "agents": app.agents(local_desktop), "chats": store.chats(user_id),
+                                            "desktop": self._desktop()})
                 if url.path == "/api/settings":
                     self._user()
                     cfg = config.read(app.config_file)
                     return self._json(200, {"lang": cfg.get("lang", "uz") if cfg.get("lang") in ("uz", "ru", "en") else "uz",
                                             "theme": cfg.get("theme", "dark") if cfg.get("theme") in ("dark", "light") else "dark",
                                             "accent": cfg.get("accent", "violet") if cfg.get("accent") in ("violet", "blue", "cyan", "emerald") else "violet"})
+                if url.path == "/api/network":
+                    self._user()
+                    if not self._desktop():
+                        raise Refused("Topilmadi.", 404)
+                    return self._json(200, app.network_info())
+                if url.path == "/api/network/users":
+                    self._user()
+                    if not self._desktop():
+                        raise Refused("Topilmadi.", 404)
+                    return self._json(200, {"users": store.employees()})
                 if url.path == "/api/workspace":
                     self._user()
                     cfg = config.read(app.config_file)
+                    local_desktop = self._desktop()
                     # Return metadata only: never expose MCP commands, headers, env vars, tokens or local paths.
-                    mcp = [{"name": str(x.get("name", "")), "transport": str(x.get("transport", "stdio")),
-                            "enabled": bool(x.get("enabled", True))} for x in cfg.get("mcp", []) if isinstance(x, dict)]
-                    discovered = skills.discover(cfg.get("project") or None) if cfg.get("skills", True) else []
-                    project = Path(cfg.get("project")).name if isinstance(cfg.get("project"), str) and cfg.get("project") else ""
+                    mcp = ([{"name": str(x.get("name", "")), "transport": str(x.get("transport", "stdio")),
+                             "enabled": bool(x.get("enabled", True))} for x in cfg.get("mcp", []) if isinstance(x, dict)]
+                           if local_desktop else [])
+                    discovered = skills.discover(cfg.get("project") or None) if local_desktop and cfg.get("skills", True) else []
+                    project = (Path(cfg.get("project")).name if isinstance(cfg.get("project"), str)
+                               and cfg.get("project") else "") if local_desktop else ""
                     return self._json(200, {"project": project, "plugins": mcp,
                                             "skills": [{"name": x.name, "description": x.description, "source": x.source}
                                                        for x in discovered],
@@ -441,7 +690,7 @@ def make_handler(app: App):
                                                              len(store.chats(uid)) for uid, in store._all("SELECT id FROM users"))}})
                 if url.path == "/api/stream":
                     user_id, _ = self._user()
-                    return self._stream(self._chat(user_id, parse_qs(url.query).get("chat", [""])[0]))
+                    return self._stream(self._chat(user_id, parse_qs(url.query).get("chat", [""])[0]), self._desktop())
                 if url.path == "/api/file":
                     user_id, _ = self._user()
                     query = parse_qs(url.query)
@@ -455,6 +704,8 @@ def make_handler(app: App):
 
         def do_POST(self):
             try:
+                if not self._host_ok():
+                    raise Refused("Topilmadi.", 404)
                 self._json(200, *self._post(urlparse(self.path).path, self._body()))
             except Refused as exc:
                 self._json(exc.code, {"error": str(exc)})
@@ -478,8 +729,9 @@ def make_handler(app: App):
             if size < 0:
                 raise Refused("Noto'g'ri so'rov.")
             if size > MAX_BODY:
-                self.close_connection = True
+                self.body_read = self.close_connection = True  # katta tanani o'qimaymiz: ulanish yopiladi
                 raise Refused("Hajm juda katta.", 413)
+            self.body_read = True
             try:
                 raw_body = self.rfile.read(size)
                 if len(raw_body) != size:
@@ -514,6 +766,20 @@ def make_handler(app: App):
                 store.drop_session(self._token())
                 return {"ok": True}, self._cookie("", 0)
             user_id, _ = self._user()
+            if path == "/api/approve":
+                if not self._desktop():
+                    raise Refused("Topilmadi.", 404)
+                app.resolve_approval(user_id, str(body.get("id", "")), str(body.get("answer", "")))
+                return {"ok": True}, ""
+            if path == "/api/desktop/classic":
+                if not self._desktop():
+                    raise Refused("Topilmadi.", 404)
+                with app.lock:
+                    if time.monotonic() - app.classic_at < 5:
+                        raise Refused("Klassik oyna ochilmoqda, biroz kuting.", 429)
+                    app.classic_at = time.monotonic()
+                open_classic(app.config_file)
+                return {"ok": True}, ""
             if path == "/api/settings":
                 cfg = config.read(app.config_file)
                 lang, theme, accent = body.get("lang", cfg.get("lang", "uz")), body.get("theme", cfg.get("theme", "dark")), body.get("accent", cfg.get("accent", "violet"))
@@ -522,6 +788,41 @@ def make_handler(app: App):
                 cfg.update({"lang": lang, "theme": theme, "accent": accent})
                 config.write(cfg, app.config_file)
                 return {"ok": True, "lang": lang, "theme": theme, "accent": accent}, ""
+            if path == "/api/network":
+                if not self._desktop():
+                    raise Refused("Topilmadi.", 404)
+                enabled = body.get("enabled")
+                if not isinstance(enabled, bool):
+                    raise Refused("Tarmoq serveri sozlamasi noto'g'ri.")
+                try:
+                    return app.set_network(enabled), ""
+                except OSError as exc:
+                    app.network_error = str(exc)
+                    return app.network_info(), ""
+            if path == "/api/network/users/action":
+                if not self._desktop():
+                    raise Refused("Topilmadi.", 404)
+                try:
+                    employee_id = int(body.get("id", 0))
+                except (TypeError, ValueError):
+                    raise Refused("Xodim hisobi topilmadi.")
+                action = body.get("action")
+                if action == "enable":
+                    changed = store.set_employee_enabled(employee_id, True)
+                elif action == "disable":
+                    changed = store.set_employee_enabled(employee_id, False)
+                elif action == "delete":
+                    changed = store.remove_employee(employee_id)
+                else:
+                    raise Refused("Noto'g'ri amal.")
+                if not changed:
+                    raise Refused("Xodim hisobi topilmadi.", 404)
+                return {"ok": True, "users": store.employees()}, ""
+            if path == "/api/network/firewall":
+                if not self._desktop() or not app.network_server:
+                    raise Refused("Avval web-serverni yoqing.")
+                ok, message = remote.open_firewall(app.network_server.server_port)
+                return {"ok": ok, "message": message}, ""
             if path == "/api/chat/new":
                 if len(store.chats(user_id)) >= 100:
                     raise Refused("Bir foydalanuvchi ko'pi bilan 100 ta suhbat yaratishi mumkin.", 429)
@@ -535,7 +836,8 @@ def make_handler(app: App):
                 files = body.get("files") or []
                 if not isinstance(files, list) or not all(isinstance(f, dict) for f in files):
                     raise Refused("Noto'g'ri so'rov.")
-                app.send(chat_id, str(body.get("text", "")), str(body.get("agent", "")), files)
+                app.send(chat_id, str(body.get("text", "")), str(body.get("agent", "")), files,
+                         local_desktop=self._desktop(), user_id=user_id)
             elif path == "/api/stop":
                 app.stop(chat_id)
             else:
@@ -555,9 +857,9 @@ def make_handler(app: App):
             ctype = FILE_TYPES.get(path.suffix.lower(), "application/octet-stream")  # .html faqat ko'rinishda ochiladi
             self._send(200, path.read_bytes(), ctype, download=name)
 
-        def _stream(self, chat_id: int):
+        def _stream(self, chat_id: int, local_desktop: bool = False):
             """Suhbat hodisalari oqimi (SSE). Ulanish uzilguncha ochiq turadi."""
-            q = app.subscribe(chat_id)
+            q = app.subscribe(chat_id, local_desktop)
             try:
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream; charset=utf-8")
@@ -618,9 +920,23 @@ class Server(ThreadingHTTPServer):
 
 
 def create(store: Store, host: str = "127.0.0.1", port: int = 0, config_file: str | None = None) -> Server:
-    httpd = Server((host, port), make_handler(App(store, config_file)))
-    httpd.store = store
+    app = App(store, config_file)
+    httpd = Server((host, port), make_handler(app))
+    httpd.store, httpd.app = store, app
     return httpd
+
+
+_children: list = []  # ochilgan klassik oynalar: tugaganlari yig'ib turiladi
+
+
+def open_classic(config_file: str | None = None) -> None:
+    """Klassik (Tk) oynani alohida jarayonda ochadi: agentlar, API kalitlari va loyiha papkasi shu yerda sozlanadi."""
+    cmd = [sys.executable] if getattr(sys, "frozen", False) else [sys.executable, "-m", "agent_umimiy"]
+    cmd.append("--legacy-gui")
+    if config_file:
+        cmd += ["--config", str(config_file)]
+    _children[:] = [child for child in _children if child.poll() is None]
+    _children.append(subprocess.Popen(cmd, close_fds=True))
 
 
 def open_default(host: str, port: int, config_file: str | None = None) -> Server:
@@ -666,5 +982,109 @@ def run(host: str, port: int, config_file: str | None = None) -> None:
     except KeyboardInterrupt:
         pass
     finally:
+        httpd.app.shutdown()
         httpd.server_close()
         httpd.store.close()
+
+
+def run_desktop(config_file: str | None = None) -> bool:
+    """Dasturni o'z oynasida yangi interfeys bilan ochadi. Oyna ochilmasa False qaytaradi (klassik oynaga o'tish uchun).
+
+    Server shu kompyuterga (127.0.0.1) ochiladi va oyna egasi bir martalik kalit bilan avtomatik kiradi.
+    Sozlamalarda veb-server yoqilgan bo'lsa, lokal tarmoq uchun ham ochiladi: ular odatdagidek login bilan kiradi.
+    """
+    if not (STATIC_DIR / "web" / "index.html").is_file():
+        return False
+    try:
+        import webview
+    except Exception:
+        return False
+    cfg = config.read(config_file)
+    host = "127.0.0.1"
+    try:
+        httpd = start(host, DESKTOP_PORT, config_file)
+    except OSError:  # port band (masalan, dastur ikkinchi marta ochilgan): bo'sh portni tizim tanlaydi
+        try:
+            httpd = start(host, 0, config_file)
+        except OSError:
+            return False
+    httpd.app.desktop, httpd.app.desktop_token = True, secrets.token_urlsafe(32)
+    httpd.app.mcp_manager = mcplib.Manager(cfg.get("mcp", []))
+    if cfg.get("server"):
+        try:
+            httpd.app.set_network(True)
+        except OSError as exc:
+            httpd.app.network_error = str(exc)
+    port = httpd.server_port
+    # Brauzer xotirasi (vazifalar ro'yxati) port bilan bog'liq: har bir port uchun alohida papka
+    storage = config.user_dir() / ("webview" if port == DESKTOP_PORT else f"webview-{port}")
+    width, height, maximized = 1440, 900, False
+    try:  # oyna ekrandan katta bo'lib, chetlari ko'rinmay qolmasin (kichik noutbuklar)
+        screen = webview.screens[0]
+        width = min(width, max(880, screen.width - 60))
+        height = min(height, max(560, screen.height - 90))  # vazifalar paneli va sarlavha uchun joy
+        maximized = screen.width <= 1400 or screen.height <= 820  # kichik ekranda butun ekranga ochiladi
+    except Exception:
+        pass
+    shown = threading.Event()
+    icon_root = (Path(sys._MEIPASS) if getattr(sys, "frozen", False)
+                 else Path(__file__).resolve().parent.parent / "packaging")
+    icon_path = icon_root / "AgentUmimiy.ico"
+
+    def on_shown(*_):
+        shown.set()
+        if sys.platform == "win32" and icon_path.is_file():
+            def set_icon():
+                try:
+                    import ctypes
+                    from ctypes import wintypes
+                    user32 = ctypes.WinDLL("user32", use_last_error=True)
+                    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+                    # Make Windows group the running window with the app's own pinned shortcut.
+                    user32.LoadImageW.argtypes = (ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_uint,
+                                                  ctypes.c_int, ctypes.c_int, ctypes.c_uint)
+                    user32.LoadImageW.restype = ctypes.c_void_p
+                    hicon = user32.LoadImageW(None, str(icon_path.resolve()), 1, 0, 0, 0x10)
+                    if hicon:
+                        user32.SendMessageW.argtypes = (ctypes.c_void_p, ctypes.c_uint,
+                                                        ctypes.c_size_t, ctypes.c_ssize_t)
+                        user32.SendMessageW.restype = ctypes.c_ssize_t
+                        user32.SetClassLongPtrW.argtypes = (ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p)
+                        user32.SetClassLongPtrW.restype = ctypes.c_void_p
+                        current_pid = kernel32.GetCurrentProcessId()
+                        windows = []
+                        callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+                        def collect(hwnd, _param):
+                            owner = wintypes.DWORD()
+                            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
+                            if owner.value == current_pid and user32.IsWindowVisible(hwnd):
+                                windows.append(hwnd)
+                            return True
+                        user32.EnumWindows(callback_type(collect), 0)
+                        for hwnd in windows:
+                            user32.SendMessageW(hwnd, 0x80, 0, hicon)  # WM_SETICON / small
+                            user32.SendMessageW(hwnd, 0x80, 1, hicon)  # WM_SETICON / large
+                            user32.SetClassLongPtrW(hwnd, -14, hicon)  # GCLP_HICON
+                            user32.SetClassLongPtrW(hwnd, -34, hicon)  # GCLP_HICONSM
+                except Exception:
+                    pass
+            threading.Timer(0.35, set_icon).start()
+
+    try:
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("AgentUmimiy.Desktop")
+            except Exception:
+                pass
+        webview.create_window(
+            "Agent Umimiy", f"http://127.0.0.1:{port}/api/desktop-login?token={httpd.app.desktop_token}",
+            width=width, height=height, min_size=(880, 560), maximized=maximized, background_color="#04061a")
+        webview.start(on_shown, private_mode=False, storage_path=str(storage))
+    except Exception:
+        if not shown.is_set():
+            return False
+    finally:
+        httpd.app.shutdown()  # ishlayotgan agent javobi bazaga yozilib ulgursin
+        stop(httpd)
+    return shown.is_set()

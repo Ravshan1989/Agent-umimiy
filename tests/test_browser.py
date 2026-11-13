@@ -1,7 +1,9 @@
+import shutil
 import tempfile
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 
 from agent_umimiy import browser as br
 from agent_umimiy.tools import Context, Toolbox
@@ -114,9 +116,13 @@ class BrowserToolTests(unittest.TestCase):
         self.url = f"http://127.0.0.1:{self.srv.server_port}/"
         self.asked = []
         self.answer = "yes"
-        br._shared = br.Browser(profile_dir=tempfile.mkdtemp(), headless=True)
+        profile = str(Path(tempfile.mkdtemp()).resolve())
+        self.addCleanup(shutil.rmtree, profile, True)
+        self.browser = br.Browser(profile_dir=profile, headless=True)
+        br._shared = {profile: self.browser}
         self.addCleanup(br.shutdown)
-        self.ctx = Context(confirm=lambda *a: (self.asked.append(a), self.answer)[1], emit=lambda *a: None)
+        self.ctx = Context(confirm=lambda *a: (self.asked.append(a), self.answer)[1], emit=lambda *a: None,
+                           browser_profile=profile)
         self.tb = Toolbox(self.ctx, "t")
 
     def test_site_and_click_permissions_and_typing_asks_each_time(self):
@@ -147,7 +153,7 @@ class BrowserToolTests(unittest.TestCase):
         self.answer = "no"
         out, err = self.tb.run("browser_open", {"url": self.url})
         self.assertTrue(err)
-        self.assertIsNone(br._shared.proc)
+        self.assertIsNone(self.browser.proc)
 
     def test_bad_schemes_and_readonly(self):
         for u in ("file:///etc/passwd", "javascript:alert(1)", "chrome://settings"):

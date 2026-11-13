@@ -1,1 +1,6 @@
-node_modules/\ndist/\n*.tsbuildinfo\n.env\n.env.*\n!.env.example\n
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example

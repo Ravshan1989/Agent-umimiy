@@ -304,7 +304,7 @@ class Settings(tk.Toplevel):
         Pill(f, i18n.t("Suhbatlar tarixini o'chirish"), self._wipe, width=210, height=32, size=9, fg=P["err"],
              outline=P["line"], bg=P["bg"]).pack(anchor="w", pady=(8, 0))
         self.brow = tk.BooleanVar(value=cfg.get("browser", True))
-        tk.Checkbutton(f, text=i18n.t("Agentlar brauzerni boshqara olsin (sayt ochish, bosish, yozish — har safar ruxsat so'raydi)"),
+        tk.Checkbutton(f, text=i18n.t("Agentlar brauzerni boshqara olsin (xodimlar alohida brauzerdan erkin foydalanadi)"),
                        variable=self.brow, bg=P["bg"], fg=P["text"], selectcolor=P["card"], activebackground=P["bg"],
                        activeforeground=P["text"], highlightthickness=0, bd=0, font=font(10)).pack(anchor="w", pady=(12, 0))
         Pill(f, i18n.t("Telefondan boshqarish (mobil kirish)…"), lambda: self.master.open_remote(), width=300, height=32, size=9,
@@ -673,7 +673,7 @@ class ServerDialog(tk.Toplevel):
         Pill(row, i18n.t("Windows devoriga ruxsat berish"), self._firewall, width=230, height=34, size=9).pack(side="left")
         self.fw_lbl = label(f, "", size=9, fg=P["muted"], wraplength=500, justify="left")
         self.fw_lbl.pack(anchor="w")
-        label(f, i18n.t("Hamma sizning API kalitlaringiz va limitingizdan foydalanadi. Veb-foydalanuvchilar uchun agentlar kompyuteringizdagi fayllarga, buyruqlarga, brauzerga va plaginlarga tegmaydi. Ulanish shifrlanmagan (HTTP): faqat ishonchli tarmoqda ishlating yoki Tailscale o'rnating."),
+        label(f, i18n.t("Hamma sizning API kalitlaringiz va limitingizdan foydalanadi. Xodimlar o'zlariga ajratilgan brauzer va administrator yoqqan plaginlardan foydalanadi; admin kompyuteridagi fayl va terminalga bevosita kira olmaydi. Dastur yoki paket o'rnatish kerak bo'lsa, administratorga murojaat qilish xabari chiqadi. Ulanish shifrlanmagan (HTTP): faqat ishonchli tarmoqda ishlating yoki Tailscale o'rnating."),
               fg=P["muted"], size=9, wraplength=500, justify="left").pack(anchor="w", pady=(8, 0))
         self.refresh()
 

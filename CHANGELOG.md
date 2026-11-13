@@ -6,6 +6,29 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 
 ## [Nashr qilinmagan] / [Unreleased]
 
+## [0.4.0] - 2026-11-13
+
+### Qo'shildi / Added
+- **Yangi ish stoli oynasi**: dastur endi React interfeysini pywebview oynasida ochadi; kirish
+  bir martalik kalit bilan avtomatik bo'ladi. Klassik Tk oynasi `--legacy-gui` bilan va
+  Sozlamalardagi tugma bilan ochiladi.
+- **Bosh sahifa paneli**: statistik kartalar, agentlar/fayllar/loyihalar ustunlari, tezkor amallar,
+  rejalashtirilgan vazifalar va bildirishnomalar; pastda suhbat maydoni va mikrofon tugmasi.
+- **Dastur ikonkasi**: `packaging/AgentUmimiy.ico` (AU belgisi) exe, o'rnatuvchi va oyna uchun.
+
+### Tuzatildi / Fixed
+- **GitHub'da yig'ilgan exe ishga tushmasligi**: CI skriptida tkinter yashirin importlari,
+  Tcl/Tk uchun runtime-hook va oyna ikonkasi yo'q edi; `--windowed` bo'lgani uchun xato ham
+  ko'rinmasdi. Endi CI mahalliy build bilan bir xil va to'plam tarkibini tekshiradi.
+- **So'rov tanasi o'qilmay javob berilishi**: xato javoblarida (415, 401, 413) Windows ulanishni
+  RST bilan uzar edi va mijoz xato matnini o'qiy olmasdi.
+- **Ish stoli hisobi**: OS foydalanuvchi nomi bilan ro'yxatdan o'tgan veb-foydalanuvchi hisobi
+  oynaga berilib qolishi mumkin edi; endi hisob `meta` jadvalidagi id bo'yicha bog'lanadi.
+- **DNS rebinding**: desktop rejimida boshqa domen orqali yuborilgan so'rovlar rad etiladi.
+- **Oyna o'lchami**: oyna ekrandan katta ochilmaydi, kichik noutbuklarda to'liq ekranga o'tadi.
+- `/api/workspace` mahalliy ma'lumotni (loyiha papkasi, MCP plaginlar, skills) faqat
+  dasturning o'z oynasiga beradi, `--serve` rejimidagi veb-foydalanuvchilarga bermaydi.
+
 ## [0.3.0] — 2026-11-12
 
 ### Qo'shildi / Added

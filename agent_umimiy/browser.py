@@ -197,8 +197,7 @@ class Browser:
             self.close()
             exe = find_browser()
             if not exe:
-                raise BrowserError("Chrome yoki Edge topilmadi. Windows'da Edge odatda o'rnatilgan; "
-                                   "o'rnatilmagan bo'lsa, Chrome ni o'rnating.")
+                raise BrowserError("Chrome yoki Edge topilmadi. Brauzerni o'rnatish uchun administratorga murojaat qiling.")
             profile = Path(self.profile)
             profile.mkdir(parents=True, exist_ok=True)
             port_file = profile / "DevToolsActivePort"
@@ -360,21 +359,21 @@ class Browser:
             self.proc = None
 
 
-_shared: Browser | None = None
+_shared: dict[str, Browser] = {}
 _shared_lock = threading.Lock()
 
 
-def shared() -> Browser:
-    global _shared
+def shared(profile_dir=None) -> Browser:
+    key = str(Path(profile_dir).resolve()) if profile_dir else str((config.user_dir() / "browser-profile").resolve())
     with _shared_lock:
-        if _shared is None:
-            _shared = Browser()
-        return _shared
+        if key not in _shared:
+            _shared[key] = Browser(profile_dir=key)
+        return _shared[key]
 
 
 def shutdown() -> None:
     global _shared
     with _shared_lock:
-        if _shared:
-            _shared.close()
-            _shared = None
+        for browser in _shared.values():
+            browser.close()
+        _shared = {}

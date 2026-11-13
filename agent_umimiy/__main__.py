@@ -13,6 +13,7 @@ def main():
     ap.add_argument("-a", "--agents", nargs="*", help="faqat shu agentlar")
     ap.add_argument("--cli", action="store_true", help="oynasiz, terminalda ishlash")
     ap.add_argument("--serve", action="store_true", help="veb-server: lokal tarmoqdagi odamlar brauzerdan ishlatadi")
+    ap.add_argument("--legacy-gui", action="store_true", help="klassik (Tk) oynani ochish: agentlar va API kalitlari sozlamasi")
     ap.add_argument("--host", default="0.0.0.0", help="--serve uchun manzil (standart: barcha tarmoqlar)")
     ap.add_argument("--port", type=int, default=8080, help="--serve uchun port (standart: 8080)")
     ap.add_argument("prompt", nargs="*", help="bir martalik so'rov (--cli bilan)")
@@ -24,6 +25,11 @@ def main():
         return server.run(args.host, args.port, args.config)
 
     if not args.cli and not args.prompt:
+        if not args.legacy_gui:
+            from . import server
+
+            if server.run_desktop(args.config):
+                return None
         from . import gui
 
         return gui.run(args.config)

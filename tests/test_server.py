@@ -78,6 +78,58 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(c.call("/api/me")[0], 401)
         self.assertEqual(c.call("/api/chat/new", {})[0], 401)
 
+    def test_desktop_window_logs_in_once_with_its_token(self):
+        app = self.httpd.app
+        c = Client(self.base)
+        self.assertEqual(c.call("/api/desktop-login?token=x")[0], 404)  # desktop rejimi yoqilmagan
+        app.desktop, app.desktop_token = True, "kalit-123"
+        self.assertEqual(c.call("/api/desktop-login?token=boshqa")[0], 404)
+        self.assertEqual(app.desktop_token, "kalit-123")  # noto'g'ri urinish kalitni kuydirmaydi
+
+        class NoRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, *a, **k):
+                return None
+
+        with self.assertRaises(urllib.error.HTTPError) as caught:
+            urllib.request.build_opener(NoRedirect).open(self.base + "/api/desktop-login?token=kalit-123", timeout=10)
+        self.assertEqual(caught.exception.code, 302)
+        self.assertEqual(caught.exception.headers["Location"], "/")
+        c.cookie = caught.exception.headers["Set-Cookie"].split(";")[0]
+        code, me = c.call("/api/me")
+        self.assertEqual(code, 200)
+        self.assertTrue(me["desktop"])
+        self.assertEqual(len(self.store.users()), 1)
+        self.assertEqual(c.call("/api/desktop-login?token=kalit-123")[0], 404)  # kalit bir marta ishlaydi
+        with mock.patch.object(server, "open_classic") as opened:
+            self.assertEqual(c.call("/api/desktop/classic", {})[0], 200)
+        opened.assert_called_once()
+        with mock.patch.object(server, "open_classic") as again:
+            self.assertEqual(c.call("/api/desktop/classic", {})[0], 429)  # ketma-ket bosilsa, jarayon ko'paymaydi
+        again.assert_not_called()
+        app.classic_at = 0.0
+        app.desktop = False
+        self.assertEqual(c.call("/api/desktop/classic", {})[0], 404)
+        self.assertFalse(c.call("/api/me")[1]["desktop"])
+
+    def test_desktop_account_is_separate_from_a_web_user_with_the_same_name(self):
+        self.user("Rasul")  # veb orqali kelgan odam o'sha nomni band qildi
+        taken = self.store.check_user("Rasul", PASSWORD)
+        self.assertIsNotNone(taken)
+        first = self.store.local_user("rasul")  # nomlar katta-kichik harfga bog'liq emas
+        self.assertNotEqual(first, taken)
+        self.assertEqual(self.store.local_user("rasul"), first)  # keyingi ochilishda o'sha hisob
+        self.assertEqual(self.store.check_user("Rasul", PASSWORD), taken)  # veb hisobi o'z parolida qoldi
+
+    def test_desktop_mode_rejects_requests_sent_to_another_host_name(self):
+        self.httpd.app.desktop = True
+        self.addCleanup(setattr, self.httpd.app, "desktop", False)
+        req = urllib.request.Request(self.base + "/", headers={"Host": "zararli.example"})
+        with self.assertRaises(urllib.error.HTTPError) as caught:
+            urllib.request.urlopen(req, timeout=10)
+        self.assertEqual(caught.exception.code, 404)
+        with urllib.request.urlopen(urllib.request.Request(self.base + "/"), timeout=10) as r:
+            self.assertEqual(r.status, 200)
+
     def test_built_react_frontend_is_served_when_present(self):
         web = self.d / "static" / "web"
         assets = web / "assets"
@@ -143,6 +195,12 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(client.call("/api/workspace")[0], 401)
         self.assertEqual(client.call("/api/register", {"name": "TestUser", "password": PASSWORD,
                                                        "invite": self.store.invite()})[0], 200)
+        code, data = client.call("/api/workspace")  # veb rejimi: mahalliy ma'lumot berilmaydi
+        self.assertEqual(code, 200)
+        self.assertEqual(data["project"], "")
+        self.assertEqual(data["plugins"], [])
+        self.assertEqual(data["skills"], [])
+        httpd.app.desktop = True  # dasturning o'z oynasi: mahalliy ma'lumot ko'rsatiladi
         code, data = client.call("/api/workspace")
         self.assertEqual(code, 200)
         self.assertEqual(data["project"], "demo-project")

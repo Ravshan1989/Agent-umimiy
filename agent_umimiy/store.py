@@ -19,7 +19,8 @@ INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # adashtiradigan 0/O, 1/I 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE COLLATE NOCASE, salt BLOB NOT NULL, hash BLOB NOT NULL);
+    id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE COLLATE NOCASE, salt BLOB NOT NULL, hash BLOB NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1);
 CREATE TABLE IF NOT EXISTS sessions (
     token TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS chats (
@@ -57,6 +58,10 @@ class Store:
         self.db.execute("PRAGMA foreign_keys = ON")
         self.db.execute("PRAGMA journal_mode = WAL")
         self.db.executescript(SCHEMA)
+        # Existing installs created before account controls get the new column in place.
+        columns = {row[1] for row in self.db.execute("PRAGMA table_info(users)").fetchall()}
+        if "enabled" not in columns:
+            self.db.execute("ALTER TABLE users ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1")
 
     def close(self) -> None:
         self.db.close()
@@ -100,13 +105,62 @@ class Store:
     def check_user(self, name: str, password: str) -> int | None:
         if not isinstance(name, str) or not isinstance(password, str) or not 2 <= len(name.strip()) <= 32 or len(password) > 1024:
             return None
-        rows = self._all("SELECT id, salt, hash FROM users WHERE name = ?", (name.strip(),))
-        if rows and hmac.compare_digest(_hash(password, rows[0][1]), rows[0][2]):
+        rows = self._all("SELECT id, salt, hash, enabled FROM users WHERE name = ?", (name.strip(),))
+        if rows and rows[0][3] and hmac.compare_digest(_hash(password, rows[0][1]), rows[0][2]):
             return rows[0][0]
         return None
 
+    def local_user(self, name: str) -> int:
+        """Shu kompyuter egasining hisobi (desktop oynasi uchun): bo'lmasa, tasodifiy parol bilan yaratiladi.
+
+        Hisob `meta` jadvalidagi id bo'yicha topiladi, nom bo'yicha emas: aks holda veb orqali o'sha nomni
+        oldin band qilgan odamning hisobiga kirib qolish mumkin edi.
+        """
+        rows = self._all("SELECT value FROM meta WHERE key = 'local_user'")
+        if rows and str(rows[0][0]).isdecimal():
+            user_id = int(rows[0][0])
+            if self._all("SELECT id FROM users WHERE id = ?", (user_id,)):
+                return user_id
+        base = name.strip()[:32].strip()
+        if len(base) < 2:
+            base = "Foydalanuvchi"
+        for attempt in range(1, 60):  # nom band bo'lsa, oxiriga raqam qo'shiladi
+            candidate = base if attempt == 1 else f"{base[:32 - len(str(attempt)) - 1]} {attempt}"
+            try:
+                user_id = self.add_user(candidate, secrets.token_urlsafe(24))
+                break
+            except StoreError:
+                if attempt == 1 and not self._all("SELECT id FROM users WHERE name = ?", (candidate,)):
+                    base = "Foydalanuvchi"  # nom qoidaga to'g'ri kelmadi (uzunlik/belgilar)
+        else:
+            raise StoreError("Shu kompyuter uchun hisob yaratib bo'lmadi.")
+        self._run("INSERT INTO meta (key, value) VALUES ('local_user', ?) "
+                  "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (str(user_id),))
+        return user_id
+
     def users(self) -> list[str]:
         return [r[0] for r in self._all("SELECT name FROM users ORDER BY name")]
+
+    def employees(self) -> list[dict]:
+        local = self._all("SELECT value FROM meta WHERE key = 'local_user'")
+        local_id = int(local[0][0]) if local and str(local[0][0]).isdecimal() else -1
+        return [{"id": row[0], "name": row[1], "enabled": bool(row[2]), "chats": row[3]}
+                for row in self._all(
+                    "SELECT u.id, u.name, u.enabled, (SELECT COUNT(*) FROM chats c WHERE c.user_id = u.id) "
+                    "FROM users u WHERE u.id != ? ORDER BY u.name COLLATE NOCASE", (local_id,))]
+
+    def set_employee_enabled(self, user_id: int, enabled: bool) -> bool:
+        cursor = self._run("UPDATE users SET enabled = ? WHERE id = ? AND id != "
+                           "COALESCE((SELECT CAST(value AS INTEGER) FROM meta WHERE key = 'local_user'), -1)",
+                           (int(enabled), user_id))
+        if cursor.rowcount:
+            self._run("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+        return cursor.rowcount > 0
+
+    def remove_employee(self, user_id: int) -> bool:
+        return self._run("DELETE FROM users WHERE id = ? AND id != "
+                         "COALESCE((SELECT CAST(value AS INTEGER) FROM meta WHERE key = 'local_user'), -1)",
+                         (user_id,)).rowcount > 0
 
     def remove_user(self, name: str) -> bool:
         return self._run("DELETE FROM users WHERE name = ?", (name.strip(),)).rowcount > 0
@@ -121,7 +175,7 @@ class Store:
 
     def session_user(self, token: str) -> tuple[int, str] | None:
         rows = self._all("SELECT u.id, u.name FROM sessions s JOIN users u ON u.id = s.user_id "
-                         "WHERE s.token = ? AND s.expires > ?", (_digest(token), time.time()))
+                         "WHERE s.token = ? AND s.expires > ? AND u.enabled = 1", (_digest(token), time.time()))
         return rows[0] if rows else None
 
     def drop_session(self, token: str) -> None:
@@ -156,6 +210,7 @@ class Store:
 
     def add_record(self, chat_id: int, record: dict) -> None:
         self._run("INSERT INTO records (chat_id, body) VALUES (?, ?)", (chat_id, json.dumps(record, ensure_ascii=False)))
+        self._run("UPDATE chats SET updated = ? WHERE id = ?", (time.time(), chat_id))
         self._run("DELETE FROM records WHERE chat_id = ? AND id NOT IN "
                   "(SELECT id FROM records WHERE chat_id = ? ORDER BY id DESC LIMIT ?)",
                   (chat_id, chat_id, MAX_RECORDS_PER_CHAT))

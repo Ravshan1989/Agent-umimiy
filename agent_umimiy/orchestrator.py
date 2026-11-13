@@ -67,6 +67,32 @@ class Orchestrator:
                 best, score = name, s
         return self.agents[best] if best else pool[0]
 
+    @staticmethod
+    def _quota_exhausted(result: Result) -> bool:
+        """Faqat limit/balans tugaganida boshqa agentga o'tamiz."""
+        error = result.error.lower()
+        return any(marker in error for marker in (
+            "so'rov limiti vaqtincha oshib ketdi", "provayder hisobida bepul limit tugagan",
+            "http 429", "http 402", "rate limit", "quota exceeded", "credits exhausted",
+        ))
+
+    def _ask_with_fallback(self, first: Agent, prompt: str, history: list[dict], ctx: Context,
+                           files: list, fallback_pool: list[Agent]) -> list[Result]:
+        """Limit tugagan agentdan so'ng qolgan API agentlarni navbat bilan sinaydi."""
+        results = [first.ask(prompt, history, ctx, files)]
+        if results[0].ok or not self._quota_exhausted(results[0]):
+            return results
+        attempted = {first.name}
+        for agent in fallback_pool:
+            if agent.name in attempted or agent.kind in ("echo", "cli"):
+                continue
+            attempted.add(agent.name)
+            result = agent.ask(prompt, history, ctx, files)
+            results.append(result)
+            if result.ok:
+                break
+        return results
+
     def run(self, prompt: str, mode: str = "auto", targets: list[str] | None = None, files=None) -> list[Result]:
         files = list(files or [])
         if mode not in MODES:
@@ -83,9 +109,12 @@ class Orchestrator:
         self.ctx.readonly = mode in READ_ONLY_MODES  # bir nechta agent bir vaqtda fayl o'zgartirmasligi uchun
 
         if mode == "auto":
-            results = [self.pick(prompt, agents).ask(prompt, self.history, self.ctx, files)]
+            first = self.pick(prompt, agents)
+            results = self._ask_with_fallback(first, prompt, self.history, self.ctx, files, agents)
         elif mode == "single":
-            results = [agents[0].ask(prompt, self.history, self.ctx, files)]
+            # Single tanlovda ham provider limiti tugasa, loyihadagi keyingi API agentga o'tamiz.
+            results = self._ask_with_fallback(agents[0], prompt, self.history, self.ctx, files,
+                                             list(self.agents.values()))
         elif mode == "broadcast":
             results = self._parallel(agents, prompt, self.history, self.ctx, files)
         elif mode == "pipeline":

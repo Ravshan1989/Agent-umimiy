@@ -5,3 +5,4 @@ dist/
 build/
 *.spec
 release/
+agent_umimiy/static/web/

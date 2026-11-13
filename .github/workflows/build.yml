@@ -8,7 +8,7 @@ on:
         required: false
         default: ""
   push:
-    branches: ["feature/ultra-modern-full-integration"]
+    branches: ["main", "design/maket-dashboard", "feature/ultra-modern-full-integration"]
     tags: ["v*"]
 
 permissions:
@@ -39,14 +39,26 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - run: python -m pip install pyinstaller pypdf qrcode pillow python-docx openpyxl python-pptx
+      - run: python -m pip install pyinstaller pypdf qrcode pillow python-docx openpyxl python-pptx pywebview
       - name: Testlar (Linux'da oyna sinovlari uchun virtual ekran bilan)
         run: ${{ runner.os == 'Linux' && 'xvfb-run -a' || '' }} python -m unittest discover -s tests -t .
-      - run: >
+      - name: Dasturni yig'ish (packaging/build_windows.bat bilan bir xil parametrlar)
+        run: >
           python -m PyInstaller --noconfirm --clean --windowed
-          --hidden-import pypdf --hidden-import qrcode --hidden-import PIL.ImageGrab
+          --hidden-import tkinter --hidden-import _tkinter
+          --hidden-import pypdf --hidden-import qrcode --hidden-import PIL.ImageGrab --hidden-import webview
+          --runtime-hook packaging/rthook_tkinter.py
           --add-data "agent_umimiy/static${{ runner.os == 'Windows' && ';' || ':' }}agent_umimiy/static"
+          --add-data "packaging/AgentUmimiy.ico${{ runner.os == 'Windows' && ';' || ':' }}."
+          ${{ runner.os == 'Windows' && '--icon packaging/AgentUmimiy.ico' || '' }}
           --name AgentUmimiy app.py
+      - name: Yig'ilgan to'plam tekshiruvi (klassik oyna ishlashi uchun kerak bo'lgan fayllar)
+        run: |
+          cd dist/AgentUmimiy
+          test -d _internal/_tcl_data || test -d _tcl_data
+          test -d _internal/_tk_data || test -d _tk_data
+          test -f _internal/AgentUmimiy.ico || test -f AgentUmimiy.ico
+          ls _internal/_tkinter* _tkinter* 2>/dev/null | head -1 | grep -q _tkinter
       - name: Yig'ilgan dasturni sinash (veb-server rejimi)
         run: |
           dist/AgentUmimiy/AgentUmimiy --serve --host 127.0.0.1 --port 8123 &
