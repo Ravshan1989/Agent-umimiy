@@ -33,6 +33,7 @@ MAX_DOWNLOAD = 50 * 1024 * 1024
 TITLE_LEN = 40
 LOCAL_ONLY = ("cli",)  # serverda buyruq ishga tushiradigan agent turlari: veb-foydalanuvchilarga berilmaydi
 STATIC_DIR = Path(__file__).parent / "static"
+STATIC_WEB_DIR = STATIC_DIR / "web"
 PAGE_CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'")
 # Yaratiladigan fayl turlari (tizim sozlamasiga bog'liq bo'lmasligi uchun aniq ro'yxat)
@@ -159,7 +160,7 @@ class App:
                     del self.channels[chat_id]
 
     # ---- amallar ----
-    def send(self, chat_id: int, user_id: int, text: str, agent: str, files: list[dict]) -> None:
+    def send(self, chat_id: int, text: str, agent: str, files: list[dict], user_id: int | None = None) -> None:
         if not isinstance(agent, str):
             raise Refused("Agent tanlovi noto'g'ri.")
         if not isinstance(files, list) or any(not isinstance(item, dict) for item in files):
@@ -524,7 +525,7 @@ def make_handler(app: App):
                 files = body.get("files") or []
                 if not isinstance(files, list) or not all(isinstance(f, dict) for f in files):
                     raise Refused("Noto'g'ri so'rov.")
-                app.send(chat_id, user_id, str(body.get("text", "")), str(body.get("agent", "")), files)
+                app.send(chat_id, str(body.get("text", "")), str(body.get("agent", "")), files, user_id=user_id)
             elif path == "/api/stop":
                 app.stop(chat_id)
             else:
