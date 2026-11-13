@@ -83,6 +83,9 @@ function App() {
     setRecords([]);
     setLive({});
     setBusy(false);
+    setMemoryItems([]);
+    setMemoryFact("");
+    setActive("Bosh sahifa");
   }, []);
 
   useEffect(() => {
@@ -138,6 +141,7 @@ function App() {
       setPassword("");
       const me = await refresh();
       setChatId(me.chats[0]?.id ?? null);
+      setActive("Bosh sahifa");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kirish amalga oshmadi");
     }
