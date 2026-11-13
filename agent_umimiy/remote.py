@@ -32,6 +32,8 @@ def read_json_body(stream, headers) -> dict:
     if raw_size is None or not str(raw_size).isascii() or not str(raw_size).isdecimal():
         raise RequestBodyError("Content-Length noto'g'ri.")
     size = int(raw_size)
+    if size < 0:
+        raise RequestBodyError("Content-Length invalid.")
     if size > MAX_BODY:
         raise RequestBodyError("Hajm juda katta.", 413, True)
     raw = stream.read(size)
