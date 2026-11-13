@@ -70,3 +70,9 @@ footer{display:flex;align-items:center;gap:15px;color:var(--muted);font-size:10p
 .placeholder-panel{min-height:320px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px}
 .placeholder-panel svg{color:#a78bfa}.placeholder-panel p{max-width:600px;color:var(--muted);font-size:13px;line-height:1.6}
 @media(max-width:600px){.chat-workspace{padding:12px;min-height:72vh}.message{max-width:96%}.agent-select{max-width:150px;min-width:105px;font-size:11px}.chat-list{max-height:28vh}}
+
+.agent-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:14px}
+.agent-card{display:flex;align-items:center;gap:10px;padding:14px;border:1px solid var(--line);border-radius:13px;background:var(--panel2);min-width:0}
+.agent-card .row-copy{flex:1;min-width:0}.agent-card .primary-button{padding:8px 12px;font-size:11px;flex:none}
+.file-row a{font-size:11px;color:#93c5fd;text-decoration:none;white-space:nowrap}
+.file-row a:hover{text-decoration:underline}
