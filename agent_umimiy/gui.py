@@ -15,7 +15,7 @@ import webbrowser
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from . import attachments, chatstore, config, detect, gitutil, i18n, markdown, theme
+from . import attachments, chatstore, config, detect, gitutil, i18n, markdown, memory, theme
 from . import mcp as mcplib
 from . import remote as remotelib
 from . import server as serverlib
@@ -249,6 +249,60 @@ class AgentDialog(tk.Toplevel):
         self.destroy()
 
 
+class MemoryDialog(tk.Toplevel):
+    """Foydalanuvchi xotirasini ko'rish, qo'shish va alohida tasdiq bilan o'chirish."""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title(i18n.t("Shaxsiy xotira"))
+        self.configure(bg=P["bg"])
+        self.transient(parent)
+        fit(self, 680, 520)
+        bar, body = scroll_body(self)
+        label(body, i18n.t("Saqlangan xotira yozuvlari"), size=15, weight="bold").pack(anchor="w")
+        label(body, i18n.t("Bu ma'lumotlar shu kompyuterdagi profilingizda saqlanadi. Agent yozishi uchun har safar ruxsat so'raladi."),
+              fg=P["muted"], size=9).pack(anchor="w", pady=(4, 12))
+        self.tree = ttk.Treeview(body, columns=("fact",), show="headings", height=12)
+        self.tree.heading("fact", text=i18n.t("Ma'lumot"))
+        self.tree.column("fact", width=570, anchor="w")
+        self.tree.pack(fill="both", expand=True)
+        row = tk.Frame(body, bg=P["bg"])
+        row.pack(fill="x", pady=(12, 4))
+        self.fact = tk.StringVar()
+        entry = ttk.Entry(row, textvariable=self.fact)
+        entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        Pill(row, i18n.t("Saqlash"), self.add, width=100, height=32).pack(side="left")
+        Pill(bar, i18n.t("Tanlanganini o'chirish"), self.remove, width=170, height=32,
+             fg=P["err"], outline=P["line"], bg=P["bg"]).pack(side="left")
+        Pill(bar, i18n.t("Yopish"), self.destroy, width=90, height=32).pack(side="right")
+        self.refresh()
+        entry.focus_set()
+
+    def refresh(self):
+        self.tree.delete(*self.tree.get_children())
+        for item in memory.list_items():
+            self.tree.insert("", "end", iid=item["id"], values=(item["fact"],))
+
+    def add(self):
+        fact = self.fact.get().strip()
+        if not fact:
+            return
+        result = memory.remember(fact)
+        self.fact.set("")
+        messagebox.showinfo(i18n.t("Shaxsiy xotira"), result, parent=self)
+        self.refresh()
+
+    def remove(self):
+        selected = self.tree.selection()
+        if not selected:
+            return
+        if not messagebox.askyesno(i18n.t("Xotirani o'chirish"),
+                                   i18n.t("Tanlangan xotira yozuvi o'chirilsinmi?"), parent=self):
+            return
+        memory.forget(selected[0])
+        self.refresh()
+
+
 class Settings(tk.Toplevel):
     def __init__(self, parent, cfg, on_save):
         super().__init__(parent)
@@ -302,6 +356,8 @@ class Settings(tk.Toplevel):
                        bg=P["bg"], fg=P["text"], selectcolor=P["card"], activebackground=P["bg"],
                        activeforeground=P["text"], highlightthickness=0, bd=0, font=font(10)).pack(anchor="w", pady=(12, 0))
         Pill(f, i18n.t("Suhbatlar tarixini o'chirish"), self._wipe, width=210, height=32, size=9, fg=P["err"],
+             outline=P["line"], bg=P["bg"]).pack(anchor="w", pady=(8, 0))
+        Pill(f, i18n.t("Xotirani ko'rish va boshqarish…"), lambda: MemoryDialog(self), width=260, height=32,
              outline=P["line"], bg=P["bg"]).pack(anchor="w", pady=(8, 0))
         self.brow = tk.BooleanVar(value=cfg.get("browser", True))
         tk.Checkbutton(f, text=i18n.t("Agentlar brauzerni boshqara olsin (sayt ochish, bosish, yozish — har safar ruxsat so'raydi)"),
