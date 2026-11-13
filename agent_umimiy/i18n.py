@@ -47,7 +47,7 @@ TR: dict[str, dict[str, str]] = {
     "Sozlamalar": {"ru": "Настройки", "en": "Settings"},
     "Shaxsiy xotira": {"ru": "Личная память", "en": "Personal memory"},
     "Saqlangan xotira yozuvlari": {"ru": "Сохранённые записи памяти", "en": "Saved memory entries"},
-    "Bu ma'lumotlar shu kompyutdagi profilingizda saqlanadi. Agent yozishi uchun har safar ruxsat so'raladi.": {"ru": "Эти данные хранятся в вашем профиле на этом компьютере. Агент каждый раз запрашивает разрешение на запись.", "en": "These items are stored in your local profile. The agent must ask permission each time before saving."},
+    "Bu ma'lumotlar shu kompyuterdagi profilingizda saqlanadi. Agent yozishi uchun har safar ruxsat so'raladi.": {"ru": "Эти данные хранятся в вашем профиле на этом компьютере. Агент каждый раз запрашивает разрешение на запись.", "en": "These items are stored in your local profile. The agent must ask permission each time before saving."},
     "Ma'lumot": {"ru": "Данные", "en": "Fact"},
     "Tanlanganini o'chirish": {"ru": "Удалить выбранное", "en": "Delete selected"},
     "Xotirani ko'rish va boshqarish…": {"ru": "Просмотр и управление памятью…", "en": "View and manage memory…"},
