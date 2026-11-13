@@ -43,6 +43,19 @@ def run(spec: dict, on_event=None):
     return o.run("salom", "single")[0], events
 
 
+class OllamaArgumentRecoveryTests(unittest.TestCase):
+    def test_invalid_tool_arguments_do_not_abort_turn(self):
+        from agent_umimiy import agentic
+        from agent_umimiy.tools import Context, Toolbox
+
+        malformed = {"role": "assistant", "tool_calls": [
+            {"function": {"name": "todo_write", "arguments": "{bad json"}}]}
+        final = {"role": "assistant", "content": "Yakuniy javob"}
+        tb = Toolbox(Context(), "sinov")
+        with mock.patch("agent_umimiy.agentic.stream.ollama", side_effect=[malformed, final]):
+            self.assertEqual(agentic.ollama({}, "Salom", [], tb), "Yakuniy javob")
+
+
 class ToolFallbackTests(unittest.TestCase):
     def test_friendly_404_keeps_status_for_plain_chat_fallback(self):
         from agent_umimiy.base import Agent
