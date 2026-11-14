@@ -32,19 +32,21 @@ MODES = {
     "consensus": ("⚖", "Kengash", "Hammasi javob beradi, hakam yagona xulosa chiqaradi"),
 }
 FREELLM_URL = "http://localhost:3001/v1"
+OPENROUTER_URL = "https://openrouter.ai/api/v1"
 TYPE_LABELS = {
     "freellm": "FreeLLMAPI — lokal shlyuz (localhost:3001)",
+    "openrouter": "OpenRouter — bepul va pullik modellar (openrouter.ai)",
+    "ollama": "Lokal model — Ollama",
     "anthropic": "Claude (API kalit kerak)",
     "openai": "ChatGPT / OpenAI-mos (API kalit)",
     "gemini": "Google Gemini (API kalit)",
-    "ollama": "Lokal model — Ollama",
     "cli": "Kompyuterdagi dastur (CLI)",
 }
 SHORT_TYPE = {"anthropic": "Claude", "openai": "OpenAI-mos", "gemini": "Gemini", "ollama": "Lokal · Ollama",
               "cli": "Dastur (CLI)", "echo": "Demo"}
 DEFAULT_MODEL = {"anthropic": "claude-sonnet-5-5", "openai": "gpt-4o", "gemini": "gemini-2.0-flash", "ollama": "llama3"}
 LABEL_TO_TYPE = {v: k for k, v in TYPE_LABELS.items()}
-REAL_TYPE = {"freellm": "openai"}  # shablon -> haqiqiy agent turi
+REAL_TYPE = {"freellm": "openai", "openrouter": "openai"}  # shablon -> haqiqiy agent turi
 PROJECT_SUGGESTIONS = ["Bu loyiha nima haqida? Qisqa tushuntirib ber", "Kodda xatolarni top va tuzat",
                        "README.md faylini yoz yoki yangila", "Testlarni ishga tushir, xato bo'lsa tuzat"]
 KIND_ICON = {"read": "◧", "write": "✎", "run": "▶", "info": "•", "agent": "⇄", "browser": "◎", "mcp": "⬡", "skill": "✧"}
@@ -182,6 +184,18 @@ class AgentDialog(tk.Toplevel):
             self.vars["base_url"].set(FREELLM_URL)
             if not self.vars["name"].get():
                 self.vars["name"].set("freellmapi")
+            if not self.vars["model"].get():
+                self.vars["model"].set("auto")
+            if not self.vars["api_key"].get():
+                k = detect.freellmapi_key()
+                if k:
+                    self.vars["api_key"].set(k)
+        elif self._type() == "openrouter":
+            self.vars["base_url"].set(OPENROUTER_URL)
+            if not self.vars["name"].get():
+                self.vars["name"].set("openrouter")
+            if not self.vars["model"].get():
+                self.vars["model"].set("meta-llama/llama-3.3-70b-instruct:free")
         self._hint()
 
     def _load_models(self):
@@ -205,6 +219,7 @@ class AgentDialog(tk.Toplevel):
     def _hint(self):
         self.hint.config(text=i18n.t({
             "freellm": "Brauzerda localhost:3001 → «Agentlar» bo'limidagi API KEY ni «API kalit» maydoniga qo'ying, so'ng «Ro'yxat» tugmasi bilan modelni tanlang.",
+            "openrouter": "Kalitni openrouter.ai/keys dan oling. «Ro'yxat» tugmasi bilan bepul (:free) va pullik modellarni tanlang.",
             "anthropic": "Kalitni console.anthropic.com dan oling. Model bo'sh qolsa, standarti ishlatiladi.",
             "openai": "OpenAI, OpenRouter, Groq yoki LM Studio. Lokal bo'lsa manzilni yozing: http://localhost:1234/v1",
             "gemini": "Kalitni aistudio.google.com dan oling.",

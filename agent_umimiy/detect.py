@@ -25,6 +25,32 @@ def list_models(base_url: str, key: str = "", timeout: float = 8) -> list[str]:
     return [m["id"] for m in data.get("data", []) if "id" in m]
 
 
+def freellmapi_key() -> str:
+    """Lokal o'rnatilgan FreeLLMAPI bazasidan yoki muhit o'zgaruvchisidan unified_api_key ni topadi."""
+    import os
+    import sqlite3
+    from pathlib import Path
+
+    for env in ("FREELLMAPI_API_KEY", "FREELLMAPI_KEY"):
+        if os.environ.get(env):
+            return os.environ[env].strip()
+    candidates = [
+        Path("D:/llm/freellm/server/data/freeapi.db"),
+        Path.home() / "freellmapi" / "server" / "data" / "freeapi.db",
+        Path.home() / "freellmapi" / "data" / "freeapi.db",
+    ]
+    for db_path in candidates:
+        try:
+            if db_path.is_file():
+                with sqlite3.connect(str(db_path)) as conn:
+                    row = conn.execute("SELECT value FROM settings WHERE key='unified_api_key'").fetchone()
+                    if row and row[0]:
+                        return str(row[0])
+        except Exception:
+            pass
+    return ""
+
+
 def freellmapi(base: str = "http://localhost:3001") -> list[dict]:
     """FreeLLMAPI lokal shlyuzi ishlayotgan bo'lsa, agent sifatida taklif qiladi (kalitni foydalanuvchi kiritadi)."""
     import urllib.error
@@ -38,8 +64,30 @@ def freellmapi(base: str = "http://localhost:3001") -> list[dict]:
             return []
     except Exception:
         return []
-    return [{"name": "freellmapi", "type": "openai", "base_url": url, "model": model,
-             "description": "FreeLLMAPI (lokal shlyuz) — API kalitni Sozlamalarda kiriting"}]
+    spec = {"name": "freellmapi", "type": "openai", "base_url": url, "model": model,
+            "description": "FreeLLMAPI (lokal shlyuz) — API kalitni Sozlamalarda kiriting"}
+    if base == "http://localhost:3001":
+        key = freellmapi_key()
+        if key:
+            spec["api_key"] = key
+            spec["description"] = "FreeLLMAPI (lokal shlyuz — avtomatik ulandi)"
+    return [spec]
+
+
+def openrouter() -> list[dict]:
+    """OPENROUTER_API_KEY o'rnatilgan bo'lsa, OpenRouter'ni agent sifatida qo'shadi."""
+    import os
+    key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    if not key:
+        return []
+    return [{
+        "name": "openrouter",
+        "type": "openai",
+        "base_url": "https://openrouter.ai/api/v1",
+        "api_key_env": "OPENROUTER_API_KEY",
+        "model": "meta-llama/llama-3.3-70b-instruct:free",
+        "description": "OpenRouter (bepul va pullik modellar)",
+    }]
 
 
 INSTALL_HINT = {
@@ -84,13 +132,13 @@ def local_servers() -> list[dict]:
     """Ollama va LM Studio ishlayotgan bo'lsa, ulardagi modellarni agent sifatida qaytaradi."""
     found = []
     try:
-        for m in _get("http://localhost:11434/api/tags").get("models", []):
+        for m in _get("http://127.0.0.1:11434/api/tags", timeout=0.4).get("models", []):
             found.append({"name": f"ollama-{m['name']}", "type": "ollama", "model": m["name"],
                           "description": "Lokal model (Ollama)"})
     except Exception:
         pass
     try:
-        for m in _get("http://localhost:1234/v1/models").get("data", []):
+        for m in _get("http://127.0.0.1:1234/v1/models", timeout=0.25).get("data", []):
             found.append({"name": f"lmstudio-{m['id']}", "type": "openai", "model": m["id"],
                           "base_url": "http://localhost:1234/v1", "api_key": "lm-studio",
                           "description": "Lokal model (LM Studio)"})
@@ -109,4 +157,4 @@ def cli_agents() -> list[dict]:
 
 
 def discover() -> list[dict]:
-    return local_servers() + freellmapi() + cli_agents()
+    return local_servers() + freellmapi() + openrouter() + cli_agents()

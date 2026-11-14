@@ -94,25 +94,47 @@ def write(cfg: dict, path: str | None = None) -> None:
     os.replace(tmp, p)
 
 
+_DETECT_CACHE: tuple[float, list[dict], list[dict]] = (0.0, [], [])
+
+
+def _cached_local_and_freellm(ttl: float = 30.0) -> tuple[list[dict], list[dict]]:
+    global _DETECT_CACHE
+    now = time.monotonic()
+    if now - _DETECT_CACHE[0] < ttl:
+        return [dict(x) for x in _DETECT_CACHE[1]], [dict(x) for x in _DETECT_CACHE[2]]
+    loc = detect.local_servers()
+    gw = detect.freellmapi()
+    _DETECT_CACHE = (now, loc, gw)
+    return [dict(x) for x in loc], [dict(x) for x in gw]
+
+
 def build(cfg: dict) -> Orchestrator:
     raw_agents = cfg.get("agents", [])
     if not isinstance(raw_agents, list) or any(not isinstance(a, dict) for a in raw_agents):
         raise ValueError("agents sozlamasi ro'yxat bo'lishi va har bir agent obyekt bo'lishi kerak.")
     enabled = [dict(a) for a in raw_agents if a.get("enabled", True)]
-    # Ollama'ga yuklangan yangi model ilova qayta ochilganda agent sifatida
+    # Ollama'ga yuklangan yangi model va lokal FreeLLMAPI ilova qayta ochilganda
     # avtomatik qo'shiladi. Qo'lda sozlangan model takrorlanmaydi.
-    known_ollama = {str(a.get("model", "")) for a in enabled if a.get("type") == "ollama"}
-    for detected in detect.local_servers():
-        if detected.get("type") != "ollama" or detected.get("model") in known_ollama:
-            continue
-        model = str(detected["model"])
-        low = model.lower()
-        if "coder" in low:
-            detected["description"] = "Lokal model — dasturlash, kod tahlili va xatolarni tuzatish"
-        elif "vl" in low or "vision" in low or "llava" in low:
-            detected["description"] = "Lokal model — rasm, skrinshot va hujjatlarni tahlil qilish"
-        enabled.append(detected)
-        known_ollama.add(model)
+    # Faqat echo agentlardan iborat test sozlamalariga tashqi serverlar qo'shilmaydi.
+    if not enabled or not all(a.get("type") == "echo" for a in enabled):
+        loc_list, gw_list = _cached_local_and_freellm()
+        known_ollama = {str(a.get("model", "")) for a in enabled if a.get("type") == "ollama"}
+        for detected in loc_list:
+            if detected.get("type") != "ollama" or detected.get("model") in known_ollama:
+                continue
+            model = str(detected["model"])
+            low = model.lower()
+            if "coder" in low:
+                detected["description"] = "Lokal model — dasturlash, kod tahlili va xatolarni tuzatish"
+            elif "vl" in low or "vision" in low or "llava" in low:
+                detected["description"] = "Lokal model — rasm, skrinshot va hujjatlarni tahlil qilish"
+            enabled.append(detected)
+            known_ollama.add(model)
+        known_names = {str(a.get("name", "")) for a in enabled}
+        for gw in gw_list:
+            if gw.get("name") not in known_names and gw.get("api_key"):
+                enabled.append(gw)
+                known_names.add(str(gw["name"]))
     if len(enabled) > MAX_AGENTS:
         raise ValueError(f"Ko'pi bilan {MAX_AGENTS} ta agent sozlash mumkin.")
     agents = [build_agent(a) for a in enabled]
