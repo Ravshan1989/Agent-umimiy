@@ -8,7 +8,7 @@
 агенты читают и редактируют ваши файлы, управляют браузером и помогают друг другу.
 
 ![Платформа](https://img.shields.io/badge/платформа-Windows-0078D6?logo=windows&logoColor=white)
-![Версия](https://img.shields.io/badge/версия-0.4.1-orange)
+![Версия](https://img.shields.io/badge/версия-0.4.2-orange)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Лицензия](https://img.shields.io/badge/лицензия-MIT-green)
 ![Интерфейс](https://img.shields.io/badge/интерфейс-узбекский-1EB53A)

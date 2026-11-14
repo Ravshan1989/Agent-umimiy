@@ -6,6 +6,18 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 
 ## [Nashr qilinmagan] / [Unreleased]
 
+## [0.4.2] — 2026-11-14
+
+### Xavfsizlik / Security
+- Veb-sahifa yuklashda (web-fetch) SSRF tekshiruvi endi Python patch-versiyasiga bog'liq emas: maxsus
+  tarmoqlar (192.0.0.0/24, 100.64.0.0/10, 198.18.0.0/15, IPv6 hujjatlashtirish/6to4/Teredo diapazonlari)
+  va IPv4-mapped IPv6 manzillar har doim bloklanadi. Bu eski buildlardagi (masalan, Windows'dagi
+  Python 3.11.9) bo'shliqni va Windows Python 3.11 CI xatosini tuzatadi.
+  / The web-fetch SSRF check no longer depends on the Python patch version: special networks
+  (192.0.0.0/24, 100.64.0.0/10, 198.18.0.0/15, documentation/6to4/Teredo IPv6 ranges) and IPv4-mapped
+  IPv6 addresses are always blocked. This closes the gap on older builds such as Python 3.11.9 (Windows)
+  and fixes the Windows Python 3.11 CI failure.
+
 ## [0.4.1] — 2026-11-14
 
 ### Xavfsizlik / Security
@@ -138,7 +150,8 @@ Birinchi ochiq nashr. / First public release.
 - **Suhbatlarni saqlash**, **Git yordamchisi**, qorong'i mavzu, to'liq o'zbekcha interfeys.
 - **Windows build**: `AgentUmimiy-Windows.zip` va GitHub Actions orqali `AgentUmimiy-Setup.exe`.
 
-[Nashr qilinmagan]: https://github.com/Ravshan1989/Agent-umimiy/compare/v0.4.1...HEAD
+[Nashr qilinmagan]: https://github.com/Ravshan1989/Agent-umimiy/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/Ravshan1989/Agent-umimiy/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/Ravshan1989/Agent-umimiy/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/Ravshan1989/Agent-umimiy/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Ravshan1989/Agent-umimiy/compare/v0.2.0...v0.3.0
