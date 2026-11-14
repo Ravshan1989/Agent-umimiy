@@ -25,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import attachments, automation, config, preview, rag, remote, skills, telegram_bot
+from . import attachments, automation, config, memory, preview, rag, remote, skills, telegram_bot
 from . import mcp as mcplib
 from .server_page import PAGE
 from .store import SESSION_DAYS, Store, StoreError
@@ -49,6 +49,7 @@ PAGE_CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 's
 FILE_TYPES = {
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     ".csv": "text/csv; charset=utf-8", ".json": "application/json; charset=utf-8",
     ".txt": "text/plain; charset=utf-8", ".md": "text/plain; charset=utf-8",
     ".pdf": "application/pdf", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
@@ -550,7 +551,7 @@ _STATIC_CACHE: dict[str, tuple[int, int, bytes]] = {}
 
 
 def _export_chat(store: Store, chat_id: int, fmt: str) -> tuple[bytes, str, str]:
-    """Suhbat tarixini .md yoki .docx formatiga o'giradi."""
+    """Suhbat tarixini .md, .docx, .pptx yoki .xlsx formatiga o'giradi."""
     import io
     raw_title = store.title(chat_id) or f"Suhbat-{chat_id}"
     safe_title = re.sub(r"[^\w\- ]+", "_", raw_title).strip()[:40] or f"suhbat-{chat_id}"
@@ -575,6 +576,41 @@ def _export_chat(store: Store, chat_id: int, fmt: str) -> tuple[bytes, str, str]
         buf = io.BytesIO()
         doc.save(buf)
         return buf.getvalue(), FILE_TYPES[".docx"], f"{safe_title}.docx"
+    if fmt == "pptx":
+        import pptx
+        prs = pptx.Presentation()
+        title_slide = prs.slides.add_slide(prs.slide_layouts[0])
+        title_slide.shapes.title.text = raw_title
+        if len(title_slide.placeholders) > 1:
+            title_slide.placeholders[1].text = "Agent Umimiy AI Platformasi hisoboti"
+        pending_q = ""
+        for r in recs:
+            if r.get("k") == "user":
+                pending_q = str(r.get("text") or "")[:120]
+            elif r.get("k") == "agent":
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                name = str(r.get("name") or r.get("agent") or "Agent")
+                slide.shapes.title.text = pending_q or f"{name} javobi"
+                if len(slide.placeholders) > 1:
+                    slide.placeholders[1].text = str(r.get("text") or "")[:1200]
+                pending_q = ""
+        buf = io.BytesIO()
+        prs.save(buf)
+        return buf.getvalue(), FILE_TYPES[".pptx"], f"{safe_title}.pptx"
+    if fmt == "xlsx":
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Suhbat"
+        ws.append(["Turi", "Muallif / Agent", "Vaqt / Holat", "Matn"])
+        for r in recs:
+            if r.get("k") == "user":
+                ws.append(["Savol", "Siz", "", str(r.get("text") or "")])
+            elif r.get("k") == "agent":
+                ws.append(["Javob", str(r.get("name") or r.get("agent") or "Agent"), str(r.get("meta") or ""), str(r.get("text") or "")])
+        buf = io.BytesIO()
+        wb.save(buf)
+        return buf.getvalue(), FILE_TYPES[".xlsx"], f"{safe_title}.xlsx"
     lines = [f"# {raw_title}\n"]
     for r in recs:
         if r.get("k") == "user":
@@ -584,6 +620,33 @@ def _export_chat(store: Store, chat_id: int, fmt: str) -> tuple[bytes, str, str]
             meta = f" *({r['meta']})*" if r.get("meta") else ""
             lines.append(f"### {name}{meta}\n\n{r.get('text') or ''}\n")
     return "\n".join(lines).encode("utf-8"), FILE_TYPES[".md"], f"{safe_title}.md"
+
+
+def _port_open(port: int) -> bool:
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=0.12):
+            return True
+    except OSError:
+        return False
+
+
+def _system_health() -> dict:
+    import os
+    import platform
+    try:
+        usage = shutil.disk_usage(config.user_dir())
+        free_gb = round(usage.free / (1024 ** 3), 1)
+        total_gb = round(usage.total / (1024 ** 3), 1)
+    except OSError:
+        free_gb, total_gb = 0.0, 0.0
+    return {
+        "cpu_cores": os.cpu_count() or 1,
+        "python": platform.python_version(),
+        "disk_free_gb": free_gb,
+        "disk_total_gb": total_gb,
+        "ollama_online": _port_open(11434),
+        "freellm_online": _port_open(3001),
+    }
 
 
 
@@ -807,6 +870,8 @@ def make_handler(app: App):
                                                            "jobs": automation.list_jobs() if local_desktop else []},
                                             "rag": rag.stats() if local_desktop else {"indexed": 0},
                                             "telegram": app.telegram.info() if local_desktop else {"enabled": False, "status": "o'chiq", "bot_username": "", "allowed_username": "", "error": ""},
+                                            "memory": memory.list_all() if local_desktop else [],
+                                            "system": _system_health() if local_desktop else {},
                                             "analytics": store.analytics(user_id),
                                             "database": {"engine": "SQLite", "status": "connected",
                                                          "users": store.user_count(), "chats": store.chat_count()}})
@@ -815,7 +880,7 @@ def make_handler(app: App):
                     query = parse_qs(url.query)
                     chat_id = self._chat(user_id, query.get("chat", [""])[0])
                     fmt = query.get("format", ["md"])[0].lower()
-                    if fmt not in ("md", "docx"):
+                    if fmt not in ("md", "docx", "pptx", "xlsx"):
                         raise Refused("Format noto'g'ri.")
                     data, ctype, filename = _export_chat(store, chat_id, fmt)
                     return self._send(200, data, ctype, download=filename)
@@ -1066,6 +1131,33 @@ def make_handler(app: App):
                     return {"ok": True, "name": f"ekran_{int(time.time())}.png", "data": b64}, ""
                 except Exception as exc:
                     raise Refused(f"Ekran rasmini olib bo'lmadi: {exc}")
+            if path == "/api/desktop/memory":
+                if not self._desktop():
+                    raise Refused("Topilmadi.", 404)
+                act = str(body.get("action", "list"))
+                msg = ""
+                if act == "add":
+                    msg = memory.remember(str(body.get("fact", "")))
+                elif act == "delete":
+                    msg = memory.forget(str(body.get("id", "")))
+                return {"ok": True, "memory": memory.list_all(), "message": msg}, ""
+            if path == "/api/desktop/run-code":
+                if not self._desktop():
+                    raise Refused("Topilmadi.", 404)
+                code = str(body.get("code", ""))
+                if not code.strip() or len(code) > 20000:
+                    raise Refused("Kod bo'sh yoki juda uzun.")
+                try:
+                    proc = subprocess.run(
+                        [sys.executable, "-c", code],
+                        capture_output=True, text=True, timeout=10, encoding="utf-8", errors="replace",
+                    )
+                    out = (proc.stdout or "") + (("\n" + proc.stderr) if proc.stderr else "")
+                    return {"ok": proc.returncode == 0, "output": (out.strip() or "(bo'sh natija)")[:8000]}, ""
+                except subprocess.TimeoutExpired:
+                    raise Refused("Kod bajarilishi 10 soniyadan oshib ketdi (Timeout).")
+                except Exception as exc:
+                    raise Refused(f"Kod bajarishda xato: {exc}")
             if path == "/api/chat/new":
                 if len(store.chats(user_id)) >= 100:
                     raise Refused("Bir foydalanuvchi ko'pi bilan 100 ta suhbat yaratishi mumkin.", 429)

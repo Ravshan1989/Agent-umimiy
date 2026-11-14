@@ -141,6 +141,13 @@ def search(query: str, limit: int = 5) -> str:
     return "\n".join(f"[{item['id']}] {item['fact']}" for item in selected)
 
 
+def list_all() -> list[dict]:
+    """Barcha saqlangan xotira yozuvlarini qaytaradi."""
+    path = _path()
+    with _lock:
+        return list(_read(path))
+
+
 def forget(item_id: str) -> str:
     item_id = str(item_id).strip()
     path = _path()

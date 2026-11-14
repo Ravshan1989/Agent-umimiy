@@ -23,13 +23,15 @@ type RagHit = { path: string; name: string; snippet: string };
 type TelegramInfo = { enabled: boolean; status: string; bot_username: string; allowed_username: string; error: string };
 type AgentStat = { agent: string; calls: number; errors: number; avg_seconds: number };
 type AnalyticsInfo = { user_messages: number; agent_messages: number; errors: number; files_created: number; by_agent: AgentStat[] };
-type Workspace = { project: string; plugins: { name: string; transport: string; enabled: boolean }[]; skills: { name: string; description: string; source: string }[]; automation: { available: boolean; reason: string; jobs?: AutoJob[] }; rag?: { indexed: number }; telegram?: TelegramInfo; analytics?: AnalyticsInfo; database: { engine: string; status: string; users: number; chats: number } };
+type MemoryItem = { id: string; fact: string };
+type SystemHealth = { cpu_cores?: number; python?: string; disk_free_gb?: number; disk_total_gb?: number; ollama_online?: boolean; freellm_online?: boolean };
+type Workspace = { project: string; plugins: { name: string; transport: string; enabled: boolean }[]; skills: { name: string; description: string; source: string }[]; automation: { available: boolean; reason: string; jobs?: AutoJob[] }; rag?: { indexed: number }; telegram?: TelegramInfo; memory?: MemoryItem[]; system?: SystemHealth; analytics?: AnalyticsInfo; database: { engine: string; status: string; users: number; chats: number } };
 type Task = { id: number; text: string; when: string; done: boolean };
 type Approval = { id: string; agent: string; kind: string; title: string; detail: string };
 type SpeechRec = { lang: string; interimResults: boolean; start: () => void; stop: () => void; onresult: ((e: { results: { 0: { transcript: string } }[] }) => void) | null; onend: (() => void) | null; onerror: (() => void) | null };
 const MAX_FILE = 15 * 1024 * 1024;
 const NAV: [string, typeof Home][] = [["Bosh sahifa", Home], ["Suhbat", MessageSquare], ["Agentlar", Bot], ["Fayllar", FileText], ["Loyihalar", FolderKanban], ["Plaginlar", Puzzle], ["Avtomatlashtirish", Boxes], ["Hisobotlar", BarChart3], ["Ma’lumotlar bazasi", Database], ["Sozlamalar", Settings]];
-const WORKSPACE_VIEWS = ["Bosh sahifa", "Loyihalar", "Plaginlar", "Avtomatlashtirish", "Hisobotlar", "Ma’lumotlar bazasi"];
+const WORKSPACE_VIEWS = ["Bosh sahifa", "Loyihalar", "Plaginlar", "Avtomatlashtirish", "Hisobotlar", "Ma’lumotlar bazasi", "Sozlamalar"];
 const I18N: Record<"ru" | "en", Record<string, string>> = {
   ru: {
     "Bosh sahifa": "Главная", "Suhbat": "Чат", "Agentlar": "Агенты", "Fayllar": "Файлы", "Loyihalar": "Проекты",
@@ -51,7 +53,9 @@ const I18N: Record<"ru" | "en", Record<string, string>> = {
 const PROMPTS: [string, string, typeof Home, string][] = [
   ["Excel ma’lumotni tahlil qil", "Biriktirilgan Excel faylni tahlil qilib ber", FileSpreadsheet, "excel"],
   ["Word hujjat tayyorla", "Word hujjat tayyorlab ber: ", FileText, "word"],
+  ["PowerPoint taqdimot", "PowerPoint (.pptx) taqdimot tayyorlab ber: ", Layers, "violet"],
   ["Vebdan ma’lumot top", "Internetdan shu mavzu bo‘yicha ma’lumot top: ", Globe2, "cyan"],
+  ["Shartnoma / Huquqiy tahlil", "Ushbu matn yoki shartnomani huquqiy va moliyaviy jihatdan tahlil qil: ", ShieldCheck, "amber"],
   ["Hisobot tayyorla", "Hisobot tayyorlab ber: ", BarChart3, "pdf"],
 ];
 
@@ -160,6 +164,7 @@ function App() {
   const [ragResults, setRagResults] = useState<RagHit[]>([]);
   const [tgToken, setTgToken] = useState("");
   const [tgUser, setTgUser] = useState("");
+  const [memoryFact, setMemoryFact] = useState("");
   const recognition = useRef<SpeechRec | null>(null);
   const noticePanel = useRef<HTMLElement>(null);
   const eventSource = useRef<EventSource | null>(null);
@@ -342,6 +347,35 @@ function App() {
     }
   }
 
+  const runPythonSnippet = useCallback(async (code: string) => {
+    const res = await api<{ output: string }>("/api/desktop/run-code", { code });
+    return res.output;
+  }, []);
+
+  function copyMessage(text?: string) {
+    if (!text) return;
+    void navigator.clipboard?.writeText(text).then(() => toast.success("Javob nusxalandi"));
+  }
+
+  async function regenerateFrom(index: number) {
+    if (busy || chatId === null) return;
+    let prompt = "";
+    for (let i = index - 1; i >= 0; i--) {
+      if (records[i]?.k === "user" && records[i]?.text) {
+        prompt = records[i].text || "";
+        break;
+      }
+    }
+    if (!prompt) return;
+    stickToBottom.current = true;
+    try {
+      await api("/api/send", { chat: chatId, text: prompt, agent: selectedAgent, files: [] });
+      setBusy(true);
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  }
+
   function fillPrompt(text: string, pickFile = false) {
     setMessage(text);
     if (pickFile) fileInput.current?.click();
@@ -491,18 +525,18 @@ function App() {
   const agentTones = ["blue", "", "cyan", "amber"];
 
   const chatPanel = (full: boolean) => <section className={full ? "workspace panel chat-full" : "workspace panel"}>
-    <div className="workspace-title"><div className="spark-badge"><Sparkles /></div><h2>{t("Agent Umimiy bilan suhbat")}</h2>{chatId && records.length > 0 && <><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=docx`} download title="Word (.docx) yuklab olish"><Download size={14} /> .docx</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=md`} download title="Markdown (.md) yuklab olish"><Download size={14} /> .md</a></>}<button className="new-chat-btn" onClick={createChat}><Plus size={15} /> {t("Yangi suhbat")}</button></div>
+    <div className="workspace-title"><div className="spark-badge"><Sparkles /></div><h2>{t("Agent Umimiy bilan suhbat")}</h2>{chatId && records.length > 0 && <><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=docx`} download title="Word (.docx) yuklab olish"><Download size={14} /> .docx</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=pptx`} download title="PowerPoint (.pptx) yuklab olish"><Download size={14} /> .pptx</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=xlsx`} download title="Excel (.xlsx) yuklab olish"><Download size={14} /> .xlsx</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=md`} download title="Markdown (.md) yuklab olish"><Download size={14} /> .md</a></>}<button className="new-chat-btn" onClick={createChat}><Plus size={15} /> {t("Yangi suhbat")}</button></div>
     {!records.length && !busy && !Object.keys(live).length ? <>
       <p className="workspace-sub">Savolingizni yozing yoki quyidagi misollardan birini tanlang:</p>
       <div className="prompt-chips">{PROMPTS.map(([label, text, Icon, tone], i) => <button type="button" key={label} onClick={() => fillPrompt(text, i === 0)}><span className={`chip-icon ${tone}`}><Icon /></span>{label}</button>)}</div>
     </> : <div className="messages" onScroll={(e) => { const box = e.currentTarget; stickToBottom.current = box.scrollHeight - box.scrollTop - box.clientHeight < 80; }}>
       {records.map((record, index) => record.k === "act"
         ? <div className="activity-line" key={index}>{record.agent}: {record.text}{record.kind === "file" && <><a href={fileHref(record.text)} download><Download size={12} /> Yuklab olish</a>{/\.(png|jpe?g|gif|webp|bmp)$/i.test(record.text || "") && <a className="chat-image-link" href={`${fileHref(record.text)}&inline=1`} target="_blank" rel="noreferrer"><img className="chat-image" src={`${fileHref(record.text)}&inline=1`} alt={record.text || "Rasm"} loading="lazy" /></a>}</>}</div>
-        : <div className={record.k === "user" ? "message-row user-message" : "message-row"} key={index}><div className="message-avatar">{record.k === "user" ? user.slice(0, 1).toUpperCase() : <Bot size={17} />}</div><div className="message-body"><b>{record.k === "user" ? user : record.name || record.agent || "Agent"}</b><div className={record.err ? "message-bubble error" : record.k === "agent" ? "message-bubble md-bubble" : "message-bubble"}>{record.k === "agent" && !record.err ? <Markdown text={record.text || ""} /> : record.text}{record.files?.length ? <small className="attached">{record.files.map((file, i) => {
+        : <div className={record.k === "user" ? "message-row user-message" : "message-row"} key={index}><div className="message-avatar">{record.k === "user" ? user.slice(0, 1).toUpperCase() : <Bot size={17} />}</div><div className="message-body"><b>{record.k === "user" ? user : record.name || record.agent || "Agent"}</b><div className={record.err ? "message-bubble error" : record.k === "agent" ? "message-bubble md-bubble" : "message-bubble"}>{record.k === "agent" && !record.err ? <Markdown text={record.text || ""} onRunCode={desktop ? runPythonSnippet : undefined} /> : record.text}{record.files?.length ? <small className="attached">{record.files.map((file, i) => {
                   const shown = typeof file === "string" ? file : (file.name || file.file || "fayl");
                   const stored = typeof file === "string" ? "" : file.file;  // eski yozuvlarda diskdagi nom saqlanmagan
                   return <span key={i}>📎 {stored ? <a href={fileHref(stored)} download={shown}>{shown}</a> : shown}</span>;
-                })}</small> : null}</div><div className="message-meta-row">{record.meta && <small className="message-meta">{record.meta}</small>}{record.k === "agent" && !record.err && record.text && <button type="button" className="text-link" onClick={() => speakText(record.text)} title="Ovoz chiqarib o‘qish"><Volume2 size={13} /> Eshitish</button>}</div></div></div>)}
+                })}</small> : null}</div><div className="message-meta-row">{record.meta && <small className="message-meta">{record.meta}</small>}{record.k === "agent" && !record.err && record.text && <><button type="button" className="text-link" onClick={() => speakText(record.text)} title="Ovoz chiqarib o‘qish"><Volume2 size={13} /> Eshitish</button><button type="button" className="text-link" onClick={() => copyMessage(record.text)} title="Matnni nusxalash">📋 Nusxalash</button><button type="button" className="text-link" onClick={() => void regenerateFrom(index)} title="Boshqattan javob olish">🔄 Qayta so‘rash</button></>}</div></div></div>)}
       {Object.entries(live).map(([name, text]) => <div className="message-row" key={name}><div className="message-avatar"><Bot size={17} /></div><div className="message-body"><b>{name} <span className="typing-label">yozmoqda…</span></b><div className="message-bubble live md-bubble"><Markdown text={text} /></div></div></div>)}
       {busy && !Object.keys(live).length && <div className="typing-indicator"><span /><span /><span /> Agent javob tayyorlamoqda…</div>}
       <div ref={messagesEnd} />
@@ -639,6 +673,17 @@ function App() {
             <button className="secondary-btn" disabled={employeeBusy !== null} onClick={() => void refreshEmployees().catch((error) => toast.error((error as Error).message))}>Ro‘yxatni yangilash</button>
           </div>}
           {desktop && <div className="classic-box">
+            <div className="row-copy"><b>🧠 Doimiy AI Xotirasi (Memory)</b><span>Barcha suhbatlarda agentlar eslab qoladigan shaxsiy qoidalar va faktlar ({workspace?.memory?.length ?? 0} ta).</span></div>
+            <div className="settings-grid">
+              <input value={memoryFact} onChange={(e) => setMemoryFact(e.target.value)} placeholder="Masalan: Javoblarni doim qisqa va aniq o‘zbek tilida yoz" />
+              <button className="primary-btn" onClick={() => void api<{ memory: MemoryItem[]; message: string }>("/api/desktop/memory", { action: "add", fact: memoryFact }).then((res) => { if (workspace) setWorkspace({ ...workspace, memory: res.memory }); setMemoryFact(""); toast.success(res.message || "Xotiraga saqlandi"); }).catch((e) => toast.error((e as Error).message))}><Plus size={15} /> Xotiraga qo‘shish</button>
+            </div>
+            {(workspace?.memory || []).map((m) => <div className="employee-row" key={m.id}>
+              <div className="row-copy"><b>{m.fact}</b><span>ID: {m.id}</span></div>
+              <button className="secondary-btn danger-btn" onClick={() => void api<{ memory: MemoryItem[] }>("/api/desktop/memory", { action: "delete", id: m.id }).then((res) => { if (workspace) setWorkspace({ ...workspace, memory: res.memory }); toast.info("Xotiradan o‘chirildi"); }).catch((e) => toast.error((e as Error).message))} title="O‘chirish"><Trash2 size={14} /></button>
+            </div>)}
+          </div>}
+          {desktop && <div className="classic-box">
             <div className="row-copy"><b>Telegram Bot ko‘prigi (Masofadan boshqarish)</b><span>@BotFather dan olingan tokenni kiriting — telefoningizdan Telegram orqali yozib Agent Umimiyni ishlating.</span></div>
             <div className="settings-grid">
               <input type="password" value={tgToken} onChange={(e) => setTgToken(e.target.value)} placeholder="Bot tokeni (123456:ABC-DEF...)" />
@@ -684,6 +729,15 @@ function App() {
             <div className="row-copy"><b>{stat.agent}</b><span>So‘rovlar: {stat.calls} ta · Xatolar: {stat.errors} ta</span></div>
             <span className="online"><i /> O‘rtacha: {stat.avg_seconds ? `${stat.avg_seconds} s` : "—"}</span>
           </div>) : <div className="empty-state"><Activity /><span>Agentlar javob bergandan so‘ng ularning tezlik statistikasi shu yerda chiqadi.</span></div>}
+          {desktop && workspace?.system && <>
+            <div className="panel-heading"><b>🖥 Tizim va Lokal AI Serverlar Salomatligi</b><span className="text-link">Python {workspace.system.python}</span></div>
+            <div className="stats-grid">
+              <article className="stat-card violet"><div className="stat-copy"><span>CPU Oqimlari</span><b>{workspace.system.cpu_cores} ta</b></div></article>
+              <article className="stat-card blue"><div className="stat-copy"><span>Bo‘sh Disk Joyi</span><b>{workspace.system.disk_free_gb} GB</b></div></article>
+              <article className="stat-card pink"><div className="stat-copy"><span>Ollama (11434)</span><b>{workspace.system.ollama_online ? "Onlayn ⚡" : "O‘chiq"}</b></div></article>
+              <article className="stat-card amber"><div className="stat-copy"><span>FreeLLM (3001)</span><b>{workspace.system.freellm_online ? "Onlayn ⚡" : "O‘chiq"}</b></div></article>
+            </div>
+          </>}
         </section>}
         {activeView === "Suhbat" && chatPanel(true)}
         {activeView === "Bosh sahifa" && <div className="dash">
