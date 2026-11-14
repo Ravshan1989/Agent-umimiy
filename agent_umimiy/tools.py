@@ -822,6 +822,24 @@ def _origin(url: str) -> str:
     return f"{parsed.scheme.lower()}://{(parsed.hostname or '').lower()}:{port}"
 
 
+# Eski Python patch versiyalarida (masalan Windows'dagi 3.11.9, 3.12.3 gacha) ipaddress.is_global bu maxsus
+# tarmoqlarni ochiq deb hisoblaydi (gh-113171 tuzatishidan oldin). Natija Python versiyasiga bog'liq bo'lmasligi
+# uchun ular qo'shimcha ravishda bloklanadi.
+_EXTRA_NON_GLOBAL = tuple(ipaddress.ip_network(n) for n in (
+    "192.0.0.0/24", "100.64.0.0/10", "198.18.0.0/15",
+    "64:ff9b:1::/48", "2001::/23", "2001:db8::/32", "2002::/16", "3fff::/20", "5f00::/16",
+))
+
+
+def _is_public_ip(ip) -> bool:
+    mapped = getattr(ip, "ipv4_mapped", None)
+    if mapped is not None:
+        ip = mapped
+    if not ip.is_global:
+        return False
+    return not any(ip.version == net.version and ip in net for net in _EXTRA_NON_GLOBAL)
+
+
 def _check_url(url: str, allow_private: bool):
     u = urllib.parse.urlparse(url)
     if u.scheme not in ("http", "https") or not u.hostname or u.username or u.password:
@@ -834,7 +852,7 @@ def _check_url(url: str, allow_private: bool):
         raise ToolError(f"Manzil topilmadi: {u.hostname}")
     for info in infos:
         ip = ipaddress.ip_address(info[4][0])
-        if not ip.is_global:
+        if not _is_public_ip(ip):
             raise ToolError("Faqat ochiq internet manzillariga ruxsat bor; ichki yoki maxsus IP manzillar bloklangan.")
 
 
