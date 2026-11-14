@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import os
 import sys
@@ -50,17 +51,27 @@ def config_path(path: str | None = None) -> Path:
     return Path(path) if path else user_dir() / "agents.json"
 
 
+_READ_CACHE: dict[str, tuple[int, int, dict]] = {}
+
+
 def read(path: str | None = None) -> dict:
     p = config_path(path)
     if not p.exists():
-        return json.loads(json.dumps(DEFAULT))
-    if p.stat().st_size > MAX_CONFIG_BYTES:
+        return copy.deepcopy(DEFAULT)
+    st = p.stat()
+    if st.st_size > MAX_CONFIG_BYTES:
         raise ValueError("agents.json fayli 1 MB dan katta.")
+    key = str(p)
+    cached = _READ_CACHE.get(key)
+    if cached and cached[0] == st.st_mtime_ns and cached[1] == st.st_size:
+        return copy.deepcopy(cached[2])
     for attempt in range(2):
         try:
             data = json.loads(p.read_text(encoding="utf-8-sig"))  # BOM bo'lsa ham o'qiladi
             if isinstance(data, dict):
-                return {**DEFAULT, **data}
+                merged = {**DEFAULT, **data}
+                _READ_CACHE[key] = (st.st_mtime_ns, st.st_size, merged)
+                return copy.deepcopy(merged)
         except ValueError:
             pass
         if attempt == 0:
@@ -70,7 +81,8 @@ def read(path: str | None = None) -> dict:
         os.replace(p, p.with_name(p.name + ".broken"))
     except OSError:
         pass
-    return json.loads(json.dumps(DEFAULT))
+    _READ_CACHE.pop(key, None)
+    return copy.deepcopy(DEFAULT)
 
 
 def write(cfg: dict, path: str | None = None) -> None:
@@ -92,6 +104,7 @@ def write(cfg: dict, path: str | None = None) -> None:
     with os.fdopen(fd, "wb") as fh:
         fh.write(payload)
     os.replace(tmp, p)
+    _READ_CACHE.pop(str(p), None)
 
 
 _DETECT_CACHE: tuple[float, list[dict], list[dict]] = (0.0, [], [])

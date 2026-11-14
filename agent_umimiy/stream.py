@@ -61,6 +61,10 @@ def openai_payload(payload: dict, options: dict) -> dict:
 
 
 def _lines(url: str, payload: dict, headers: dict, sse: bool = False) -> Iterator[str]:
+    if url.startswith("http://localhost:"):
+        url = "http://127.0.0.1:" + url[len("http://localhost:"):]
+    elif url.startswith("http://localhost/"):
+        url = "http://127.0.0.1/" + url[len("http://localhost/"):]
     req = urllib.request.Request(url, data=json.dumps(payload).encode(),
                                  headers={"Content-Type": "application/json", **headers}, method="POST")
     try:
@@ -167,7 +171,9 @@ def gemini(url: str, payload: dict, headers: dict, on_text: OnText) -> str:
 def ollama(url: str, payload: dict, on_text: OnText) -> dict:
     """Ollama /api/chat (har qatorda bitta JSON) -> yig'ilgan assistant xabari."""
     msg: dict = {"role": "assistant", "content": ""}
-    for line in _lines(url, {**payload, "stream": True}, {}):
+    opts = {"num_ctx": 2048, **(payload.get("options") or {})}
+    body = {"keep_alive": -1, **payload, "options": opts, "stream": True}
+    for line in _lines(url, body, {}):
         if not line.strip():
             continue
         ev = json.loads(line)

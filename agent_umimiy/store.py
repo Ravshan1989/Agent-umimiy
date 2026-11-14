@@ -57,6 +57,8 @@ class Store:
             pass
         self.db.execute("PRAGMA foreign_keys = ON")
         self.db.execute("PRAGMA journal_mode = WAL")
+        self.db.execute("PRAGMA synchronous = NORMAL")
+        self.db.execute("PRAGMA temp_store = MEMORY")
         self.db.executescript(SCHEMA)
         # Existing installs created before account controls get the new column in place.
         columns = {row[1] for row in self.db.execute("PRAGMA table_info(users)").fetchall()}
@@ -140,6 +142,14 @@ class Store:
 
     def users(self) -> list[str]:
         return [r[0] for r in self._all("SELECT name FROM users ORDER BY name")]
+
+    def user_count(self) -> int:
+        rows = self._all("SELECT COUNT(*) FROM users")
+        return int(rows[0][0]) if rows else 0
+
+    def chat_count(self) -> int:
+        rows = self._all("SELECT COUNT(*) FROM chats")
+        return int(rows[0][0]) if rows else 0
 
     def employees(self) -> list[dict]:
         local = self._all("SELECT value FROM meta WHERE key = 'local_user'")

@@ -14,6 +14,7 @@ import queue
 import re
 import secrets
 import shutil
+import socket
 import socketserver
 import subprocess
 import sys
@@ -529,6 +530,21 @@ def safe_file_path(base, name: str) -> Path | None:
         return None
 
 
+_STATIC_CACHE: dict[str, tuple[int, int, bytes]] = {}
+
+
+def _read_static(path: Path) -> bytes:
+    st = path.stat()
+    key = str(path)
+    hit = _STATIC_CACHE.get(key)
+    if hit and hit[0] == st.st_mtime_ns and hit[1] == st.st_size:
+        return hit[2]
+    data = path.read_bytes()
+    if len(data) <= 8 * 1024 * 1024:
+        _STATIC_CACHE[key] = (st.st_mtime_ns, st.st_size, data)
+    return data
+
+
 def make_handler(app: App):
     store, throttle = app.store, Throttle()
 
@@ -538,6 +554,10 @@ def make_handler(app: App):
         def setup(self):
             super().setup()
             self.connection.settimeout(30)  # sekin yuboriladigan so'rovlar server oqimini band qilmasin
+            try:
+                self.connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            except OSError:
+                pass
         server_version = "AgentUmimiy"
 
         def handle_one_request(self):
@@ -674,7 +694,7 @@ def make_handler(app: App):
                 if url.path == "/":
                     web_index = STATIC_DIR / "web" / "index.html"
                     if web_index.is_file():
-                        return self._send(200, web_index.read_bytes(), "text/html; charset=utf-8")
+                        return self._send(200, _read_static(web_index), "text/html; charset=utf-8")
                     return self._send(200, PAGE.encode(), "text/html; charset=utf-8")
                 if url.path.startswith("/assets/"):
                     web_root = (STATIC_DIR / "web").resolve()
@@ -686,11 +706,11 @@ def make_handler(app: App):
                     if not asset.is_file():
                         raise Refused("Fayl topilmadi.", 404)
                     content_type = mimetypes.guess_type(asset.name)[0] or "application/octet-stream"
-                    return self._send(200, asset.read_bytes(), content_type)
+                    return self._send(200, _read_static(asset), content_type)
                 if url.path == "/manifest.webmanifest":
                     return self._send(200, MANIFEST, "application/manifest+json")
                 if url.path in ICONS:
-                    return self._send(200, (STATIC_DIR / url.path[1:]).read_bytes(), "image/png")
+                    return self._send(200, _read_static(STATIC_DIR / url.path[1:]), "image/png")
                 if url.path == "/api/desktop-login":
                     return self._desktop_login(parse_qs(url.query).get("token", [""])[0])
                 if url.path == "/api/me":
@@ -730,8 +750,7 @@ def make_handler(app: App):
                                                        for x in discovered],
                                             "automation": {"available": False, "reason": "Jadval va triggerlar moduli hali ulanmagan"},
                                             "database": {"engine": "SQLite", "status": "connected",
-                                                         "users": len(store.users()), "chats": sum(
-                                                             len(store.chats(uid)) for uid, in store._all("SELECT id FROM users"))}})
+                                                         "users": store.user_count(), "chats": store.chat_count()}})
                 if url.path == "/api/stream":
                     user_id, _ = self._user()
                     return self._stream(self._chat(user_id, parse_qs(url.query).get("chat", [""])[0]), self._desktop())
