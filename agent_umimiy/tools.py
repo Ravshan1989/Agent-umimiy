@@ -50,6 +50,7 @@ class Context:
     browser: bool = True  # agent brauzerni boshqara oladi (sayt ochish, bosish, yozish)
     mcp: object = None  # mcp.Manager (plaginlar)
     skills: bool = True  # ko'nikmalar (SKILL.md)
+    memory: bool = True  # lokal xotira (kompyuter egasining xotirasi; veb-server rejimida o'chiriladi)
     files_dir: str | None = None  # agent yaratgan hujjatlar (Word, Excel...) saqlanadigan papka
     allow_private: bool = False  # faqat testlar uchun
 
@@ -169,6 +170,8 @@ def available(ctx: Context) -> list[Tool]:
     out = [t for t in TOOLS + MEMORY_TOOLS if ctx.root or t.kind in ("web", "open", "meta", "browser", "create", "memory")]
     if ctx.readonly:
         out = [t for t in out if t.name not in ("memory_remember", "memory_forget")]
+    if not ctx.memory:
+        out = [t for t in out if t.kind != "memory"]
     out = [t for t in out if ctx.files_dir or t.kind != "create"]
     out = [t for t in out if ctx.web or t.kind not in ("web", "open")]
     out = [t for t in out if t.kind != "browser" or (ctx.browser and not ctx.readonly)]
@@ -237,6 +240,8 @@ FILES_NOTE = (" When the user asks for a document, report, table or other file, 
 
 
 def _memory_guidance(ctx: Context) -> str:
+    if not ctx.memory:
+        return ""
     policy = (" Local memory is available. Search it before answering relevant user-specific questions. "
               "Save durable facts or preferences only when the user explicitly asks you to remember them. "
               "Use memory_forget only when the user asks you to forget a saved fact. Never save passwords, API keys, "
@@ -332,13 +337,20 @@ class Toolbox:
             return f"Xato: {exc}", True
 
     # ---- local memory ----
+    def _memory_on(self):
+        if not self.ctx.memory:
+            raise ToolError("Bu rejimda xotira o'chirilgan.")
+
     def t_memory_search(self, query: str, limit: int = 5) -> str:
+        self._memory_on()
         return memory.search(query, limit)
 
     def t_memory_remember(self, fact: str) -> str:
+        self._memory_on()
         return memory.remember(fact)
 
     def t_memory_forget(self, id: str) -> str:
+        self._memory_on()
         return memory.forget(id)
 
     # ---- asboblar ----
@@ -439,12 +451,22 @@ class Toolbox:
         except re.error as exc:
             raise ToolError(f"Noto'g'ri regex: {exc}")
         base = self._path(path)
+        # glob loyiha papkasidan chiqib ketmasligi kerak ("../*.md", "C:/...", "/etc/*")
+        glob = glob or ""  # model null yuborishi mumkin
+        parts = re.split(r"[\\/]", glob)
+        if ".." in parts or glob.startswith(("/", "\\")) or ":" in glob or Path(glob).is_absolute():
+            raise ToolError("glob loyiha papkasidan tashqariga chiqa olmaydi.")
         self._say("read", f"Qidirdi: {pattern}")
         hits = []
         for f in sorted(base.rglob(glob or "*")):
             if len(hits) >= 100:
                 break
-            if not f.is_file() or any(p in SKIP_DIRS for p in f.relative_to(self.root).parts):
+            try:  # symlink/junction orqali tashqariga chiqqan fayllar o'tkazib yuboriladi (_path() kabi)
+                f = f.resolve()
+                rel = f.relative_to(self.root)
+            except (OSError, ValueError):
+                continue
+            if not f.is_file() or any(p in SKIP_DIRS for p in rel.parts):
                 continue
             try:
                 if f.stat().st_size > 1_000_000:
@@ -679,7 +701,9 @@ def _check_url(url: str, allow_private: bool):
         raise ToolError(f"Manzil topilmadi: {u.hostname}")
     for info in infos:
         ip = ipaddress.ip_address(info[4][0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+        # is_global: 100.64.0.0/10 (CGNAT/Tailscale), 0.0.0.0/8 kabi umumiy bo'lmagan tarmoqlar ham to'siladi
+        if (not ip.is_global or ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+                or ip.is_multicast):
             raise ToolError("Kompyuter va ichki tarmoq manzillariga ruxsat yo'q (xavfsizlik).")
 
 

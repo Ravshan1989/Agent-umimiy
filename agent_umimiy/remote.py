@@ -148,6 +148,8 @@ class RemoteServer:
                 self.send_header("Content-Security-Policy",
                                  "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; "
                                  "connect-src 'self'; frame-ancestors 'none'")
+                if self.close_connection:  # tana o'qilmay qoldi: ulanish yopiladi
+                    self.send_header("Connection", "close")
                 self.end_headers()
                 self.wfile.write(body)
 
@@ -157,12 +159,14 @@ class RemoteServer:
             def _auth(self) -> bool:
                 ip = self.client_address[0]
                 if outer.locked(ip):
+                    self._discard()
                     self._json(429, {"error": "Juda ko'p noto'g'ri urinish. 10 daqiqadan keyin qayta urining."})
                     return False
                 if hmac.compare_digest(self.headers.get("X-Token", "").encode(), outer.token.encode()):
                     return True
                 outer.fail(ip)
                 time.sleep(0.5)
+                self._discard()
                 self._json(401, {"error": "Ruxsat yo'q"})
                 return False
 
@@ -182,15 +186,36 @@ class RemoteServer:
                     return self._run("state", {"chat": chat, "since": since})
                 self._json(404, {"error": "topilmadi"})
 
+            def _size(self) -> int:
+                """Content-Length; noto'g'ri yoki manfiy bo'lsa -1."""
+                try:
+                    n = int(self.headers.get("Content-Length") or 0)
+                except ValueError:
+                    return -1
+                return n if n >= 0 else -1
+
+            def _discard(self) -> None:
+                """Erta javobdan oldin o'qilmagan tanani tashlab yuboradi: aks holda Windows ulanishni RST bilan uzadi."""
+                n = self._size()
+                if 0 <= n <= MAX_BODY:
+                    self.rfile.read(n)
+                else:
+                    self.close_connection = True
+
             def do_POST(self):
                 action = ACTIONS.get(urlparse(self.path).path)
                 if not action:
+                    self._discard()
                     return self._json(404, {"error": "topilmadi"})
                 if not self._auth():
                     return
                 try:
-                    n = int(self.headers.get("Content-Length", "0"))
+                    n = self._size()
+                    if n < 0:
+                        self.close_connection = True
+                        return self._json(400, {"error": "noto'g'ri so'rov"})
                     if n > MAX_BODY:
+                        self.close_connection = True
                         return self._json(413, {"error": "Hajm juda katta"})
                     payload = json.loads(self.rfile.read(n) or b"{}")
                     if not isinstance(payload, dict):

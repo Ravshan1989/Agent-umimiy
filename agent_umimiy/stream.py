@@ -26,18 +26,20 @@ def _friendly_http_error(status: int, body: str) -> str:
     message = error.get("message", "") if isinstance(error, dict) else str(error)
     message = str(message or body or "Noma'lum API xatosi").strip()
     low = message.lower()
+    hint = ""
     if "no endpoints found" in low and ("image input" in low or "image support" in low):
-        return ("Tanlangan model rasmni qabul qilmaydigan endpointga yo'naltirildi. "
-                "OpenRouter modelini nvidia/nemotron-3.5-super-vl:free ga almashtiring. Tafsilot: " + message[:240])
-    if status == 401:
-        return "API kalit noto'g'ri yoki bekor qilingan. Kalitni provayder sozlamasidan tekshiring. " + message[:240]
-    if status == 402:
-        return "Provayder hisobida bepul limit tugagan yoki to'lov talab qilinmoqda. " + message[:240]
-    if status == 429:
-        return "So'rov limiti vaqtincha oshib ketdi. Biroz kutib qayta urinib ko'ring. " + message[:240]
-    if status == 404 and ("model" in low or "endpoint" in low):
-        return "Tanlangan model yoki API manzili topilmadi. Model nomi va manzilni tekshiring. " + message[:240]
-    return f"HTTP {status}: {message[:500]}"
+        hint = ("Tanlangan model rasmni qabul qilmaydigan endpointga yo'naltirildi. "
+                "OpenRouter modelini nvidia/nemotron-3.5-super-vl:free ga almashtiring. Tafsilot: ")
+    elif status == 401:
+        hint = "API kalit noto'g'ri yoki bekor qilingan. Kalitni provayder sozlamasidan tekshiring. "
+    elif status == 402:
+        hint = "Provayder hisobida bepul limit tugagan yoki to'lov talab qilinmoqda. "
+    elif status == 429:
+        hint = "So'rov limiti vaqtincha oshib ketdi. Biroz kutib qayta urinib ko'ring. "
+    elif status == 404 and ("model" in low or "endpoint" in low):
+        hint = "Tanlangan model yoki API manzili topilmadi. Model nomi va manzilni tekshiring. "
+    # "HTTP <kod>:" boshlanishi saqlanadi — base.Agent.ask asbobsiz chatga qaytishni shu bo'yicha aniqlaydi
+    return f"HTTP {status}: {hint}{message[:240] if hint else message[:500]}"
 
 
 def _lines(url: str, payload: dict, headers: dict, sse: bool = False) -> Iterator[str]:
@@ -52,7 +54,7 @@ def _lines(url: str, payload: dict, headers: dict, sse: bool = False) -> Iterato
                 yield raw.decode("utf-8", errors="replace").rstrip("\r\n")
     except urllib.error.HTTPError as exc:
         body = exc.read().decode(errors="replace")
-        raise AgentError(_friendly_http_error(exc.code, body)) from exc
+        raise AgentError(_friendly_http_error(exc.code, body), status=exc.code) from exc
     except urllib.error.URLError as exc:
         raise AgentError(f"Ulanish xatosi: {exc.reason}") from exc
     except OSError as exc:  # oqim o'rtasida uzilish yoki vaqt tugashi

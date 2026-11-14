@@ -23,6 +23,8 @@ from .server_page import PAGE
 from .store import SESSION_DAYS, Store, StoreError
 
 MAX_BODY = 40 * 1024 * 1024
+AUTH_BODY = 64 * 1024  # kirish/ro'yxatdan o'tish so'rovi uchun (sessiyasiz) yetarli hajm
+OPEN_PATHS = ("/api/login", "/api/register", "/api/logout")  # sessiyasiz ham ochiq yo'llar
 MAX_FILES = 6
 TITLE_LEN = 40
 LOCAL_ONLY = ("cli",)  # serverda buyruq ishga tushiradigan agent turlari: veb-foydalanuvchilarga berilmaydi
@@ -80,7 +82,9 @@ class App:
         ctx = orch.ctx
         ctx.root = ctx.confirm = ctx.mcp = None
         ctx.browser = False
-        ctx.web, ctx.skills = bool(cfg.get("web", True)), bool(cfg.get("skills", True))
+        ctx.web = bool(cfg.get("web", True))
+        # Xotira va ko'nikmalar kompyuter egasiniki (~/.claude, memory.json): veb-foydalanuvchilarga berilmaydi
+        ctx.memory = ctx.skills = False
         return orch
 
     def files_dir(self, chat_id: int) -> Path:
@@ -246,6 +250,8 @@ def make_handler(app: App):
                 self.send_header("Set-Cookie", cookie)
             if download:
                 self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{quote(download)}")
+            if self.close_connection:  # tana o'qilmay qoldi: mijoz ulanish yopilishini oldindan bilsin
+                self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(body)
 
@@ -256,7 +262,8 @@ def make_handler(app: App):
         def _forwarded(self, header: str) -> str:
             """Proksi qo'shgan sarlavha; faqat so'rov shu kompyuterdagi proksidan kelganda ishoniladi."""
             if self.client_address[0] in ("127.0.0.1", "::1"):
-                return self.headers.get(header, "").split(",")[0].strip()
+                # eng o'ngdagi qiymatni proksining o'zi qo'shadi; chapdagilarni mijoz soxtalashtira oladi
+                return self.headers.get(header, "").split(",")[-1].strip()
             return ""
 
         def _ip(self) -> str:
@@ -312,14 +319,31 @@ def make_handler(app: App):
                 self._json(exc.code, {"error": str(exc)})
 
         def do_POST(self):
+            path = urlparse(self.path).path
+            self._body_read = False
             try:
-                self._json(200, *self._post(urlparse(self.path).path, self._body()))
+                if path not in OPEN_PATHS:
+                    self._user()  # 40 MB tanani o'qishdan oldin sessiya tekshiriladi
+                self._json(200, *self._post(path, self._body(MAX_BODY if path not in OPEN_PATHS else AUTH_BODY)))
             except Refused as exc:
+                if not self._body_read:
+                    self._discard()
                 self._json(exc.code, {"error": str(exc)})
             except StoreError as exc:
                 self._json(400, {"error": str(exc)})
 
-        def _body(self) -> dict:
+        def _discard(self) -> None:
+            """O'qilmagan kichik tanani tashlab yuboradi (aks holda Windows ulanishni RST bilan uzadi); kattasida ulanish yopiladi."""
+            try:
+                size = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                size = -1
+            if 0 <= size <= AUTH_BODY:
+                self.rfile.read(size)
+            else:
+                self.close_connection = True
+
+        def _body(self, limit: int = MAX_BODY) -> dict:
             # JSON turi talab qilinadi: boshqa saytdagi forma bunday so'rov yubora olmaydi (CSRF himoyasi)
             if not self.headers.get("Content-Type", "").startswith("application/json"):
                 raise Refused("Noto'g'ri so'rov.", 415)
@@ -334,11 +358,12 @@ def make_handler(app: App):
             # qilishi mumkin; juda katta uzunlik esa xotirani tugatishi mumkin.
             if size < 0:
                 raise Refused("Noto'g'ri so'rov.")
-            if size > MAX_BODY:
+            if size > limit:
                 self.close_connection = True
                 raise Refused("Hajm juda katta.", 413)
             try:
                 raw_body = self.rfile.read(size)
+                self._body_read = True
                 if len(raw_body) != size:
                     self.close_connection = True
                     raise Refused("So'rov tanasi to'liq kelmadi.")

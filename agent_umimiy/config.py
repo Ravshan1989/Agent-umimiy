@@ -42,19 +42,36 @@ def config_path(path: str | None = None) -> Path:
 
 def read(path: str | None = None) -> dict:
     p = config_path(path)
-    if p.exists():
-        return {**DEFAULT, **json.loads(p.read_text(encoding="utf-8"))}
+    if not p.exists():
+        return json.loads(json.dumps(DEFAULT))
+    for attempt in range(2):
+        try:
+            data = json.loads(p.read_text(encoding="utf-8-sig"))  # BOM bo'lsa ham o'qiladi
+            if isinstance(data, dict):
+                return {**DEFAULT, **data}
+        except ValueError:
+            pass
+        if attempt == 0:
+            time.sleep(0.2)  # boshqa jarayon ayni paytda yozayotgan bo'lishi mumkin — bir marta qayta urinamiz
+    # Buzilgan fayl: dastur yiqilmasin, nusxasini saqlab standart sozlamalarni qaytaramiz
+    try:
+        os.replace(p, p.with_name(p.name + ".broken"))
+    except OSError:
+        pass
     return json.loads(json.dumps(DEFAULT))
 
 
 def write(cfg: dict, path: str | None = None) -> None:
     p = config_path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
+    # Atomar yozish: avval yonidagi vaqtinchalik faylga, keyin os.replace (yarim yozilgan fayl qolmaydi)
+    tmp = p.with_name(p.name + ".tmp")
+    tmp.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
     try:
-        p.chmod(0o600)  # API kalitlar bor
+        tmp.chmod(0o600)  # API kalitlar bor
     except OSError:
         pass
+    os.replace(tmp, p)
 
 
 def build(cfg: dict) -> Orchestrator:

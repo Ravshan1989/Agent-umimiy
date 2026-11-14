@@ -1762,7 +1762,8 @@ class App(tk.Tk):
         t.tag_configure("ic", font=font(10, mono=True), background=P["code"], foreground="#c9d1ff")
         t.tag_configure("code", font=font(10, mono=True), background=P["code"], foreground="#c9d1ff",
                         lmargin1=8, lmargin2=8, rmargin=8, spacing1=2, spacing3=2)
-        t.tag_configure("table", font=font(10, mono=True), foreground="#c9d1ff", wrap="none")
+        t.tag_configure("table", font=font(10, mono=True), background=P["code"], foreground="#c9d1ff",
+                        wrap="none")  # fon: oq (light) pufakda ham jadval ko'rinsin
         for n, sz in (("h1", 16), ("h2", 14), ("h3", 12)):
             t.tag_configure(n, font=font(sz, "bold"), spacing1=6)
         segs = markdown.parse(text)
