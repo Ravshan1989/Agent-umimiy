@@ -6,6 +6,8 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 
 ## [Nashr qilinmagan] / [Unreleased]
 
+## [0.4.1] — 2026-11-14
+
 ### Xavfsizlik / Security
 - `search_files` orqali loyiha papkasidan tashqariga chiqish imkoni yopildi (`../`, mutlaq yo'l,
   tashqariga olib chiquvchi symlink/junction rad etiladi).
@@ -25,6 +27,11 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 - Buzilgan `agents.json` dasturni yiqitmaydi (`.broken` nusxasi saqlanadi), BOM bilan saqlangan fayl o'qiladi.
 - Suhbatlarni tiklashda buzilgan yozuvlar tashlab yuboriladi.
 - Yorug' mavzuda jadvallar ko'rinmay qolishi tuzatildi.
+- **Suhbat oynasi**: agent ishlayotganda yozish maydoni pastda qotib turadi; avtomatik aylantirish aqlli —
+  foydalanuvchi yuqoriga aylantirgan bo'lsa, yangi javob uni pastga sudramaydi. Agent javoblari markdown
+  bilan xavfsiz ko'rsatiladi (xom HTML bajarilmaydi). Enter tugmasi endi ishlayotgan agentni to'xtatmaydi.
+  / Chat UI: the composer stays pinned at the bottom while the agent works; smart auto-scroll; agent
+  replies are rendered as safe markdown (no raw HTML); Enter no longer stops a running agent.
 
 ## [0.4.0] - 2026-11-13
 
@@ -131,5 +138,9 @@ Birinchi ochiq nashr. / First public release.
 - **Suhbatlarni saqlash**, **Git yordamchisi**, qorong'i mavzu, to'liq o'zbekcha interfeys.
 - **Windows build**: `AgentUmimiy-Windows.zip` va GitHub Actions orqali `AgentUmimiy-Setup.exe`.
 
-[Nashr qilinmagan]: https://github.com/Ravshan1989/Agent-umimiy/compare/v0.1.0...HEAD
+[Nashr qilinmagan]: https://github.com/Ravshan1989/Agent-umimiy/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/Ravshan1989/Agent-umimiy/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/Ravshan1989/Agent-umimiy/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/Ravshan1989/Agent-umimiy/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/Ravshan1989/Agent-umimiy/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Ravshan1989/Agent-umimiy/releases/tag/v0.1.0

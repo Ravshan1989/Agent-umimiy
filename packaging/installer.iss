@@ -1,7 +1,7 @@
 ; Inno Setup — oddiy "Keyingi > Keyingi > O'rnatish" o'rnatuvchisi
 [Setup]
 AppName=Agent Umimiy
-AppVersion=0.4.0
+AppVersion=0.4.1
 DefaultDirName={autopf}\AgentUmimiy
 DefaultGroupName=Agent Umimiy
 OutputDir=..\dist
