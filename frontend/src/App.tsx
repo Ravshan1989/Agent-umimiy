@@ -7,8 +7,9 @@ import {
   Settings, ShieldCheck, SlidersHorizontal, Sparkles, Square, Sun, Trash2, TriangleAlert, X, Zap,
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
+import { Markdown } from "./Markdown";
 
-type Agent = { name: string; model?: string };
+type Agent = { name: string; model?: string; description?: string };
 type Chat = { id: number; title?: string };
 type Attached = string | { name?: string; file?: string };  // eski yozuvlar oddiy matn, yangilari diskdagi nom bilan
 type RecordItem = { k: string; text?: string; name?: string; agent?: string; meta?: string; err?: boolean; files?: Attached[]; kind?: string };
@@ -128,6 +129,7 @@ function App() {
   const fileInput = useRef<HTMLInputElement>(null);
   const messagesEnd = useRef<HTMLDivElement>(null);
   const composerInput = useRef<HTMLInputElement>(null);
+  const stickToBottom = useRef(true);  // foydalanuvchi pastda bo‘lsa, yangi xabarlarda avtomatik pastga tushamiz
 
   async function decideApproval(answer: "yes" | "always" | "no") {
     if (!approval || approvalBusy) return;
@@ -152,6 +154,7 @@ function App() {
   const openChat = useCallback((id: number, show = true) => {
     eventSource.current?.close();
     setChatId(id); setRecords([]); setLive({}); setBusy(false);
+    stickToBottom.current = true;
     try { if (user) localStorage.setItem(`au-active-chat-${user}`, String(id)); } catch { /* chat serverda qoladi */ }
     setApproval(null); setApprovalBusy(false);
     const source = new EventSource(`/api/stream?chat=${id}`);
@@ -175,6 +178,7 @@ function App() {
         const name = String(item.agent || "Agent");
         setLive((current) => { const next = { ...current }; delete next[name]; return next; });
       } else if (item.type === "busy") setBusy(true);
+      else if (item.type === "agent_changed") setSelectedAgent(String(item.agent || "auto"));
       else if (item.type === "approval") setApproval(item.approval as Approval);
       else if (item.type === "approval_done") setApproval((current) => current?.id === item.id ? null : current);
       else if (item.type === "done") {
@@ -216,9 +220,10 @@ function App() {
   }, [openChat]);
 
   useEffect(() => {
+    // Faqat foydalanuvchi pastda turgan bo‘lsa siljitamiz: yuqoriga o‘qish uchun chiqqan bo‘lsa, joyida qoladi
     const box = messagesEnd.current?.parentElement;
-    if (box) box.scrollTo({ top: box.scrollHeight, behavior: "smooth" });
-  }, [records, live]);
+    if (box && stickToBottom.current) box.scrollTop = box.scrollHeight;
+  }, [records, live, busy, activeView]);
   useEffect(() => {
     if (!user || !WORKSPACE_VIEWS.includes(activeView)) return;
     let alive = true;
@@ -341,6 +346,7 @@ function App() {
     if (!text && !attachments.length) return;
     const files = attachments;
     setMessage(""); setAttachments([]);
+    stickToBottom.current = true;
     try {
       let id = chatId;
       if (id === null) {
@@ -427,21 +433,21 @@ function App() {
     {!records.length && !busy && !Object.keys(live).length ? <>
       <p className="workspace-sub">Savolingizni yozing yoki quyidagi misollardan birini tanlang:</p>
       <div className="prompt-chips">{PROMPTS.map(([label, text, Icon, tone], i) => <button type="button" key={label} onClick={() => fillPrompt(text, i === 0)}><span className={`chip-icon ${tone}`}><Icon /></span>{label}</button>)}</div>
-    </> : <div className="messages">
+    </> : <div className="messages" onScroll={(e) => { const box = e.currentTarget; stickToBottom.current = box.scrollHeight - box.scrollTop - box.clientHeight < 80; }}>
       {records.map((record, index) => record.k === "act"
-        ? <div className="activity-line" key={index}>{record.agent}: {record.text}{record.kind === "file" && <a href={fileHref(record.text)} download><Download size={12} /> Yuklab olish</a>}</div>
-        : <div className={record.k === "user" ? "message-row user-message" : "message-row"} key={index}><div className="message-avatar">{record.k === "user" ? user.slice(0, 1).toUpperCase() : <Bot size={17} />}</div><div className="message-body"><b>{record.k === "user" ? user : record.name || record.agent || "Agent"}</b><div className={record.err ? "message-bubble error" : "message-bubble"}>{record.text}{record.files?.length ? <small className="attached">{record.files.map((file, i) => {
+        ? <div className="activity-line" key={index}>{record.agent}: {record.text}{record.kind === "file" && <><a href={fileHref(record.text)} download><Download size={12} /> Yuklab olish</a>{/\.(png|jpe?g|gif|webp|bmp)$/i.test(record.text || "") && <a className="chat-image-link" href={`${fileHref(record.text)}&inline=1`} target="_blank" rel="noreferrer"><img className="chat-image" src={`${fileHref(record.text)}&inline=1`} alt={record.text || "Rasm"} loading="lazy" /></a>}</>}</div>
+        : <div className={record.k === "user" ? "message-row user-message" : "message-row"} key={index}><div className="message-avatar">{record.k === "user" ? user.slice(0, 1).toUpperCase() : <Bot size={17} />}</div><div className="message-body"><b>{record.k === "user" ? user : record.name || record.agent || "Agent"}</b><div className={record.err ? "message-bubble error" : record.k === "agent" ? "message-bubble md-bubble" : "message-bubble"}>{record.k === "agent" && !record.err ? <Markdown text={record.text || ""} /> : record.text}{record.files?.length ? <small className="attached">{record.files.map((file, i) => {
                   const shown = typeof file === "string" ? file : (file.name || file.file || "fayl");
                   const stored = typeof file === "string" ? "" : file.file;  // eski yozuvlarda diskdagi nom saqlanmagan
                   return <span key={i}>📎 {stored ? <a href={fileHref(stored)} download={shown}>{shown}</a> : shown}</span>;
                 })}</small> : null}</div>{record.meta && <small className="message-meta">{record.meta}</small>}</div></div>)}
-      {Object.entries(live).map(([name, text]) => <div className="message-row" key={name}><div className="message-avatar"><Bot size={17} /></div><div className="message-body"><b>{name} <span className="typing-label">yozmoqda…</span></b><div className="message-bubble live">{text}</div></div></div>)}
+      {Object.entries(live).map(([name, text]) => <div className="message-row" key={name}><div className="message-avatar"><Bot size={17} /></div><div className="message-body"><b>{name} <span className="typing-label">yozmoqda…</span></b><div className="message-bubble live md-bubble"><Markdown text={text} /></div></div></div>)}
       {busy && !Object.keys(live).length && <div className="typing-indicator"><span /><span /><span /> Agent javob tayyorlamoqda…</div>}
       <div ref={messagesEnd} />
     </div>}
     <form className="composer-row" onSubmit={sendMessage}><input ref={fileInput} type="file" multiple hidden accept="image/*,.pdf,.docx,.xlsx,.pptx,.csv,.tsv,.txt,.md,.json,.py,.js,.html,.log" onChange={(e) => { void addFiles(e.target.files); e.currentTarget.value = ""; }} />
       <button type="button" className="round-btn" onClick={() => fileInput.current?.click()} title="Fayl biriktirish"><Paperclip /></button>
-      <div className="composer"><div className="composer-main">{attachments.length > 0 && <div className="attachment-chips">{attachments.map((file, i) => <button type="button" key={i} onClick={() => setAttachments((a) => a.filter((_, n) => n !== i))}>{file.name} <X size={12} /></button>)}</div>}<input ref={composerInput} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Xabaringizni yozing..." onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendMessage(); } }} /></div>
+      <div className="composer"><div className="composer-main">{attachments.length > 0 && <div className="attachment-chips">{attachments.map((file, i) => <button type="button" key={i} onClick={() => setAttachments((a) => a.filter((_, n) => n !== i))}>{file.name} <X size={12} /></button>)}</div>}<input ref={composerInput} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Xabaringizni yozing..." onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!busy) void sendMessage(); } }} /></div>
         <button type="button" className={listening ? "mic-btn on" : "mic-btn"} onClick={toggleMic} title="Ovoz bilan yozish"><Mic /></button></div>
       <button className={busy ? "send-btn stop-btn" : "send-btn"} type="submit" title={busy ? "To‘xtatish" : "Yuborish"} disabled={!busy && !message.trim() && !attachments.length}>{busy ? <Square size={16} /> : <Send size={18} />}</button>
       <button type="button" className="round-btn" onClick={() => setActiveView("Sozlamalar")} title="Sozlamalar"><SlidersHorizontal /></button></form>
@@ -465,7 +471,7 @@ function App() {
     </aside>
     <main className="main-area">
       <header className="topbar"><button className="icon-btn menu-btn" title="Menyu" onClick={() => { if (window.innerWidth <= 900) setMobileNav(true); else setNavHidden(!navHidden); }}><Menu /></button><div className="search"><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Qidirish (suhbat, fayl, agent)..." /><Search size={17} /></div>
-        <label className="agent-select"><Bot size={16} /><select value={selectedAgent} onChange={(e) => setSelectedAgent(e.target.value)} aria-label="Agent tanlash">{agents.map((a) => <option key={a.name} value={a.name}>{a.name === "auto" ? "Avtomatik agent" : a.name}</option>)}</select><ChevronDown size={14} /></label>
+        <label className="agent-select"><Bot size={16} /><select value={selectedAgent} onChange={(e) => setSelectedAgent(e.target.value)} aria-label="Agent tanlash">{agents.map((a) => <option key={a.name} value={a.name} title={a.description || undefined}>{a.name === "auto" ? "Avtomatik agent" : a.name}</option>)}</select><ChevronDown size={14} /></label>
         <div className="server-pill"><i /> Server: Ulangan</div>
         <div className="topbar-right">
           <button className="icon-btn notification" title="Bildirishnomalar" onClick={() => { setSeenNotices(notices.length); setActiveView("Bosh sahifa"); window.setTimeout(() => noticePanel.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 50); }}><Bell />{unread > 0 && <em>{unread}</em>}</button>
