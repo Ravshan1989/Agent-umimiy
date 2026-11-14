@@ -57,7 +57,10 @@ class Orchestrator:
             s = sum(w.lower() in low for w in words)
             if s > score and name in allowed:
                 best, score = name, s
-        return self.agents[best] if best else pool[0]
+        if best:
+            return self.agents[best]
+        # mos yo'nalish yo'q: sinov (echo) agentidan ko'ra haqiqiy agent afzal
+        return next((a for a in pool if a.kind != "echo"), pool[0])
 
     def run(self, prompt: str, mode: str = "auto", targets: list[str] | None = None, files=None) -> list[Result]:
         files = list(files or [])

@@ -6,6 +6,26 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 
 ## [Nashr qilinmagan] / [Unreleased]
 
+### Qo'shildi / Added
+- **Xotira asboblari**: agent muhim ma'lumotlarni eslab qoladi va keyin qidiradi (`memory_search`,
+  `memory_remember`, `memory_forget`).
+- **Avtomatik agent tanlash** veb-serverda: «auto» tanlansa, savolga mos agentni dastur o'zi tanlaydi.
+- Asbob chaqiruvlarini qo'llamaydigan modellar uchun zaxira: javob matnidagi XML ko'rinishidagi asbob chaqiruvlari
+  ham bajariladi.
+
+### Tuzatildi / Fixed
+- `search_files` orqali loyiha papkasidan tashqariga chiqish imkoni yopildi.
+- Veb-server foydalanuvchilari uchun xotira va ko'nikmalar (skills) o'chirildi.
+- `X-Forwarded-For` sarlavhasidan eng o'ngdagi (proksi qo'shgan) qiymat olinadi.
+- SSRF tekshiruvi `is_global` asosida ishlaydi (barcha ichki va maxsus manzillar rad etiladi).
+- Windows'da masofaviy POST so'rovi erta javob qaytarganda ulanish uzilishi (connection reset) tuzatildi.
+- HTTP 404 qaytaruvchi API'lar uchun asboblarsiz rejimga o'tish qayta tiklandi.
+- CLI agentlar bilan almashuv UTF-8 kodlashda.
+- Xotira fayli o'qishda xato bo'lsa endi o'chib ketmaydi.
+- Sozlamalar fayli (`agents.json`) atomar yoziladi; buzilgan fayl dasturni yiqitmaydi (`.broken` nusxasi saqlanadi).
+- Suhbatlarni tiklashda buzilgan yozuvlar tashlab yuboriladi.
+- Yorug' mavzuda jadvallar ko'rinmay qolishi tuzatildi.
+
 ## [0.3.0] — 2026-11-12
 
 ### Qo'shildi / Added

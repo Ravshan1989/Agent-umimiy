@@ -35,6 +35,33 @@ def _next_turn(tb: Toolbox):
     tb._say("turn", "")
 
 
+_INVOKE = re.compile(r"<invoke\s+name\s*=\s*([\"'])(.*?)\1\s*>(.*?)</invoke>", re.DOTALL | re.IGNORECASE)
+_PARAM = re.compile(r"<parameter\s+name\s*=\s*([\"'])(.*?)\1\s*>(.*?)</parameter>", re.DOTALL | re.IGNORECASE)
+
+
+def _parse_invokes(text: str) -> list[tuple[str, list[tuple[str, str]]]]:
+    """[(asbob nomi, [(parametr, xom qiymat), ...]), ...]; XML buzilgan bo'lsa (qiymatda xom < yoki &) regex bilan."""
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError:
+        return [(m.group(2), [(p.group(2), p.group(3)) for p in _PARAM.finditer(m.group(3))])
+                for m in _INVOKE.finditer(text)]
+    return [(invoke.get("name", ""), [(p.get("name", ""), "".join(p.itertext())) for p in invoke.findall("parameter")])
+            for invoke in root.findall("invoke")]
+
+
+def _json_value(raw: str):
+    """String bo'lmagan parametr: JSON sifatida o'qiladi; True/False ham qabul qilinadi; bo'lmasa xom matn qoladi."""
+    value = raw.strip()
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        pass
+    if value.lower() in ("true", "false"):
+        return value.lower() == "true"
+    return value
+
+
 def _text_tool_calls(content: str, tools) -> list[dict]:
     """Recover XML-style function calls emitted as text by OpenAI-compatible models."""
     text = (content or "").strip()
@@ -42,31 +69,19 @@ def _text_tool_calls(content: str, tools) -> list[dict]:
         text = re.sub(r"^```(?:xml)?\s*|\s*```$", "", text, flags=re.IGNORECASE).strip()
     if not re.fullmatch(r"<function_calls>.*</function_calls>", text, flags=re.DOTALL | re.IGNORECASE):
         return []
-    try:
-        root = ET.fromstring(text)
-    except ET.ParseError:
-        return []
     available = {tool.name: tool for tool in tools}
     calls = []
-    for index, invoke in enumerate(root.findall("invoke")):
-        name = invoke.get("name", "")
+    for index, (name, params) in enumerate(_parse_invokes(text)):
         tool = available.get(name)
         if tool is None:
             continue
         schema = (tool.parameters.get("properties") or {})
         args = {}
-        for parameter in invoke.findall("parameter"):
-            key = parameter.get("name", "")
+        for key, raw in params:
             if not key or key not in schema:
                 continue
-            value = "".join(parameter.itertext()).strip()
-            kind = schema[key].get("type")
-            if kind != "string":
-                try:
-                    value = json.loads(value)
-                except (json.JSONDecodeError, TypeError):
-                    continue
-            args[key] = value
+            # string qiymat o'zgartirilmaydi (bo'shliqlar, yangi qatorlar fayl mazmunida muhim)
+            args[key] = raw if schema[key].get("type") == "string" else _json_value(raw)
         calls.append({"id": f"text_call_{index}", "type": "function",
                       "function": {"name": name, "arguments": json.dumps(args, ensure_ascii=False)}})
     return calls
