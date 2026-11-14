@@ -25,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import attachments, config, preview, remote, skills
+from . import attachments, automation, config, preview, rag, remote, skills, telegram_bot
 from . import mcp as mcplib
 from .server_page import PAGE
 from .store import SESSION_DAYS, Store, StoreError
@@ -98,6 +98,17 @@ class App:
         self.desktop = False  # dastur o'z oynasida ishlayaptimi (run_desktop)
         self.desktop_token = ""  # oynani avtomatik kiritadigan bir martalik kalit
         self.classic_at = 0.0  # klassik oyna oxirgi marta qachon ochilgani
+        self.scheduler = automation.Scheduler(self.run_prompt_once)
+        self.telegram = telegram_bot.TelegramBridge(lambda text: self.run_prompt_once(text, "auto"))
+
+    def run_prompt_once(self, prompt: str, agent: str = "auto") -> str:
+        orch = self.orchestrator(local_desktop=True)
+        if agent == "auto" or agent not in orch.agents:
+            res = orch.run(prompt, "auto")
+        else:
+            res = orch.run(prompt, "single", [agent])
+        ok = next((r for r in reversed(res) if r.ok), res[-1] if res else None)
+        return (ok.text if ok and ok.ok else (ok.error if ok else "Javob yo'q")) or "(bo'sh javob)"
 
     # ---- agentlar ----
     def orchestrator(self, local_desktop: bool = False, chat_id: int | None = None,
@@ -423,6 +434,8 @@ class App:
         if self.mcp_manager:
             self.mcp_manager.shutdown()
             self.mcp_manager = None
+        self.scheduler.stop()
+        self.telegram.stop()
         network_server, self.network_server = self.network_server, None
         if network_server:
             network_server.shutdown()
@@ -748,7 +761,11 @@ def make_handler(app: App):
                     return self._json(200, {"project": project, "plugins": mcp,
                                             "skills": [{"name": x.name, "description": x.description, "source": x.source}
                                                        for x in discovered],
-                                            "automation": {"available": False, "reason": "Jadval va triggerlar moduli hali ulanmagan"},
+                                            "automation": {"available": local_desktop,
+                                                           "reason": "Jadval va triggerlar moduli faol" if local_desktop else "Faqat desktop oynasida mavjud",
+                                                           "jobs": automation.list_jobs() if local_desktop else []},
+                                            "rag": rag.stats() if local_desktop else {"indexed": 0},
+                                            "telegram": app.telegram.info() if local_desktop else {"enabled": False, "status": "o'chiq", "bot_username": "", "allowed_username": "", "error": ""},
                                             "database": {"engine": "SQLite", "status": "connected",
                                                          "users": store.user_count(), "chats": store.chat_count()}})
                 if url.path == "/api/stream":
@@ -892,6 +909,90 @@ def make_handler(app: App):
                     raise Refused("Avval web-serverni yoqing.")
                 ok, message = remote.open_firewall(app.network_server.server_port)
                 return {"ok": ok, "message": message}, ""
+            if path == "/api/automation":
+                if not self._desktop():
+                    raise Refused("Topilmadi.", 404)
+                act = str(body.get("action", ""))
+                try:
+                    if act == "add":
+                        automation.add_job(
+                            str(body.get("title", "")),
+                            str(body.get("prompt", "")),
+                            str(body.get("agent", "auto")),
+                            int(body.get("interval_minutes", 60)),
+                        )
+                        jobs = automation.list_jobs()
+                    elif act == "run":
+                        jobs = automation.run_job_now(int(body.get("id", 0)), app.run_prompt_once)
+                    elif act == "toggle":
+                        jobs = automation.toggle_job(int(body.get("id", 0)))
+                    elif act == "delete":
+                        jobs = automation.delete_job(int(body.get("id", 0)))
+                    else:
+                        raise Refused("Noto'g'ri amal.")
+                except (ValueError, TypeError) as exc:
+                    raise Refused(str(exc))
+                return {"ok": True, "jobs": jobs}, ""
+            if path == "/api/desktop/agents":
+                if not self._desktop():
+                    raise Refused("Topilmadi.", 404)
+                act = str(body.get("action", ""))
+                cfg = config.read(app.config_file)
+                items = [a for a in cfg.get("agents", []) if isinstance(a, dict)]
+                if act == "add":
+                    name = re.sub(r"[^A-Za-z0-9_.:-]", "-", str(body.get("name", "")).strip())[:48]
+                    kind = str(body.get("type", "openai")).strip()
+                    if not name or kind not in ("openai", "ollama", "anthropic", "gemini"):
+                        raise Refused("Agent nomi va turi to'g'ri kiritilishi kerak.")
+                    entry = {
+                        "name": name,
+                        "type": kind,
+                        "model": str(body.get("model", "")).strip() or "auto",
+                        "description": str(body.get("description", "")).strip()[:160],
+                        "enabled": True,
+                        "tools": False,
+                    }
+                    if body.get("base_url"):
+                        entry["base_url"] = str(body["base_url"]).strip()
+                    if body.get("api_key"):
+                        entry["api_key"] = str(body["api_key"]).strip()
+                    items = [a for a in items if a.get("name") != name] + [entry]
+                    cfg["agents"] = items[:16]
+                    config.write(cfg, app.config_file)
+                elif act == "delete":
+                    name = str(body.get("name", "")).strip()
+                    cfg["agents"] = [a for a in items if a.get("name") != name]
+                    config.write(cfg, app.config_file)
+                else:
+                    raise Refused("Noto'g'ri amal.")
+                return {"ok": True, "agents": app.agents(True)}, ""
+            if path == "/api/desktop/rag":
+                if not self._desktop():
+                    raise Refused("Topilmadi.", 404)
+                act = str(body.get("action", ""))
+                cfg = config.read(app.config_file)
+                if act == "index":
+                    if body.get("project"):
+                        proj = str(body["project"]).strip()
+                        if not Path(proj).is_dir():
+                            raise Refused("Bunday papka topilmadi.")
+                        cfg["project"] = proj
+                        config.write(cfg, app.config_file)
+                    info = rag.index_project(cfg.get("project"))
+                    return {"ok": True, **info}, ""
+                if act == "search":
+                    return {"ok": True, "results": rag.search(str(body.get("query", "")))}, ""
+                raise Refused("Noto'g'ri amal.")
+            if path == "/api/desktop/telegram":
+                if not self._desktop():
+                    raise Refused("Topilmadi.", 404)
+                cfg = config.read(app.config_file)
+                token = str(body.get("token", "")).strip()
+                allowed = str(body.get("allowed_username", "")).strip().lstrip("@")
+                cfg["telegram_token"] = token
+                cfg["telegram_user"] = allowed
+                config.write(cfg, app.config_file)
+                return {"ok": True, "telegram": app.telegram.configure(token, allowed)}, ""
             if path == "/api/chat/new":
                 if len(store.chats(user_id)) >= 100:
                     raise Refused("Bir foydalanuvchi ko'pi bilan 100 ta suhbat yaratishi mumkin.", 429)
@@ -1082,6 +1183,13 @@ def run_desktop(config_file: str | None = None) -> bool:
             return False
     httpd.app.desktop, httpd.app.desktop_token = True, secrets.token_urlsafe(32)
     httpd.app.mcp_manager = mcplib.Manager(cfg.get("mcp", []))
+    httpd.app.scheduler.start()
+    if cfg.get("telegram_token"):
+        threading.Thread(
+            target=httpd.app.telegram.configure,
+            args=(str(cfg.get("telegram_token", "")), str(cfg.get("telegram_user", ""))),
+            daemon=True,
+        ).start()
     if cfg.get("server"):
         try:
             httpd.app.set_network(True)

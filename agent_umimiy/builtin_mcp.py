@@ -67,7 +67,17 @@ TOOLS_BY_MODE: dict[str, list[dict]] = {
                 "required": ["topic"],
             },
             "annotations": {"readOnlyHint": True},
-        }
+        },
+        {
+            "name": "rag_search",
+            "description": "Loyiha hujjatlari (PDF, DOCX, XLSX, MD, PY) indeksidan (SQLite FTS5) tezkor qidiruv.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"query": {"type": "string"}},
+                "required": ["query"],
+            },
+            "annotations": {"readOnlyHint": True},
+        },
     ],
     "analitika": [
         {
@@ -114,6 +124,13 @@ def _handle_call(mode: str, name: str, args: dict) -> str:
             "sql": "SQLite: SELECT, INSERT, UPDATE, DELETE, PRAGMA journal_mode=WAL, PRAGMA synchronous=NORMAL.",
         }
         return refs.get(topic, f"Ma'lumotnoma ({topic}): rasmiy hujjatlar va standart kutubxona tavsiya etiladi.")
+    if name == "rag_search":
+        from . import rag
+
+        hits = rag.search(str(args.get("query", "")), limit=5)
+        if not hits:
+            return "Indeksdan mos hujjat topilmadi."
+        return "\n".join(f"- {h['path']}: {h['snippet']}" for h in hits)
     if name == "number_stats":
         nums = [float(x) for x in (args.get("numbers") or []) if isinstance(x, (int, float)) and math.isfinite(x)]
         if not nums:

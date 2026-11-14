@@ -4,7 +4,7 @@ import {
   Activity, BarChart3, Bell, Bot, Boxes, CalendarClock, Check, CheckCircle2, ChevronDown, ChevronRight,
   Clock3, Database, Download, FileSpreadsheet, FileText, Folder, FolderKanban, Globe2, Home, Layers,
   LayoutGrid, Loader2, LogOut, Menu, MessageSquare, Mic, Moon, Paperclip, Plus, Puzzle, Search, Send,
-  Settings, ShieldCheck, SlidersHorizontal, Sparkles, Square, Sun, Trash2, TriangleAlert, X, Zap,
+  Settings, ShieldCheck, SlidersHorizontal, Sparkles, Square, Sun, Trash2, TriangleAlert, Volume2, X, Zap,
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import { Markdown } from "./Markdown";
@@ -18,7 +18,10 @@ type WebSettings = { lang: "uz" | "ru" | "en"; theme: "dark" | "light"; accent: 
 type NetworkInfo = { enabled: boolean; urls: string[]; port: number; invite: string; error: string };
 type Employee = { id: number; name: string; enabled: boolean; chats: number };
 type ApiError = Error & { code?: number };
-type Workspace = { project: string; plugins: { name: string; transport: string; enabled: boolean }[]; skills: { name: string; description: string; source: string }[]; automation: { available: boolean; reason: string }; database: { engine: string; status: string; users: number; chats: number } };
+type AutoJob = { id: number; title: string; prompt: string; agent: string; interval_minutes: number; enabled: boolean; last_run: number; last_status: string; last_result: string };
+type RagHit = { path: string; name: string; snippet: string };
+type TelegramInfo = { enabled: boolean; status: string; bot_username: string; allowed_username: string; error: string };
+type Workspace = { project: string; plugins: { name: string; transport: string; enabled: boolean }[]; skills: { name: string; description: string; source: string }[]; automation: { available: boolean; reason: string; jobs?: AutoJob[] }; rag?: { indexed: number }; telegram?: TelegramInfo; database: { engine: string; status: string; users: number; chats: number } };
 type Task = { id: number; text: string; when: string; done: boolean };
 type Approval = { id: string; agent: string; kind: string; title: string; detail: string };
 type SpeechRec = { lang: string; interimResults: boolean; start: () => void; stop: () => void; onresult: ((e: { results: { 0: { transcript: string } }[] }) => void) | null; onend: (() => void) | null; onerror: (() => void) | null };
@@ -123,6 +126,20 @@ function App() {
   const [taskWhen, setTaskWhen] = useState("");
   const [seenNotices, setSeenNotices] = useState(0);
   const [listening, setListening] = useState(false);
+  const [autoTitle, setAutoTitle] = useState("");
+  const [autoPrompt, setAutoPrompt] = useState("");
+  const [autoInterval, setAutoInterval] = useState(60);
+  const [newAgentName, setNewAgentName] = useState("");
+  const [newAgentType, setNewAgentType] = useState("openai");
+  const [newAgentModel, setNewAgentModel] = useState("");
+  const [newAgentUrl, setNewAgentUrl] = useState("");
+  const [newAgentKey, setNewAgentKey] = useState("");
+  const [newAgentDesc, setNewAgentDesc] = useState("");
+  const [projectInput, setProjectInput] = useState("");
+  const [ragQuery, setRagQuery] = useState("");
+  const [ragResults, setRagResults] = useState<RagHit[]>([]);
+  const [tgToken, setTgToken] = useState("");
+  const [tgUser, setTgUser] = useState("");
   const recognition = useRef<SpeechRec | null>(null);
   const noticePanel = useRef<HTMLElement>(null);
   const eventSource = useRef<EventSource | null>(null);
@@ -279,6 +296,18 @@ function App() {
     rec.onerror = () => toast.error("Ovozni aniqlab bo‘lmadi");
     rec.onend = () => { recognition.current = null; setListening(false); };
     recognition.current = rec; setListening(true); rec.start();
+  }
+
+  function speakText(text?: string) {
+    if (!text || !("speechSynthesis" in window)) { toast.info("Ovoz chiqarish qo‘llanmaydi"); return; }
+    if (window.speechSynthesis.speaking) { window.speechSynthesis.cancel(); return; }
+    const clean = text.replace(/[#*`_~[\]()>-]/g, " ").slice(0, 1500);
+    const u = new SpeechSynthesisUtterance(clean);
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find((v) => /uz|tr|ru/i.test(v.lang));
+    if (preferred) u.voice = preferred;
+    u.lang = preferred?.lang || "uz-UZ";
+    window.speechSynthesis.speak(u);
   }
 
   function fillPrompt(text: string, pickFile = false) {
@@ -440,7 +469,7 @@ function App() {
                   const shown = typeof file === "string" ? file : (file.name || file.file || "fayl");
                   const stored = typeof file === "string" ? "" : file.file;  // eski yozuvlarda diskdagi nom saqlanmagan
                   return <span key={i}>📎 {stored ? <a href={fileHref(stored)} download={shown}>{shown}</a> : shown}</span>;
-                })}</small> : null}</div>{record.meta && <small className="message-meta">{record.meta}</small>}</div></div>)}
+                })}</small> : null}</div><div className="message-meta-row">{record.meta && <small className="message-meta">{record.meta}</small>}{record.k === "agent" && !record.err && record.text && <button type="button" className="text-link" onClick={() => speakText(record.text)} title="Ovoz chiqarib o‘qish"><Volume2 size={13} /> Eshitish</button>}</div></div></div>)}
       {Object.entries(live).map(([name, text]) => <div className="message-row" key={name}><div className="message-avatar"><Bot size={17} /></div><div className="message-body"><b>{name} <span className="typing-label">yozmoqda…</span></b><div className="message-bubble live md-bubble"><Markdown text={text} /></div></div></div>)}
       {busy && !Object.keys(live).length && <div className="typing-indicator"><span /><span /><span /> Agent javob tayyorlamoqda…</div>}
       <div ref={messagesEnd} />
@@ -486,17 +515,48 @@ function App() {
           {workspaceError && <p className="settings-note">{workspaceError}</p>}
           {!workspace && !workspaceError && <div className="empty-state"><Loader2 className="spin" /> Ma’lumot yuklanmoqda…</div>}
           {workspace && activeView === "Loyihalar" && <>
-            <div className="agent-row"><div className="file-icon blue"><Folder /></div><div className="row-copy"><b>{workspace.project || "Loyiha tanlanmagan"}</b><span>Server konfiguratsiyasidagi faol loyiha</span></div><span className="online"><i /> {workspace.project ? "Ulangan" : "Sozlanmagan"}</span></div>
-            <p className="settings-note">Loyiha katalogi va fayllari masofadan ochilmaydi. Bu yerda faqat xavfsiz holat ma’lumoti ko‘rsatiladi.</p>
+            <div className="agent-row"><div className="file-icon blue"><Folder /></div><div className="row-copy"><b>{workspace.project || "Loyiha tanlanmagan"}</b><span>Server konfiguratsiyasidagi faol loyiha · RAG indeksda: {workspace.rag?.indexed ?? 0} ta hujjat</span></div><span className="online"><i /> {workspace.project ? "Ulangan" : "Sozlanmagan"}</span></div>
+            {desktop && <div className="classic-box">
+              <div className="row-copy"><b>Loyiha papkasi va SQLite FTS5 RAG qidiruv</b><span>Loyihadagi PDF, Word, Excel, Markdown va Python fayllarni indeksatsiya qilib, bir zumda qidiring.</span></div>
+              <div className="settings-grid">
+                <input value={projectInput} onChange={(e) => setProjectInput(e.target.value)} placeholder="Masalan: D:\llm yoki D:\agent (bo‘sh qolsa joriy loyiha)" />
+                <button className="secondary-btn" onClick={() => void api<{ indexed: number; project: string }>("/api/desktop/rag", { action: "index", project: projectInput.trim() }).then((res) => { toast.success(`${res.indexed} ta fayl indekslandi (${res.project})`); return api<Workspace>("/api/workspace").then(setWorkspace); }).catch((e) => toast.error((e as Error).message))}>Hujjatlarni indekslash (FTS5)</button>
+              </div>
+              <div className="settings-grid">
+                <input value={ragQuery} onChange={(e) => setRagQuery(e.target.value)} placeholder="Hujjatlar ichidan tezkor qidirish..." />
+                <button className="secondary-btn" onClick={() => void api<{ results: RagHit[] }>("/api/desktop/rag", { action: "search", query: ragQuery }).then((res) => setRagResults(res.results || [])).catch((e) => toast.error((e as Error).message))}>Qidirish</button>
+              </div>
+              {ragResults.map((hit, i) => <div className="agent-row" key={i}><div className="file-icon cyan"><FileText /></div><div className="row-copy"><b>{hit.path}</b><span>{hit.snippet}</span></div></div>)}
+            </div>}
+            <p className="settings-note">Loyiha katalogi va fayllari tarmoq xodimlariga masofadan ochilmaydi.</p>
           </>}
           {workspace && activeView === "Plaginlar" && <>
             <div className="panel-heading"><b>MCP ulanishlari</b><span className="text-link">{workspace.plugins.length} ta</span></div>
             {workspace.plugins.length ? workspace.plugins.map((plugin) => <div className="agent-row" key={plugin.name}><div className="file-icon cyan"><Zap /></div><div className="row-copy"><b>{plugin.name}</b><span>{plugin.transport} · maxfiy sozlamalar yashirilgan</span></div><span className={plugin.enabled ? "online" : "text-link"}>{plugin.enabled ? "Yoqilgan" : "O‘chirilgan"}</span></div>) : <div className="empty-state">Hozircha MCP plaginlari sozlanmagan.</div>}
             <div className="panel-heading"><b>Ko‘nikmalar (Skills)</b><span className="text-link">{workspace.skills.length} ta</span></div>
             {workspace.skills.map((skill) => <div className="agent-row" key={skill.name}><div className="file-icon blue"><Sparkles /></div><div className="row-copy"><b>{skill.name}</b><span>{skill.description || skill.source}</span></div></div>)}
-            <p className="settings-note">Ulanishlarni qo‘shish, tahrirlash va qayta ulash hozircha desktop sozlamalarida bajariladi.</p>
+            <p className="settings-note">Ulanishlarni qo‘shish, tahrirlash va qayta ulash desktop sozlamalarida bajariladi.</p>
           </>}
-          {workspace && activeView === "Avtomatlashtirish" && <div className="empty-state"><Clock3 /><b>Avtomatlashtirish hali ulanmagan</b><span>{workspace.automation.reason}. Bu bo‘lim hozircha vazifa yaratmaydi yoki fon rejimida ishga tushmaydi.</span></div>}
+          {workspace && activeView === "Avtomatlashtirish" && <>
+            {desktop ? <>
+              <div className="classic-box">
+                <div className="row-copy"><b>Yangi avtomat vazifa (Jadval / Trigger)</b><span>Belgilangan vaqt oralig‘ida yoki «Bajarish» tugmasi bilan agent topshiriqni fonda bajaradi.</span></div>
+                <div className="settings-grid">
+                  <input value={autoTitle} onChange={(e) => setAutoTitle(e.target.value)} placeholder="Vazifa nomi (masalan: Kunlik tahlil)" />
+                  <input value={autoPrompt} onChange={(e) => setAutoPrompt(e.target.value)} placeholder="Agentga beriladigan topshiriq matni..." />
+                  <input type="number" min={5} max={10080} value={autoInterval} onChange={(e) => setAutoInterval(Number(e.target.value) || 60)} title="Takrorlanish vaqti (daqiqa)" />
+                  <button className="primary-btn" onClick={() => void api<{ jobs: AutoJob[] }>("/api/automation", { action: "add", title: autoTitle, prompt: autoPrompt, agent: selectedAgent, interval_minutes: autoInterval }).then((res) => { setWorkspace({ ...workspace, automation: { ...workspace.automation, jobs: res.jobs } }); setAutoTitle(""); setAutoPrompt(""); toast.success("Avtomat vazifa qo‘shildi"); }).catch((e) => toast.error((e as Error).message))}><Plus size={15} /> Qo‘shish</button>
+                </div>
+              </div>
+              {(workspace.automation.jobs || []).length ? (workspace.automation.jobs || []).map((job) => <div className="agent-row" key={job.id}>
+                <div className="file-icon violet"><Clock3 /></div>
+                <div className="row-copy"><b>{job.title} ({job.interval_minutes} daq · {job.agent})</b><span>{job.prompt}{job.last_result ? ` — Natija: ${job.last_result.slice(0, 140)}` : ""}</span></div>
+                <span className="online"><i /> {job.last_status}</span>
+                <button className="secondary-btn" onClick={() => void api<{ jobs: AutoJob[] }>("/api/automation", { action: "run", id: job.id }).then((res) => { setWorkspace({ ...workspace, automation: { ...workspace.automation, jobs: res.jobs } }); toast.success("Vazifa fonda ishga tushdi"); }).catch((e) => toast.error((e as Error).message))}>Bajarish</button>
+                <button className="secondary-btn danger-btn" onClick={() => void api<{ jobs: AutoJob[] }>("/api/automation", { action: "delete", id: job.id }).then((res) => setWorkspace({ ...workspace, automation: { ...workspace.automation, jobs: res.jobs } })).catch((e) => toast.error((e as Error).message))}><Trash2 size={14} /></button>
+              </div>) : <div className="empty-state"><Clock3 /><b>Hozircha avtomat vazifa yo‘q</b><span>Yuqoridagi shakldan birinchi jadval vazifasini qo‘shing.</span></div>}
+            </> : <div className="empty-state"><Clock3 /><b>Avtomatlashtirish faqat desktop oynasida boshqariladi</b><span>{workspace.automation.reason}</span></div>}
+          </>}
           {workspace && activeView === "Ma’lumotlar bazasi" && <>
             <div className="stats-grid">
               <article className="stat-card violet"><div className="stat-copy"><span>Ma’lumotlar ombori</span><b>{workspace.database.engine}</b></div></article>
@@ -535,13 +595,33 @@ function App() {
             </div>)}
             <button className="secondary-btn" disabled={employeeBusy !== null} onClick={() => void refreshEmployees().catch((error) => toast.error((error as Error).message))}>Ro‘yxatni yangilash</button>
           </div>}
+          {desktop && <div className="classic-box">
+            <div className="row-copy"><b>Telegram Bot ko‘prigi (Masofadan boshqarish)</b><span>@BotFather dan olingan tokenni kiriting — telefoningizdan Telegram orqali yozib Agent Umimiyni ishlating.</span></div>
+            <div className="settings-grid">
+              <input type="password" value={tgToken} onChange={(e) => setTgToken(e.target.value)} placeholder="Bot tokeni (123456:ABC-DEF...)" />
+              <input value={tgUser} onChange={(e) => setTgUser(e.target.value)} placeholder="Ruxsat berilgan @username (ixtiyoriy)" />
+              <button className="secondary-btn" onClick={() => void api<{ telegram: TelegramInfo }>("/api/desktop/telegram", { token: tgToken, allowed_username: tgUser }).then((res) => { if (res.telegram.status === "ulangan") toast.success(`Telegram ulandi: @${res.telegram.bot_username}`); else if (res.telegram.error) toast.error(res.telegram.error); else toast.info("Telegram bot o‘chirildi"); }).catch((e) => toast.error((e as Error).message))}>Telegram botni saqlash</button>
+            </div>
+          </div>}
           {desktop && <div className="classic-box"><div className="row-copy"><b>Klassik oyna</b><span>Agent qo‘shish, API kalitlari, loyiha papkasi va plaginlarni sozlash.</span></div><button className="secondary-btn" onClick={() => void openClassic()}>Klassik oynani ochish</button></div>}
           {settingsSaving && <span className="online"><i /> Saqlanmoqda…</span>}
         </section>}
         {activeView === "Agentlar" && <section className="panel settings-page">
           <div className="panel-heading"><h2><Bot /> Agentlar</h2><span className="text-link">{agents.length} ta serverda sozlangan</span></div>
-          {agents.map((agent) => <div className="agent-row" key={agent.name}><div className="file-icon cyan"><Bot /></div><div className="row-copy"><b>{agent.name === "auto" ? "Avtomatik tanlash" : agent.name}</b><span>{agent.model || "Model server konfiguratsiyasidan olinadi"}</span></div><span className="online"><i /> Mavjud</span><button className="secondary-btn" onClick={() => { setSelectedAgent(agent.name); setActiveView("Suhbat"); }}>Suhbat boshlash</button></div>)}
-          <p className="settings-note">Agent qo‘shish va API kalitlarini tahrirlash xavfsizlik sababli klassik oynada bajariladi.{desktop && <button className="secondary-btn" onClick={() => void openClassic()}>Klassik oynani ochish</button>}</p>
+          {agents.map((agent) => <div className="agent-row" key={agent.name}><div className="file-icon cyan"><Bot /></div><div className="row-copy"><b>{agent.name === "auto" ? "Avtomatik tanlash" : agent.name}</b><span>{agent.model || "Model server konfiguratsiyasidan olinadi"}{agent.description ? ` · ${agent.description}` : ""}</span></div><span className="online"><i /> Mavjud</span><button className="secondary-btn" onClick={() => { setSelectedAgent(agent.name); setActiveView("Suhbat"); }}>Suhbat boshlash</button>{desktop && agent.name !== "auto" && <button className="secondary-btn danger-btn" onClick={() => void api<{ agents: Agent[] }>("/api/desktop/agents", { action: "delete", name: agent.name }).then((res) => { setAgents(res.agents); toast.success("Agent o‘chirildi"); }).catch((e) => toast.error((e as Error).message))} title="O‘chirish"><Trash2 size={14} /></button>}</div>)}
+          {desktop && <div className="classic-box">
+            <div className="row-copy"><b>Yangi AI Agent qo‘shish (To‘g‘ridan-to‘g‘ri)</b><span>Klassik oynaga kirmasdan shu yerning o‘zida yangi provayder yoki model qo‘shing.</span></div>
+            <div className="settings-grid">
+              <input value={newAgentName} onChange={(e) => setNewAgentName(e.target.value)} placeholder="Nomi (masalan: groq-llama)" />
+              <select value={newAgentType} onChange={(e) => setNewAgentType(e.target.value)}><option value="openai">OpenAI / FreeLLM / OpenRouter</option><option value="ollama">Ollama (lokal)</option><option value="anthropic">Anthropic Claude</option><option value="gemini">Google Gemini</option></select>
+              <input value={newAgentModel} onChange={(e) => setNewAgentModel(e.target.value)} placeholder="Model (masalan: codestral, qwen2.5:0.5b)" />
+              <input value={newAgentUrl} onChange={(e) => setNewAgentUrl(e.target.value)} placeholder="Base URL (masalan: http://127.0.0.1:3001/v1)" />
+              <input type="password" value={newAgentKey} onChange={(e) => setNewAgentKey(e.target.value)} placeholder="API kalit (bo‘sh qolishi mumkin)" />
+              <input value={newAgentDesc} onChange={(e) => setNewAgentDesc(e.target.value)} placeholder="Tavsif (ixtiyoriy)" />
+            </div>
+            <button className="primary-btn" onClick={() => void api<{ agents: Agent[] }>("/api/desktop/agents", { action: "add", name: newAgentName, type: newAgentType, model: newAgentModel, base_url: newAgentUrl, api_key: newAgentKey, description: newAgentDesc }).then((res) => { setAgents(res.agents); setNewAgentName(""); setNewAgentModel(""); setNewAgentKey(""); toast.success("Agent saqlandi"); }).catch((e) => toast.error((e as Error).message))}><Plus size={15} /> Agentni saqlash</button>
+          </div>}
+          <p className="settings-note">Kengaytirilgan CLI va MCP sozlamalari uchun klassik oynadan ham foydalanish mumkin.{desktop && <button className="secondary-btn" onClick={() => void openClassic()}>Klassik oynani ochish</button>}</p>
         </section>}
         {activeView === "Fayllar" && <section className="panel settings-page">
           <div className="panel-heading"><h2><Folder /> Fayllar</h2><span className="text-link">Tanlangan suhbat</span></div>
