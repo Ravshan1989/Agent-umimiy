@@ -1,2 +1,0 @@
-[console_scripts]
-agent-umimiy = agent_umimiy.__main__:main

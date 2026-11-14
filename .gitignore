@@ -6,3 +6,5 @@ build/
 *.spec
 release/
 agent_umimiy/static/web/
+*.egg-info/
+AgentUmimiy-Setup.exe
