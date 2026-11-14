@@ -64,6 +64,9 @@ class Store:
         columns = {row[1] for row in self.db.execute("PRAGMA table_info(users)").fetchall()}
         if "enabled" not in columns:
             self.db.execute("ALTER TABLE users ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1")
+        chat_cols = {row[1] for row in self.db.execute("PRAGMA table_info(chats)").fetchall()}
+        if "pinned" not in chat_cols:
+            self.db.execute("ALTER TABLE chats ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0")
 
     def close(self) -> None:
         self.db.close()
@@ -193,8 +196,23 @@ class Store:
 
     # ---- suhbatlar ----
     def chats(self, user_id: int) -> list[dict]:
-        return [{"id": i, "title": t} for i, t in
-                self._all("SELECT id, title FROM chats WHERE user_id = ? ORDER BY updated DESC", (user_id,))]
+        return [{"id": i, "title": t, **({"pinned": True} if p else {})} for i, t, p in
+                self._all("SELECT id, title, pinned FROM chats WHERE user_id = ? ORDER BY pinned DESC, updated DESC", (user_id,))]
+
+    def toggle_pin(self, user_id: int, chat_id: int) -> bool:
+        self._run("UPDATE chats SET pinned = CASE WHEN pinned = 1 THEN 0 ELSE 1 END WHERE id = ? AND user_id = ?",
+                  (chat_id, user_id))
+        rows = self._all("SELECT pinned FROM chats WHERE id = ? AND user_id = ?", (chat_id, user_id))
+        return bool(rows and rows[0][0])
+
+    def search_chats(self, user_id: int, query: str) -> list[int]:
+        q = f"%{str(query or '').strip()}%"
+        rows = self._all(
+            "SELECT DISTINCT c.id FROM chats c LEFT JOIN records r ON r.chat_id = c.id "
+            "WHERE c.user_id = ? AND (c.title LIKE ? COLLATE NOCASE OR r.body LIKE ? COLLATE NOCASE)",
+            (user_id, q, q),
+        )
+        return [int(r[0]) for r in rows]
 
     def new_chat(self, user_id: int) -> int:
         return self._run("INSERT INTO chats (user_id, updated) VALUES (?, ?)", (user_id, time.time())).lastrowid
@@ -204,6 +222,25 @@ class Store:
 
     def delete_chat(self, chat_id: int) -> None:
         self._run("DELETE FROM chats WHERE id = ?", (chat_id,))
+
+    def clear_chat(self, chat_id: int) -> None:
+        self._run("DELETE FROM records WHERE chat_id = ?", (chat_id,))
+        self._run("UPDATE chats SET history = '[]', updated = ? WHERE id = ?", (time.time(), chat_id))
+
+    def fork_chat(self, user_id: int, chat_id: int) -> int:
+        row = self._all("SELECT title, history FROM chats WHERE id = ? AND user_id = ?", (chat_id, user_id))
+        if not row:
+            raise IndexError("Suhbat topilmadi")
+        orig_title, hist = row[0]
+        new_title = f"{(orig_title or 'Suhbat')[:30]} (nusxa)"
+        new_id = self._run(
+            "INSERT INTO chats (user_id, title, history, updated) VALUES (?, ?, ?, ?)",
+            (user_id, new_title, hist, time.time()),
+        ).lastrowid
+        recs = self._all("SELECT body FROM records WHERE chat_id = ? ORDER BY id", (chat_id,))
+        for (body,) in recs:
+            self._run("INSERT INTO records (chat_id, body) VALUES (?, ?)", (new_id, body))
+        return int(new_id)
 
     def title(self, chat_id: int) -> str:
         return self._all("SELECT title FROM chats WHERE id = ?", (chat_id,))[0][0]
@@ -295,4 +332,23 @@ class Store:
             return tmp_path.read_bytes()
         finally:
             tmp_path.unlink(missing_ok=True)
+
+    def restore_bytes(self, data: bytes) -> None:
+        """SQLite zaxira nusxasidan bazani xavfsiz qayta tiklaydi."""
+        if not data or not data.startswith(b"SQLite format 3\x00"):
+            raise StoreError("Fayl haqiqiy SQLite ma'lumotlar bazasi emas.")
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".sqlite3", delete=False) as tmp:
+            tmp_path = Path(tmp.name)
+            tmp_path.write_bytes(data)
+        try:
+            with self.lock:
+                src = sqlite3.connect(str(tmp_path))
+                try:
+                    src.backup(self.db)
+                finally:
+                    src.close()
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
 

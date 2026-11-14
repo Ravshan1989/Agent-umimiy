@@ -236,3 +236,35 @@ class MemoryApprovalTests(unittest.TestCase):
         self.assertTrue(tb.run("memory_remember", {"fact": "x"})[1])
         self.assertTrue(tb.run("memory_forget", {"id": "x"})[1])
 
+    def test_v070_features(self):
+        from agent_umimiy import server, store, translit
+        cyr = translit.to_cyrillic("O'zbekiston Respublikasi shartnomasi")
+        self.assertIn("Ўзбекистон", cyr)
+        lat = translit.to_latin(cyr)
+        self.assertIn("O‘zbekiston", lat)
+
+        masked = server.App._mask_pii("Karta: 8600 1234 5678 9012 va JSHSHIR 31204891234567")
+        self.assertIn("[KARTA_RAQAMI_YASHIRILDI]", masked)
+        self.assertIn("[JSHSHIR_YASHIRILDI]", masked)
+
+        tmp_dir = Path(tempfile.mkdtemp())
+        fname = server._build_doc_template(tmp_dir, "shartnoma", "Alpha MChJ", "Beta MChJ", "IT xizmati", "5 000 000 so'm")
+        self.assertTrue((tmp_dir / fname).is_file())
+
+        st = store.Store(tmp_dir / "test.sqlite3")
+        uid = st.local_user("Tester")
+        cid = st.new_chat(uid)
+        st.set_title(cid, "Asl suhbat")
+        st.add_record(cid, {"k": "user", "text": "Maxsus kalit so'z 777"})
+        self.assertIn(cid, st.search_chats(uid, "777"))
+        self.assertTrue(st.toggle_pin(uid, cid))
+        forked = st.fork_chat(uid, cid)
+        self.assertNotEqual(cid, forked)
+        self.assertEqual(len(st.records(forked)), 1)
+        snap = st.backup_bytes()
+        st.clear_chat(cid)
+        self.assertEqual(len(st.records(cid)), 0)
+        st.restore_bytes(snap)
+        self.assertEqual(len(st.records(cid)), 1)
+
+

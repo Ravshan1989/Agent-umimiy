@@ -25,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import attachments, automation, config, memory, preview, rag, remote, skills, telegram_bot
+from . import attachments, automation, config, memory, preview, rag, remote, skills, telegram_bot, translit
 from . import mcp as mcplib
 from .server_page import PAGE
 from .store import SESSION_DAYS, Store, StoreError
@@ -300,8 +300,28 @@ class App:
                 pending["event"].set()
 
     # ---- amallar ----
+    PERSONAS = {
+        "lawyer": "[Rol: Tajribali huquqshunos va shartnomalar eksperti. Hujjatlarni qonunchilik, huquqiy xavflar va manfaatlar nuqtai nazaridan aniq bandlar bilan tahlil qil.]\n\n",
+        "accountant": "[Rol: Bosh buxgalter va moliyaviy tahlilchi. Raqamlar, soliq, foyda-zarar va hisob-kitoblarni aniq jadvallar bilan tekshir.]\n\n",
+        "developer": "[Rol: Senior dasturchi va tizim arxitektori. Xavfsiz, tezkor va toza kod yoz hamda texnik yechim ber.]\n\n",
+        "editor": "[Rol: Rasmiy ish yuritish muharriri va professional tarjimon (UZ/RU/EN). Matnlarni rasmiy hujjat uslubida bexato va ravon yoz.]\n\n",
+    }
+    STYLES = {
+        "short": "[Javob uslubi: Juda qisqa, londa va faqat eng muhim 3-5 ta asosiy nuqta bilan javob ber.]\n\n",
+        "detailed": "[Javob uslubi: Juda batafsil, chuqur tahlil, misollar va bosqichma-bosqich izohlar bilan javob ber.]\n\n",
+        "table": "[Javob uslubi: Asosiy ma'lumot va taqqoslashlarni Markdown jadval (| Ustun | ... |) ko'rinishida taqdim et.]\n\n",
+    }
+
+    @staticmethod
+    def _mask_pii(text: str) -> str:
+        # Uzcard/Humo/Visa/Mastercard (16 raqam) va JSHSHIR/PINFL (14 raqam) ni yashiradi
+        text = re.sub(r"\b(?:8600|9860|5614|4\d{3}|5\d{3})[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b", "[KARTA_RAQAMI_YASHIRILDI]", text)
+        text = re.sub(r"\b\d{14}\b", "[JSHSHIR_YASHIRILDI]", text)
+        return text
+
     def send(self, chat_id: int, text: str, agent: str, files: list[dict],
-             local_desktop: bool = False, user_id: int | None = None) -> None:
+             local_desktop: bool = False, user_id: int | None = None,
+             persona: str = "", style: str = "", pii_guard: bool = False) -> None:
         if not isinstance(agent, str):
             raise Refused("Agent tanlovi noto'g'ri.")
         if not isinstance(files, list) or any(not isinstance(item, dict) for item in files):
@@ -315,6 +335,8 @@ class App:
         if not isinstance(text, str):
             raise Refused("Xabar matni noto'g'ri.")
         text = text.strip()
+        if pii_guard and text:
+            text = self._mask_pii(text)
         if len(text) > MAX_PROMPT:
             raise Refused(f"Xabar {MAX_PROMPT} belgidan oshmasin.")
         # Suhbatni oldindan band qilamiz: band chatga kelgan fayllar diskka yozilmaydi.
@@ -348,7 +370,10 @@ class App:
             with self.lock:
                 ch = self._channel(chat_id)
                 ch.cancel = orch.ctx.cancel
-            threading.Thread(target=self._work, args=(chat_id, orch, prompt, agent, atts), daemon=True).start()
+            wiki_text = _read_wiki() if local_desktop else ""
+            wiki_prefix = f"[Korxona ichki ma'lumotnomasi (Wiki):\n{wiki_text[:3000]}]\n\n" if wiki_text else ""
+            model_prompt = wiki_prefix + self.PERSONAS.get(persona, "") + self.STYLES.get(style, "") + prompt
+            threading.Thread(target=self._work, args=(chat_id, orch, model_prompt, agent, atts), daemon=True).start()
         except Exception:
             for att in atts:
                 try:
@@ -611,6 +636,32 @@ def _export_chat(store: Store, chat_id: int, fmt: str) -> tuple[bytes, str, str]
         buf = io.BytesIO()
         wb.save(buf)
         return buf.getvalue(), FILE_TYPES[".xlsx"], f"{safe_title}.xlsx"
+    if fmt == "pdf":
+        import textwrap
+        from PIL import Image, ImageDraw
+        all_lines = [raw_title, "=" * min(60, len(raw_title)), ""]
+        for r in recs:
+            if r.get("k") == "user":
+                all_lines.extend(textwrap.wrap(f"Siz: {r.get('text') or ''}", width=82) + [""])
+            elif r.get("k") == "agent":
+                name = str(r.get("name") or r.get("agent") or "Agent")
+                for para in str(r.get("text") or "").splitlines() or [""]:
+                    all_lines.extend(textwrap.wrap(f"{name}: {para}" if para == str(r.get("text") or "").splitlines()[0] else para, width=82) or [""])
+                all_lines.append("")
+        pages = []
+        per_page = 48
+        for idx in range(0, max(1, len(all_lines)), per_page):
+            chunk = all_lines[idx:idx + per_page]
+            img = Image.new("RGB", (794, 1123), "white")
+            draw = ImageDraw.Draw(img)
+            y = 44
+            for line in chunk:
+                draw.text((44, y), line, fill=(20, 24, 35))
+                y += 20
+            pages.append(img)
+        buf = io.BytesIO()
+        pages[0].save(buf, format="PDF", save_all=True, append_images=pages[1:])
+        return buf.getvalue(), FILE_TYPES[".pdf"], f"{safe_title}.pdf"
     lines = [f"# {raw_title}\n"]
     for r in recs:
         if r.get("k") == "user":
@@ -647,6 +698,139 @@ def _system_health() -> dict:
         "ollama_online": _port_open(11434),
         "freellm_online": _port_open(3001),
     }
+
+
+def _wiki_path() -> Path:
+    return config.user_dir() / "wiki.md"
+
+
+def _read_wiki() -> str:
+    p = _wiki_path()
+    try:
+        return p.read_text(encoding="utf-8")[:15000] if p.is_file() else ""
+    except OSError:
+        return ""
+
+
+def _write_wiki(text: str) -> str:
+    p = _wiki_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    cleaned = str(text or "")[:15000]
+    p.write_text(cleaned, encoding="utf-8")
+    return cleaned
+
+
+def _project_audit(project_path: str | None) -> dict:
+    if not project_path or not Path(project_path).is_dir():
+        raise Refused("Avval Loyihalar bo'limida papka yo'lini biriktiring.")
+    root = Path(project_path)
+    counts: dict[str, int] = {}
+    total_files = 0
+    total_bytes = 0
+    largest: list[tuple[int, str]] = []
+    skip = {".git", "node_modules", ".venv", "venv", "__pycache__", "dist", "build"}
+    for p in root.rglob("*"):
+        if any(part in skip for part in p.parts):
+            continue
+        if p.is_file():
+            try:
+                sz = p.stat().st_size
+            except OSError:
+                continue
+            total_files += 1
+            total_bytes += sz
+            ext = p.suffix.lower() or "(kengaytmasiz)"
+            counts[ext] = counts.get(ext, 0) + 1
+            rel = str(p.relative_to(root))
+            largest.append((sz, rel))
+    largest.sort(reverse=True)
+    top_exts = [{"ext": k, "count": v} for k, v in sorted(counts.items(), key=lambda x: x[1], reverse=True)[:10]]
+    top_files = [{"path": rel, "kb": round(sz / 1024, 1)} for sz, rel in largest[:8]]
+    return {
+        "root": str(root),
+        "total_files": total_files,
+        "total_mb": round(total_bytes / (1024 * 1024), 2),
+        "extensions": top_exts,
+        "largest_files": top_files,
+    }
+
+
+def _export_zip(store: Store, user_id: int) -> bytes:
+    import io
+    import zipfile
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("database/agent-umimiy.sqlite3", store.backup_bytes())
+        for fname in ("memory.json", "wiki.md", "automation.json"):
+            fpath = config.user_dir() / fname
+            if fpath.is_file():
+                try:
+                    zf.write(fpath, f"config/{fname}")
+                except OSError:
+                    pass
+        for ch in store.chats(user_id):
+            cid = ch["id"]
+            data, _, filename = _export_chat(store, cid, "md")
+            zf.writestr(f"chats/{cid}-{filename}", data)
+    return buf.getvalue()
+
+
+def _build_doc_template(chat_dir: Path, kind: str, org: str, partner: str, subject: str, amount: str) -> str:
+    import docx
+    chat_dir.mkdir(parents=True, exist_ok=True)
+    org = org.strip() or "«KORXONA NOMI» MChJ"
+    partner = partner.strip() or "«HAMKOR TASHKILOT» MChJ"
+    subject = subject.strip() or "Xizmat ko'rsatish va mahsulot yetkazib berish"
+    amount = amount.strip() or "10 000 000 (o'n million) so'm"
+    today = time.strftime("%d.%m.%Y")
+    titles = {
+        "shartnoma": ("XIZMAT KO'RSATISH SHARTNOMASI", f"shartnoma_{int(time.time())}.docx"),
+        "buyruq": ("KORXONA ICHKI BUYRUG'I", f"buyruq_{int(time.time())}.docx"),
+        "ariza": ("RASMIY ARIZA", f"ariza_{int(time.time())}.docx"),
+        "dalolatnoma": ("BAJARILGAN ISHLAR DALOLATNOMASI (AKT)", f"dalolatnoma_{int(time.time())}.docx"),
+        "ishonchnoma": ("RASMIY ISHONCHNOMA", f"ishonchnoma_{int(time.time())}.docx"),
+        "tijorat": ("TIJORAT TAKLIFI (KP)", f"tijorat_taklifi_{int(time.time())}.docx"),
+    }
+    heading, fname = titles.get(kind, titles["shartnoma"])
+    doc = docx.Document()
+    doc.add_heading(heading, 0)
+    doc.add_paragraph(f"Sana: {today}-yil                                                  Toshkent sh.")
+    if kind == "shartnoma":
+        doc.add_paragraph(
+            f"Mazkur shartnoma bir tomondan {org} («Buyurtmachi») va ikkinchi tomondan {partner} («Ijrochi») "
+            f"o'rtasida quyidagilar haqida tuzildi:"
+        )
+        doc.add_heading("1. Shartnoma predmeti", level=2)
+        doc.add_paragraph(f"1.1. Ijrochi Buyurtmachining topshirig'iga binoan «{subject}» bo'yicha ishlarni bajarish majburiyatini oladi.")
+        doc.add_heading("2. Shartnoma summasi va hisob-kitob tartibi", level=2)
+        doc.add_paragraph(f"2.1. Shartnomaning umumiy qiymati {amount} ni tashkil etadi.")
+        doc.add_paragraph("2.2. To'lov bank o'tkazmasi orqali shartnoma imzolangandan so'ng amalga oshiriladi.")
+        doc.add_heading("3. Tomonlarning javobgarligi va nizolarni hal etish", level=2)
+        doc.add_paragraph("3.1. Tomonlar majburiyatlarni bajarmagan taqdirda O'zbekiston Respublikasi qonunchiligiga muvofiq javobgar bo'ladilar.")
+    elif kind == "buyruq":
+        doc.add_paragraph(f"Tashkilot: {org}")
+        doc.add_heading(f"Mavzu: {subject} to'g'risida", level=2)
+        doc.add_paragraph(f"BUYURAMAN:\n1. {subject} bo'yicha barcha tashkiliy ishlar {partner} zimmasiga yuklatilsin.")
+        doc.add_paragraph("2. Mazkur buyruq ijrosini nazorat qilishni o'z zimmamda qoldiraman.")
+    elif kind == "ariza":
+        doc.add_paragraph(f"Kimga: {org} rahbariyatiga\nKimdan: {partner}")
+        doc.add_paragraph(f"Mavzu: {subject}\n\nMen sizdan {subject} masalasida amaliy yordam berishingizni va zarur ruxsatnomani tasdiqlashingizni so'rayman.")
+    elif kind == "dalolatnoma":
+        doc.add_paragraph(f"Biz, quyida imzo chekuvchilar — {org} va {partner} vakillari ushbu dalolatnomani tuzdik:")
+        doc.add_paragraph(f"1. «{subject}» bo'yicha barcha ishlar to'liq va sifatli bajarildi.")
+        doc.add_paragraph(f"2. Bajarilgan ishlarning umumiy qiymati: {amount}. Tomonlarning bir-biriga e'tirozlari yo'q.")
+    elif kind == "ishonchnoma":
+        doc.add_paragraph(f"{org} ushbu ishonchnoma orqali {partner} ga «{subject}» bo'yicha hujjatlarni qabul qilish va imzolash vakolatini beradi.")
+        doc.add_paragraph(f"Ishonchnoma {today}-yildan boshlab 1 (bir) yil muddatga amal qiladi.")
+    else:
+        doc.add_paragraph(f"Hurmatli {partner} rahbariyati!")
+        doc.add_paragraph(f"{org} Sizga «{subject}» bo'yicha o'zining hamkorlik va tijorat taklifini taqdim etadi.")
+        doc.add_paragraph(f"Taklif etilayotgan loyiha/xizmat qiymati: {amount}. Biz yuqori sifat va qisqa muddatlarni kafolatlaymiz.")
+    doc.add_paragraph("\nTomonlar rekvizitlari va imzolari:")
+    doc.add_paragraph(f"1-tomon: {org}  ____________________ (M.O'.)\n2-tomon: {partner}  ____________________ (M.O'.)")
+    out = chat_dir / fname
+    doc.save(str(out))
+    return fname
 
 
 
@@ -871,6 +1055,7 @@ def make_handler(app: App):
                                             "rag": rag.stats() if local_desktop else {"indexed": 0},
                                             "telegram": app.telegram.info() if local_desktop else {"enabled": False, "status": "o'chiq", "bot_username": "", "allowed_username": "", "error": ""},
                                             "memory": memory.list_all() if local_desktop else [],
+                                            "wiki": _read_wiki() if local_desktop else "",
                                             "system": _system_health() if local_desktop else {},
                                             "analytics": store.analytics(user_id),
                                             "database": {"engine": "SQLite", "status": "connected",
@@ -880,10 +1065,23 @@ def make_handler(app: App):
                     query = parse_qs(url.query)
                     chat_id = self._chat(user_id, query.get("chat", [""])[0])
                     fmt = query.get("format", ["md"])[0].lower()
-                    if fmt not in ("md", "docx", "pptx", "xlsx"):
+                    if fmt not in ("md", "docx", "pptx", "xlsx", "pdf"):
                         raise Refused("Format noto'g'ri.")
                     data, ctype, filename = _export_chat(store, chat_id, fmt)
                     return self._send(200, data, ctype, download=filename)
+                if url.path == "/api/qr":
+                    self._user()
+                    import io
+                    import qrcode
+                    text = parse_qs(url.query).get("text", [""])[0][:1500] or "Agent Umimiy"
+                    img = qrcode.make(text)
+                    buf = io.BytesIO()
+                    img.save(buf, format="PNG")
+                    return self._send(200, buf.getvalue(), "image/png", inline=True)
+                if url.path == "/api/chat/search":
+                    user_id, _ = self._user()
+                    q = parse_qs(url.query).get("q", [""])[0]
+                    return self._json(200, {"ids": store.search_chats(user_id, q)})
                 if url.path == "/api/desktop/backup":
                     self._user()
                     if not self._desktop():
@@ -891,6 +1089,13 @@ def make_handler(app: App):
                     stamp = time.strftime("%Y%m%d-%H%M%S")
                     return self._send(200, store.backup_bytes(), "application/octet-stream",
                                       download=f"agent-umimiy-backup-{stamp}.sqlite3")
+                if url.path == "/api/desktop/export-zip":
+                    user_id, _ = self._user()
+                    if not self._desktop():
+                        raise Refused("Topilmadi.", 404)
+                    stamp = time.strftime("%Y%m%d-%H%M%S")
+                    return self._send(200, _export_zip(store, user_id), "application/zip",
+                                      download=f"agent-umimiy-full-archive-{stamp}.zip")
                 if url.path == "/api/stream":
                     user_id, _ = self._user()
                     return self._stream(self._chat(user_id, parse_qs(url.query).get("chat", [""])[0]), self._desktop())
@@ -1105,7 +1310,27 @@ def make_handler(app: App):
                     return {"ok": True, **info}, ""
                 if act == "search":
                     return {"ok": True, "results": rag.search(str(body.get("query", "")))}, ""
+                if act == "audit":
+                    return {"ok": True, "audit": _project_audit(cfg.get("project"))}, ""
                 raise Refused("Noto'g'ri amal.")
+            if path == "/api/desktop/wiki":
+                if not self._desktop():
+                    raise Refused("Topilmadi.", 404)
+                saved = _write_wiki(str(body.get("wiki", "")))
+                return {"ok": True, "wiki": saved}, ""
+            if path == "/api/desktop/restore":
+                if not self._desktop():
+                    raise Refused("Topilmadi.", 404)
+                import base64
+                raw_b64 = str(body.get("data", ""))
+                if "," in raw_b64:
+                    raw_b64 = raw_b64.split(",", 1)[1]
+                try:
+                    raw_bytes = base64.b64decode(raw_b64)
+                except Exception:
+                    raise Refused("Fayl formati noto'g'ri.")
+                store.restore_bytes(raw_bytes)
+                return {"ok": True, "chats": store.chats(user_id)}, ""
             if path == "/api/desktop/telegram":
                 if not self._desktop():
                     raise Refused("Topilmadi.", 404)
@@ -1158,11 +1383,48 @@ def make_handler(app: App):
                     raise Refused("Kod bajarilishi 10 soniyadan oshib ketdi (Timeout).")
                 except Exception as exc:
                     raise Refused(f"Kod bajarishda xato: {exc}")
+            if path == "/api/translit":
+                text = str(body.get("text", ""))[:50000]
+                target = str(body.get("target", "auto"))
+                return {"ok": True, "text": translit.convert(text, target)}, ""
             if path == "/api/chat/new":
                 if len(store.chats(user_id)) >= 100:
                     raise Refused("Bir foydalanuvchi ko'pi bilan 100 ta suhbat yaratishi mumkin.", 429)
                 return {"id": store.new_chat(user_id)}, ""
             chat_id = self._chat(user_id, body.get("chat"))
+            if path == "/api/chat/fork":
+                if len(store.chats(user_id)) >= 100:
+                    raise Refused("Bir foydalanuvchi ko'pi bilan 100 ta suhbat yaratishi mumkin.", 429)
+                new_id = store.fork_chat(user_id, chat_id)
+                return {"ok": True, "id": new_id, "chats": store.chats(user_id)}, ""
+            if path == "/api/doc-template":
+                kind = str(body.get("kind", "shartnoma")).strip().lower()
+                org = str(body.get("org", ""))
+                partner = str(body.get("partner", ""))
+                subject = str(body.get("subject", ""))
+                amount = str(body.get("amount", ""))
+                fname = _build_doc_template(app.files_dir(chat_id), kind, org, partner, subject, amount)
+                app._record(chat_id, {"k": "act", "agent": "Hujjat Generator", "kind": "file", "text": fname})
+                app._record(chat_id, {"k": "agent", "name": "Hujjat Generator",
+                                      "text": f"Rasmiy **{kind.upper()}** hujjati tayyorlandi: `{fname}`. Yuqoridagi fayl tugmasi orqali Word (.docx) formatida yuklab olishingiz mumkin.",
+                                      "meta": "tayyor"})
+                return {"ok": True, "file": fname}, ""
+            if path == "/api/chat/pin":
+                pinned = store.toggle_pin(user_id, chat_id)
+                return {"ok": True, "pinned": pinned, "chats": store.chats(user_id)}, ""
+            if path == "/api/chat/rename":
+                title = str(body.get("title", "")).strip().replace("\n", " ")[:TITLE_LEN]
+                if not title:
+                    raise Refused("Suhbat nomi bo'sh bo'lmasin.")
+                store.set_title(chat_id, title)
+                return {"ok": True, "chats": store.chats(user_id)}, ""
+            if path == "/api/chat/clear":
+                with app.lock:
+                    ch = app.channels.get(chat_id)
+                    if ch and ch.busy:
+                        raise Refused("Agent hali ishlayapti. Avval to'xtating.")
+                store.clear_chat(chat_id)
+                return {"ok": True}, ""
             if path == "/api/chat/delete":
                 app.delete_chat(chat_id)
             elif path == "/api/send":
@@ -1172,7 +1434,10 @@ def make_handler(app: App):
                 if not isinstance(files, list) or not all(isinstance(f, dict) for f in files):
                     raise Refused("Noto'g'ri so'rov.")
                 app.send(chat_id, str(body.get("text", "")), str(body.get("agent", "")), files,
-                         local_desktop=self._desktop(), user_id=user_id)
+                         local_desktop=self._desktop(), user_id=user_id,
+                         persona=str(body.get("persona", "")),
+                         style=str(body.get("style", "")),
+                         pii_guard=bool(body.get("pii_guard", False)))
             elif path == "/api/stop":
                 app.stop(chat_id)
             else:

@@ -78,6 +78,32 @@ TOOLS_BY_MODE: dict[str, list[dict]] = {
             },
             "annotations": {"readOnlyHint": True},
         },
+        {
+            "name": "uzbek_translit",
+            "description": "O'zbekcha matnni Lotindan Kirillga yoki Kirilldan Lotinga bexato o'giradi.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string"},
+                    "target": {"type": "string", "description": "'cyr', 'lat' yoki 'auto'"},
+                },
+                "required": ["text"],
+            },
+            "annotations": {"readOnlyHint": True},
+        },
+        {
+            "name": "compare_texts",
+            "description": "Ikki matn yoki hujjat variantini qator-ba-qator solishtirib, o'zgarishlar farqini (diff) va o'xshashlik foizini hisoblaydi.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "old_text": {"type": "string"},
+                    "new_text": {"type": "string"},
+                },
+                "required": ["old_text", "new_text"],
+            },
+            "annotations": {"readOnlyHint": True},
+        },
     ],
     "analitika": [
         {
@@ -131,6 +157,16 @@ def _handle_call(mode: str, name: str, args: dict) -> str:
         if not hits:
             return "Indeksdan mos hujjat topilmadi."
         return "\n".join(f"- {h['path']}: {h['snippet']}" for h in hits)
+    if name == "uzbek_translit":
+        from . import translit
+        return translit.convert(str(args.get("text", "")), str(args.get("target", "auto")))
+    if name == "compare_texts":
+        import difflib
+        a = str(args.get("old_text", "")).splitlines()
+        b = str(args.get("new_text", "")).splitlines()
+        ratio = round(difflib.SequenceMatcher(None, "\n".join(a), "\n".join(b)).ratio() * 100, 1)
+        diff = list(difflib.unified_diff(a, b, fromfile="eski", tofile="yangi", lineterm=""))[:120]
+        return f"O'xshashlik: {ratio}%\n" + ("\n".join(diff) if diff else "Farq topilmadi.")
     if name == "number_stats":
         nums = [float(x) for x in (args.get("numbers") or []) if isinstance(x, (int, float)) and math.isfinite(x)]
         if not nums:

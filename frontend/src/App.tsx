@@ -10,7 +10,8 @@ import { Toaster, toast } from "sonner";
 import { Markdown } from "./Markdown";
 
 type Agent = { name: string; model?: string; description?: string };
-type Chat = { id: number; title?: string };
+type Chat = { id: number; title?: string; pinned?: boolean };
+type CustomPrompt = { label: string; text: string };
 type Attached = string | { name?: string; file?: string };  // eski yozuvlar oddiy matn, yangilari diskdagi nom bilan
 type RecordItem = { k: string; text?: string; name?: string; agent?: string; meta?: string; err?: boolean; files?: Attached[]; kind?: string };
 type LiveState = Record<string, string>;
@@ -24,8 +25,10 @@ type TelegramInfo = { enabled: boolean; status: string; bot_username: string; al
 type AgentStat = { agent: string; calls: number; errors: number; avg_seconds: number };
 type AnalyticsInfo = { user_messages: number; agent_messages: number; errors: number; files_created: number; by_agent: AgentStat[] };
 type MemoryItem = { id: string; fact: string };
+type BookmarkItem = { id: number; agent: string; text: string; when: string };
+type ProjectAudit = { root: string; total_files: number; total_mb: number; extensions: { ext: string; count: number }[]; largest_files: { path: string; kb: number }[] };
 type SystemHealth = { cpu_cores?: number; python?: string; disk_free_gb?: number; disk_total_gb?: number; ollama_online?: boolean; freellm_online?: boolean };
-type Workspace = { project: string; plugins: { name: string; transport: string; enabled: boolean }[]; skills: { name: string; description: string; source: string }[]; automation: { available: boolean; reason: string; jobs?: AutoJob[] }; rag?: { indexed: number }; telegram?: TelegramInfo; memory?: MemoryItem[]; system?: SystemHealth; analytics?: AnalyticsInfo; database: { engine: string; status: string; users: number; chats: number } };
+type Workspace = { project: string; plugins: { name: string; transport: string; enabled: boolean }[]; skills: { name: string; description: string; source: string }[]; automation: { available: boolean; reason: string; jobs?: AutoJob[] }; rag?: { indexed: number }; telegram?: TelegramInfo; memory?: MemoryItem[]; wiki?: string; system?: SystemHealth; analytics?: AnalyticsInfo; database: { engine: string; status: string; users: number; chats: number } };
 type Task = { id: number; text: string; when: string; done: boolean };
 type Approval = { id: string; agent: string; kind: string; title: string; detail: string };
 type SpeechRec = { lang: string; interimResults: boolean; start: () => void; stop: () => void; onresult: ((e: { results: { 0: { transcript: string } }[] }) => void) | null; onend: (() => void) | null; onerror: (() => void) | null };
@@ -165,6 +168,31 @@ function App() {
   const [tgToken, setTgToken] = useState("");
   const [tgUser, setTgUser] = useState("");
   const [memoryFact, setMemoryFact] = useState("");
+  const [autoSpeak, setAutoSpeak] = useState(false);
+  const [qrModal, setQrModal] = useState<string | null>(null);
+  const [searchIds, setSearchIds] = useState<number[] | null>(null);
+  const [customPrompts, setCustomPrompts] = useState<CustomPrompt[]>([]);
+  const [persona, setPersona] = useState("default");
+  const [answerStyle, setAnswerStyle] = useState("default");
+  const [piiGuard, setPiiGuard] = useState(false);
+  const [arenaMode, setArenaMode] = useState(false);
+  const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
+  const [wikiDraft, setWikiDraft] = useState("");
+  const [auditInfo, setAuditInfo] = useState<ProjectAudit | null>(null);
+  const [docModal, setDocModal] = useState(false);
+  const [docKind, setDocKind] = useState("shartnoma");
+  const [docOrg, setDocOrg] = useState("");
+  const [docPartner, setDocPartner] = useState("");
+  const [docSubject, setDocSubject] = useState("");
+  const [docAmount, setDocAmount] = useState("");
+  const [pomoLeft, setPomoLeft] = useState(1500);
+  const [pomoRun, setPomoRun] = useState(false);
+  const [cmdOpen, setCmdOpen] = useState(false);
+  const [cmdQuery, setCmdQuery] = useState("");
+  const [locked, setLocked] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const restoreInput = useRef<HTMLInputElement>(null);
+  const autoSpeakRef = useRef(false);
   const recognition = useRef<SpeechRec | null>(null);
   const noticePanel = useRef<HTMLElement>(null);
   const eventSource = useRef<EventSource | null>(null);
@@ -212,7 +240,12 @@ function App() {
       } else if (item.type === "record") {
         const record = item.record as RecordItem;
         setRecords((current) => [...current, record]);
-        if (record.k === "agent") setLive({});
+        if (record.k === "agent") {
+          setLive({});
+          if (autoSpeakRef.current && !record.err && record.text) {
+            window.setTimeout(() => speakText(record.text), 120);
+          }
+        }
       } else if (item.type === "delta") {
         const name = String(item.agent || "Agent");
         setLive((current) => ({ ...current, [name]: (current[name] || "") + String(item.text || "") }));
@@ -270,12 +303,67 @@ function App() {
     if (!user || !WORKSPACE_VIEWS.includes(activeView)) return;
     let alive = true;
     setWorkspaceError("");
-    api<Workspace>("/api/workspace").then((data) => { if (alive) setWorkspace(data); })
+    api<Workspace>("/api/workspace").then((data) => { if (alive) { setWorkspace(data); setWikiDraft(data.wiki || ""); } })
       .catch((error) => { if (alive) setWorkspaceError((error as Error).message); });
     return () => { alive = false; };
   }, [activeView, user]);
 
-  useEffect(() => { setTasks(user ? loadTasks(user) : []); }, [user]);
+  useEffect(() => {
+    setTasks(user ? loadTasks(user) : []);
+    try {
+      const raw = JSON.parse(localStorage.getItem(`au-prompts-${user}`) || "[]");
+      setCustomPrompts(Array.isArray(raw) ? raw : []);
+    } catch {
+      setCustomPrompts([]);
+    }
+    try {
+      const bms = JSON.parse(localStorage.getItem(`au-bookmarks-${user}`) || "[]");
+      setBookmarks(Array.isArray(bms) ? bms : []);
+    } catch {
+      setBookmarks([]);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!pomoRun) return;
+    const timer = window.setInterval(() => {
+      setPomoLeft((prev) => {
+        if (prev <= 1) {
+          setPomoRun(false);
+          toast.success("⏱ 25 daqiqalik Fokus vaqti yakunlandi! Tanaffus qiling.");
+          return 1500;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [pomoRun]);
+
+  useEffect(() => {
+    const q = search.trim();
+    if (!q || !user) { setSearchIds(null); return; }
+    let alive = true;
+    const timer = window.setTimeout(() => {
+      void api<{ ids: number[] }>(`/api/chat/search?q=${encodeURIComponent(q)}`)
+        .then((res) => { if (alive) setSearchIds(res.ids || []); })
+        .catch(() => { if (alive) setSearchIds(null); });
+    }, 200);
+    return () => { alive = false; window.clearTimeout(timer); };
+  }, [search, user]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setCmdOpen((v) => !v);
+        setCmdQuery("");
+      } else if (e.key === "Escape") {
+        setCmdOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const refreshEmployees = useCallback(async () => {
     const result = await api<{ users: Employee[] }>("/api/network/users");
@@ -369,11 +457,180 @@ function App() {
     if (!prompt) return;
     stickToBottom.current = true;
     try {
-      await api("/api/send", { chat: chatId, text: prompt, agent: selectedAgent, files: [] });
+      await api("/api/send", { chat: chatId, text: prompt, agent: selectedAgent, files: [], persona, style: answerStyle, pii_guard: piiGuard });
       setBusy(true);
     } catch (error) {
       toast.error((error as Error).message);
     }
+  }
+
+  async function forkCurrentChat() {
+    if (chatId === null) return;
+    try {
+      const res = await api<{ id: number; chats: Chat[] }>("/api/chat/fork", { chat: chatId });
+      setChats(res.chats);
+      openChat(res.id);
+      toast.success("Suhbatdan nusxa olindi 🌿");
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  }
+
+  function saveBookmark(record: RecordItem) {
+    if (!record.text) return;
+    const item: BookmarkItem = {
+      id: Date.now(),
+      agent: record.name || record.agent || "Agent",
+      text: record.text.slice(0, 600),
+      when: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    };
+    const next = [item, ...bookmarks].slice(0, 30);
+    setBookmarks(next);
+    try { localStorage.setItem(`au-bookmarks-${user}`, JSON.stringify(next)); } catch { /* ignore */ }
+    toast.success("Javob xatcho‘pga saqlandi ⭐");
+  }
+
+  function removeBookmark(id: number) {
+    const next = bookmarks.filter((b) => b.id !== id);
+    setBookmarks(next);
+    try { localStorage.setItem(`au-bookmarks-${user}`, JSON.stringify(next)); } catch { /* ignore */ }
+  }
+
+  async function translitComposerInput() {
+    if (!message.trim()) return;
+    try {
+      const res = await api<{ text: string }>("/api/translit", { text: message, target: "auto" });
+      setMessage(res.text);
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  }
+
+  async function generateDocTemplate(e: FormEvent) {
+    e.preventDefault();
+    try {
+      let id = chatId;
+      if (id === null) {
+        const created = await api<{ id: number }>("/api/chat/new", {});
+        id = created.id;
+        setChatId(id);
+        await refresh();
+      }
+      const res = await api<{ file: string }>("/api/doc-template", {
+        chat: id, kind: docKind, org: docOrg, partner: docPartner, subject: docSubject, amount: docAmount,
+      });
+      setDocModal(false);
+      openChat(id);
+      toast.success(`Hujjat tayyor: ${res.file}`);
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  }
+
+  async function handleRestoreBackup(file: File | undefined) {
+    if (!file) return;
+    if (!window.confirm(`"${file.name}" zaxira bazasini tiklaysizmi? Hozirgi baza almashtiriladi.`)) return;
+    try {
+      const data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error("Faylni o‘qib bo‘lmadi"));
+        reader.readAsDataURL(file);
+      });
+      const res = await api<{ chats: Chat[] }>("/api/desktop/restore", { data });
+      setChats(res.chats);
+      if (res.chats.length) openChat(res.chats[0].id, false);
+      toast.success("Baza zaxiradan muvaffaqiyatli tiklandi ♻️");
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  }
+
+  async function renameChat(chat: Chat) {
+    const nextTitle = window.prompt("Suhbat uchun yangi nom kiriting:", chat.title || "");
+    if (!nextTitle?.trim()) return;
+    try {
+      const res = await api<{ chats: Chat[] }>("/api/chat/rename", { chat: chat.id, title: nextTitle.trim() });
+      setChats(res.chats);
+      toast.success("Suhbat nomi yangilandi");
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  }
+
+  async function clearCurrentChat() {
+    if (chatId === null || busy) return;
+    if (!window.confirm("Joriy suhbat xabarlari tozalansinmi?")) return;
+    try {
+      await api("/api/chat/clear", { chat: chatId });
+      setRecords([]);
+      toast.success("Suhbat tozalandi");
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  }
+
+  function lockScreen() {
+    let saved = "";
+    try { saved = localStorage.getItem(`au-pin-${user}`) || ""; } catch { /* ignore */ }
+    if (!saved) {
+      const created = window.prompt("Ekran qulfi uchun 4 xonali PIN-kod o‘rnating (masalan: 1234):");
+      if (!created || created.trim().length < 4) { toast.info("PIN-kod kamida 4 belgidan iborat bo‘lsin"); return; }
+      try { localStorage.setItem(`au-pin-${user}`, created.trim()); } catch { /* ignore */ }
+    }
+    setPinInput("");
+    setLocked(true);
+  }
+
+  function unlockScreen(e: FormEvent) {
+    e.preventDefault();
+    let saved = "";
+    try { saved = localStorage.getItem(`au-pin-${user}`) || ""; } catch { /* ignore */ }
+    if (!saved || pinInput.trim() === saved) {
+      setLocked(false);
+      setPinInput("");
+      toast.success("Qulf ochildi");
+    } else {
+      toast.error("PIN-kod noto‘g‘ri");
+    }
+  }
+
+  async function translitRecord(index: number) {
+    const item = records[index];
+    if (!item?.text) return;
+    try {
+      const res = await api<{ text: string }>("/api/translit", { text: item.text, target: "auto" });
+      setRecords((cur) => cur.map((r, i) => i === index ? { ...r, text: res.text } : r));
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  }
+
+  async function togglePinChat(id: number) {
+    try {
+      const res = await api<{ chats: Chat[]; pinned: boolean }>("/api/chat/pin", { chat: id });
+      setChats(res.chats);
+      toast.success(res.pinned ? "Suhbat yuqoriga qadaldi 📌" : "Qadash olib tashlandi");
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  }
+
+  function addCustomPrompt() {
+    const label = window.prompt("Shablon qisqa nomi (masalan: Huquqiy xulosa):");
+    if (!label?.trim()) return;
+    const text = window.prompt("Agentga yuboriladigan matn:", message || "");
+    if (!text?.trim()) return;
+    const next = [...customPrompts, { label: label.trim().slice(0, 32), text: text.trim() }];
+    setCustomPrompts(next);
+    try { localStorage.setItem(`au-prompts-${user}`, JSON.stringify(next)); } catch { /* ignore */ }
+    toast.success("Shaxsiy shablon saqlandi");
+  }
+
+  function askUrlSummary() {
+    const url = window.prompt("Tahlil qilinadigan veb-sahifa manzilini (https://...) kiriting:");
+    if (!url?.trim()) return;
+    fillPrompt(`Ushbu veb-sahifani o‘qib, asosiy mazmuni, muhim raqamlari va xulosasini jadval hamda bandlar ko‘rinishida chiqarib ber: ${url.trim()}`);
   }
 
   function fillPrompt(text: string, pickFile = false) {
@@ -450,7 +707,7 @@ function App() {
         await refresh();
         openChat(id);
       }
-      await api("/api/send", { chat: id, text, agent: selectedAgent, files });
+      await api("/api/send", { chat: id, text, agent: selectedAgent, files, persona, style: answerStyle, pii_guard: piiGuard });
       setBusy(true);
       setActiveView("Suhbat");
     } catch (error) {
@@ -525,21 +782,36 @@ function App() {
   const agentTones = ["blue", "", "cyan", "amber"];
 
   const chatPanel = (full: boolean) => <section className={full ? "workspace panel chat-full" : "workspace panel"}>
-    <div className="workspace-title"><div className="spark-badge"><Sparkles /></div><h2>{t("Agent Umimiy bilan suhbat")}</h2>{chatId && records.length > 0 && <><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=docx`} download title="Word (.docx) yuklab olish"><Download size={14} /> .docx</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=pptx`} download title="PowerPoint (.pptx) yuklab olish"><Download size={14} /> .pptx</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=xlsx`} download title="Excel (.xlsx) yuklab olish"><Download size={14} /> .xlsx</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=md`} download title="Markdown (.md) yuklab olish"><Download size={14} /> .md</a></>}<button className="new-chat-btn" onClick={createChat}><Plus size={15} /> {t("Yangi suhbat")}</button></div>
+    <div className="workspace-title"><div className="spark-badge"><Sparkles /></div><h2>{t("Agent Umimiy bilan suhbat")}</h2><button type="button" className="new-chat-btn" onClick={() => setDocModal(true)} title="Rasmiy hujjat blankalari (.docx)">📝 Blankalar</button><button type="button" className="new-chat-btn" onClick={() => { const next = !arenaMode; setArenaMode(next); if (next) setSelectedAgent("broadcast"); toast.info(next ? "⚔️ Arena (2 ustunli solishtirish) rejimi yoqildi" : "Arena rejimi o‘chirildi"); }} title="Agent javoblarini yonma-yon 2 ustunda solishtirish">{arenaMode ? "⚔️ Arena: Yoqilgan" : "⚔️ Arena"}</button><button type="button" className="new-chat-btn" onClick={() => { const next = !piiGuard; setPiiGuard(next); toast.info(next ? "🛡️ Maxfiy raqamlar himoyasi (PII) yoqildi" : "PII himoyasi o‘chirildi"); }} title="Karta va JSHSHIR raqamlarini avtomatik yashirish">{piiGuard ? "🛡️ PII: Himoyalangan" : "🛡️ PII"}</button><button type="button" className="new-chat-btn" onClick={() => { const next = !autoSpeak; setAutoSpeak(next); autoSpeakRef.current = next; toast.info(next ? "🎧 Avto-ovoz rejimi yoqildi" : "Avto-ovoz o‘chirildi"); }} title="Javoblarni avtomatik ovoz chiqarib o‘qish">{autoSpeak ? "🎧 Avto-ovoz: Yoqilgan" : "🎧 Avto-ovoz"}</button>{chatId && records.length > 0 && <><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=pdf`} download title="PDF (.pdf) yuklab olish"><Download size={14} /> .pdf</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=docx`} download title="Word (.docx) yuklab olish"><Download size={14} /> .docx</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=pptx`} download title="PowerPoint (.pptx) yuklab olish"><Download size={14} /> .pptx</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=xlsx`} download title="Excel (.xlsx) yuklab olish"><Download size={14} /> .xlsx</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=md`} download title="Markdown (.md) yuklab olish"><Download size={14} /> .md</a><button type="button" className="new-chat-btn" onClick={() => void forkCurrentChat()} title="Shu suhbatdan nusxa olish (Fork)">🌿 Nusxa</button><button type="button" className="new-chat-btn" onClick={() => void clearCurrentChat()} title="Suhbat xabarlarini tozalash">🧹 Tozalash</button></>}<button className="new-chat-btn" onClick={createChat}><Plus size={15} /> {t("Yangi suhbat")}</button></div>
     {!records.length && !busy && !Object.keys(live).length ? <>
       <p className="workspace-sub">Savolingizni yozing yoki quyidagi misollardan birini tanlang:</p>
-      <div className="prompt-chips">{PROMPTS.map(([label, text, Icon, tone], i) => <button type="button" key={label} onClick={() => fillPrompt(text, i === 0)}><span className={`chip-icon ${tone}`}><Icon /></span>{label}</button>)}</div>
-    </> : <div className="messages" onScroll={(e) => { const box = e.currentTarget; stickToBottom.current = box.scrollHeight - box.scrollTop - box.clientHeight < 80; }}>
+      <div className="prompt-chips">
+        {PROMPTS.map(([label, text, Icon, tone], i) => <button type="button" key={label} onClick={() => fillPrompt(text, i === 0)}><span className={`chip-icon ${tone}`}><Icon /></span>{label}</button>)}
+        <button type="button" onClick={() => setDocModal(true)}><span className="chip-icon word"><FileText /></span>📝 Rasmiy hujjat blankasi</button>
+        <button type="button" onClick={() => fillPrompt("Quyidagi jarayon uchun chiroyli rangli blok-sxema (diagramma) ni to‘liq ```svg kod bloki ichida chizib ber: ")}><span className="chip-icon violet"><Layers /></span>📊 Sxema / Diagramma chiz</button>
+        <button type="button" onClick={() => fillPrompt("Biriktirilgan rasm, chek yoki jadval skrinshotidagi barcha yozuv va raqamlarni o‘qib, Markdown jadval ko‘rinishida chiqarib ber.", true)}><span className="chip-icon excel"><FileSpreadsheet /></span>🔍 Rasm / Chek → Jadval</button>
+        <button type="button" onClick={() => fillPrompt("Biriktirilgan ikkala hujjatni bandma-band solishtirib, barcha farqlari, o‘zgarishlari va xavfli jihatlarini jadval ko‘rinishida chiqarib ber.", true)}><span className="chip-icon word"><FileText /></span>⚖️ 2 ta faylni solishtir</button>
+        <button type="button" onClick={askUrlSummary}><span className="chip-icon cyan"><Globe2 /></span>🌐 Link tahlili</button>
+        {customPrompts.map((cp, i) => <button type="button" key={`cp-${i}`} onClick={() => fillPrompt(cp.text)}><span className="chip-icon violet"><Zap /></span>{cp.label}</button>)}
+        <button type="button" onClick={addCustomPrompt}><span className="chip-icon amber"><Plus /></span>+ Shablon saqlash</button>
+      </div>
+    </> : <div className="messages" style={arenaMode ? { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "12px", alignItems: "start" } : undefined} onScroll={(e) => { const box = e.currentTarget; stickToBottom.current = box.scrollHeight - box.scrollTop - box.clientHeight < 80; }}>
       {records.map((record, index) => record.k === "act"
-        ? <div className="activity-line" key={index}>{record.agent}: {record.text}{record.kind === "file" && <><a href={fileHref(record.text)} download><Download size={12} /> Yuklab olish</a>{/\.(png|jpe?g|gif|webp|bmp)$/i.test(record.text || "") && <a className="chat-image-link" href={`${fileHref(record.text)}&inline=1`} target="_blank" rel="noreferrer"><img className="chat-image" src={`${fileHref(record.text)}&inline=1`} alt={record.text || "Rasm"} loading="lazy" /></a>}</>}</div>
-        : <div className={record.k === "user" ? "message-row user-message" : "message-row"} key={index}><div className="message-avatar">{record.k === "user" ? user.slice(0, 1).toUpperCase() : <Bot size={17} />}</div><div className="message-body"><b>{record.k === "user" ? user : record.name || record.agent || "Agent"}</b><div className={record.err ? "message-bubble error" : record.k === "agent" ? "message-bubble md-bubble" : "message-bubble"}>{record.k === "agent" && !record.err ? <Markdown text={record.text || ""} onRunCode={desktop ? runPythonSnippet : undefined} /> : record.text}{record.files?.length ? <small className="attached">{record.files.map((file, i) => {
+        ? <div className="activity-line" style={arenaMode ? { gridColumn: "1 / -1" } : undefined} key={index}>{record.agent}: {record.text}{record.kind === "file" && <><a href={fileHref(record.text)} download><Download size={12} /> Yuklab olish</a>{/\.(png|jpe?g|gif|webp|bmp)$/i.test(record.text || "") && <a className="chat-image-link" href={`${fileHref(record.text)}&inline=1`} target="_blank" rel="noreferrer"><img className="chat-image" src={`${fileHref(record.text)}&inline=1`} alt={record.text || "Rasm"} loading="lazy" /></a>}</>}</div>
+        : <div className={record.k === "user" ? "message-row user-message" : "message-row"} style={arenaMode && record.k === "user" ? { gridColumn: "1 / -1" } : undefined} key={index}><div className="message-avatar">{record.k === "user" ? user.slice(0, 1).toUpperCase() : <Bot size={17} />}</div><div className="message-body"><b>{record.k === "user" ? user : record.name || record.agent || "Agent"}</b><div className={record.err ? "message-bubble error" : record.k === "agent" ? "message-bubble md-bubble" : "message-bubble"}>{record.k === "agent" && !record.err ? <Markdown text={record.text || ""} onRunCode={desktop ? runPythonSnippet : undefined} /> : record.text}{record.files?.length ? <small className="attached">{record.files.map((file, i) => {
                   const shown = typeof file === "string" ? file : (file.name || file.file || "fayl");
                   const stored = typeof file === "string" ? "" : file.file;  // eski yozuvlarda diskdagi nom saqlanmagan
                   return <span key={i}>📎 {stored ? <a href={fileHref(stored)} download={shown}>{shown}</a> : shown}</span>;
-                })}</small> : null}</div><div className="message-meta-row">{record.meta && <small className="message-meta">{record.meta}</small>}{record.k === "agent" && !record.err && record.text && <><button type="button" className="text-link" onClick={() => speakText(record.text)} title="Ovoz chiqarib o‘qish"><Volume2 size={13} /> Eshitish</button><button type="button" className="text-link" onClick={() => copyMessage(record.text)} title="Matnni nusxalash">📋 Nusxalash</button><button type="button" className="text-link" onClick={() => void regenerateFrom(index)} title="Boshqattan javob olish">🔄 Qayta so‘rash</button></>}</div></div></div>)}
+                })}</small> : null}</div><div className="message-meta-row">{record.meta && <small className="message-meta">{record.meta}</small>}{record.k === "user" && record.text && <button type="button" className="text-link" onClick={() => fillPrompt(record.text || "")} title="Savolni tahrirlab qayta yuborish">✏️ Tahrirlash</button>}{record.k === "agent" && !record.err && record.text && <><button type="button" className="text-link" onClick={() => speakText(record.text)} title="Ovoz chiqarib o‘qish"><Volume2 size={13} /> Eshitish</button><button type="button" className="text-link" onClick={() => void translitRecord(index)} title="Lotin ↔ Kirill o‘girish">🔤 Крилл/Lotin</button><button type="button" className="text-link" onClick={() => copyMessage(record.text)} title="Matnni nusxalash">📋 Nusxalash</button><button type="button" className="text-link" onClick={() => saveBookmark(record)} title="Xatcho‘pga saqlash">⭐ Saqlash</button><button type="button" className="text-link" onClick={() => setQrModal(record.text || "")} title="Telefonga QR-kod orqali olish">📱 QR</button><button type="button" className="text-link" onClick={() => void regenerateFrom(index)} title="Boshqattan javob olish">🔄 Qayta so‘rash</button></>}</div></div></div>)}
       {Object.entries(live).map(([name, text]) => <div className="message-row" key={name}><div className="message-avatar"><Bot size={17} /></div><div className="message-body"><b>{name} <span className="typing-label">yozmoqda…</span></b><div className="message-bubble live md-bubble"><Markdown text={text} /></div></div></div>)}
       {busy && !Object.keys(live).length && <div className="typing-indicator"><span /><span /><span /> Agent javob tayyorlamoqda…</div>}
       <div ref={messagesEnd} />
+    </div>}
+    {message.trim().length > 2 && <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", padding: "0 4px 6px" }}>
+      <button type="button" className="text-link" onClick={() => setMessage(`Quyidagi matnning imlo va uslubiy xatolarini to‘g‘rilab, chiroyli qilib yozib ber:\n\n${message}`)}>✨ Imloni tekshir</button>
+      <button type="button" className="text-link" onClick={() => setMessage(`Quyidagi matnni rasmiy xat va hujjat uslubida qayta yozib ber:\n\n${message}`)}>👔 Rasmiylashtir</button>
+      <button type="button" className="text-link" onClick={() => setMessage(`Quyidagi matnni o‘zbek, rus va ingliz tillariga professional tarjima qilib ber:\n\n${message}`)}>🌐 3 tilga tarjima</button>
+      <button type="button" className="text-link" onClick={() => void translitComposerInput()}>🔤 Matnni Крилл/Lotin o‘gir</button>
     </div>}
     <form className="composer-row" onSubmit={sendMessage}><input ref={fileInput} type="file" multiple hidden accept="image/*,.pdf,.docx,.xlsx,.pptx,.csv,.tsv,.txt,.md,.json,.py,.js,.html,.log" onChange={(e) => { void addFiles(e.target.files); e.currentTarget.value = ""; }} />
       <button type="button" className="round-btn" onClick={() => fileInput.current?.click()} title="Fayl biriktirish"><Paperclip /></button>
@@ -549,7 +821,11 @@ function App() {
       <button className={busy ? "send-btn stop-btn" : "send-btn"} type="submit" title={busy ? "To‘xtatish" : "Yuborish"} disabled={!busy && !message.trim() && !attachments.length}>{busy ? <Square size={16} /> : <Send size={18} />}</button>
       <button type="button" className="round-btn" onClick={() => setActiveView("Sozlamalar")} title={t("Sozlamalar")}><SlidersHorizontal /></button></form>
   </section>;
-  const filteredChats = chats.filter((chat) => (chat.title || "Yangi suhbat").toLowerCase().includes(search.toLowerCase()));
+  const filteredChats = chats.filter((chat) => {
+    if (!search.trim()) return true;
+    if (searchIds && searchIds.includes(chat.id)) return true;
+    return (chat.title || "Yangi suhbat").toLowerCase().includes(search.toLowerCase());
+  });
 
   if (!authChecked) return <div className="boot-screen"><Robot /><span>Agent Umimiy ishga tushmoqda…</span><Loader2 className="spin" /></div>;
 
@@ -562,7 +838,7 @@ function App() {
         {NAV.map(([label, Icon]) => <button key={label} title={t(label)} className={activeView === label ? "nav-item selected" : "nav-item"} onClick={() => { setActiveView(label); setMobileNav(false); }}><Icon size={18} /><span>{t(label)}</span>{activeView === label && <ChevronRight size={15} />}</button>)}
       </nav>
       <div className="sidebar-section"><div className="sidebar-section-title">SO‘NGGI SUHBATLAR <button onClick={createChat} title={t("Yangi suhbat")}><Plus size={14} /></button></div>
-        <div className="chat-list">{filteredChats.slice(0, 6).map((chat) => <div className={chat.id === chatId ? "chat-link active" : "chat-link"} key={chat.id}><button onClick={() => openChat(chat.id)}><MessageSquare size={13} /><span>{chat.title || t("Yangi suhbat")}</span></button><button className="delete-chat" onClick={() => void deleteChat(chat.id)} title="O‘chirish"><Trash2 size={13} /></button></div>)}</div>
+        <div className="chat-list">{filteredChats.slice(0, 8).map((chat) => <div className={chat.id === chatId ? "chat-link active" : "chat-link"} key={chat.id}><button onClick={() => openChat(chat.id)}><MessageSquare size={13} /><span>{chat.pinned ? `📌 ${chat.title || t("Yangi suhbat")}` : (chat.title || t("Yangi suhbat"))}</span></button><button className="delete-chat" onClick={() => void renameChat(chat)} title="Nomini o‘zgartirish">✏️</button><button className="delete-chat" onClick={() => void togglePinChat(chat.id)} title={chat.pinned ? "Qadashni olish" : "Yuqoriga qadash"}>📌</button><button className="delete-chat" onClick={() => void deleteChat(chat.id)} title="O‘chirish"><Trash2 size={13} /></button></div>)}</div>
       </div>
       <div className="sidebar-bottom"><div className="side-bot"><Robot /></div></div>
     </aside>
@@ -574,8 +850,24 @@ function App() {
           <option value="pipeline">🔗 Zanjir rejimi (Pipeline)</option>
           <option value="consensus">⚖️ Konsensus (Hakam xulosasi)</option>
         </select><ChevronDown size={14} /></label>
+        <label className="agent-select" title="Mutaxassis roli (Persona)"><Sparkles size={15} /><select value={persona} onChange={(e) => setPersona(e.target.value)} aria-label="Mutaxassis roli">
+          <option value="default">🎯 Umumiy yordamchi</option>
+          <option value="lawyer">👨‍⚖️ Yurist / Shartnoma</option>
+          <option value="accountant">📊 Buxgalter / Moliya</option>
+          <option value="developer">💻 Senior Dasturchi</option>
+          <option value="editor">✍️ Rasmiy muharrir</option>
+        </select><ChevronDown size={14} /></label>
+        <label className="agent-select" title="Javob uslubi va uzunligi"><Zap size={14} /><select value={answerStyle} onChange={(e) => setAnswerStyle(e.target.value)} aria-label="Javob uslubi">
+          <option value="default">📝 Standart javob</option>
+          <option value="short">⚡ Qisqa va londa</option>
+          <option value="table">📊 Jadval ko‘rinishida</option>
+          <option value="detailed">📖 Batafsil tahlil</option>
+        </select><ChevronDown size={14} /></label>
         <div className="server-pill"><i /> {t("Server: Ulangan")}</div>
         <div className="topbar-right">
+          <button className="icon-btn" style={{ width: "auto", padding: "0 10px", fontSize: "12px", fontWeight: 600 }} title="Pomodoro Fokus Taymeri (Bosish: Boshlash/To‘xtatish, Ikki marta bosish: 25:00 ga qaytarish)" onClick={() => setPomoRun((v) => !v)} onDoubleClick={() => { setPomoRun(false); setPomoLeft(1500); }}>⏱ {String(Math.floor(pomoLeft / 60)).padStart(2, "0")}:{String(pomoLeft % 60).padStart(2, "0")}</button>
+          <button className="icon-btn" title="Tezkor buyruqlar (Ctrl+K)" onClick={() => { setCmdOpen(true); setCmdQuery(""); }}>⌨️</button>
+          <button className="icon-btn" title="Ekranni PIN-kod bilan qulflash" onClick={lockScreen}>🔒</button>
           <button className="icon-btn notification" title="Bildirishnomalar" onClick={() => { setSeenNotices(notices.length); setActiveView("Bosh sahifa"); window.setTimeout(() => noticePanel.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 50); }}><Bell />{unread > 0 && <em>{unread}</em>}</button>
           <button className="icon-btn" title="Plaginlar" onClick={() => setActiveView("Plaginlar")}><LayoutGrid /></button>
           <button className="icon-btn" onClick={() => void saveSettings({ ...settings, theme: theme === "dark" ? "light" : "dark" })} title="Mavzuni almashtirish">{theme === "dark" ? <Sun /> : <Moon />}</button>
@@ -594,12 +886,23 @@ function App() {
               <div className="settings-grid">
                 <input value={projectInput} onChange={(e) => setProjectInput(e.target.value)} placeholder="Masalan: D:\llm yoki D:\agent (bo‘sh qolsa joriy loyiha)" />
                 <button className="secondary-btn" onClick={() => void api<{ indexed: number; project: string }>("/api/desktop/rag", { action: "index", project: projectInput.trim() }).then((res) => { toast.success(`${res.indexed} ta fayl indekslandi (${res.project})`); return api<Workspace>("/api/workspace").then(setWorkspace); }).catch((e) => toast.error((e as Error).message))}>Hujjatlarni indekslash (FTS5)</button>
+                <button className="secondary-btn" onClick={() => void api<{ audit: ProjectAudit }>("/api/desktop/rag", { action: "audit" }).then((res) => { setAuditInfo(res.audit); toast.success("Papka auditi tayyor 📂"); }).catch((e) => toast.error((e as Error).message))}>📂 Papka auditi</button>
               </div>
+              {auditInfo && <div className="agent-row" style={{ flexDirection: "column", alignItems: "flex-start", gap: "6px" }}>
+                <b>📊 Papka auditi: {auditInfo.root} ({auditInfo.total_files} ta fayl · {auditInfo.total_mb} MB)</b>
+                <span>Turlari: {auditInfo.extensions.map((x) => `${x.ext}: ${x.count} ta`).join(" · ")}</span>
+                <span>Eng katta fayllar: {auditInfo.largest_files.slice(0, 4).map((f) => `${f.path} (${f.kb} KB)`).join(" | ")}</span>
+              </div>}
               <div className="settings-grid">
                 <input value={ragQuery} onChange={(e) => setRagQuery(e.target.value)} placeholder="Hujjatlar ichidan tezkor qidirish..." />
                 <button className="secondary-btn" onClick={() => void api<{ results: RagHit[] }>("/api/desktop/rag", { action: "search", query: ragQuery }).then((res) => setRagResults(res.results || [])).catch((e) => toast.error((e as Error).message))}>Qidirish</button>
               </div>
               {ragResults.map((hit, i) => <div className="agent-row" key={i}><div className="file-icon cyan"><FileText /></div><div className="row-copy"><b>{hit.path}</b><span>{hit.snippet}</span></div></div>)}
+            </div>}
+            {desktop && <div className="classic-box">
+              <div className="row-copy"><b>📚 Korxona Ichki Wiki / Prays-list va Qoidalar Bazasi</b><span>Shu yerga kompaniya rekvizitlari, xizmat narxlari yoki ichki tartiblarni yozib qo‘ying — barcha agentlar savollarga javob berishda ushbu ma’lumotnomaga tayanadi.</span></div>
+              <textarea value={wikiDraft} onChange={(e) => setWikiDraft(e.target.value)} rows={5} placeholder="Masalan: Korxona nomi: «OOO AGENT TECH», INN: 309123456, Manzil: Toshkent sh., Xizmat narxlari: ..." style={{ width: "100%", borderRadius: "10px", padding: "10px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)", color: "inherit", marginTop: "8px" }} />
+              <button className="primary-btn" style={{ marginTop: "8px" }} onClick={() => void api<{ wiki: string }>("/api/desktop/wiki", { wiki: wikiDraft }).then((res) => { setWorkspace({ ...workspace, wiki: res.wiki }); toast.success("Korxona Wiki ma’lumotnomasi saqlandi 📚"); }).catch((e) => toast.error((e as Error).message))}>Wiki bazani saqlash</button>
             </div>}
             <p className="settings-note">Loyiha katalogi va fayllari tarmoq xodimlariga masofadan ochilmaydi.</p>
           </>}
@@ -638,8 +941,13 @@ function App() {
               <article className="stat-card amber"><div className="stat-copy"><span>Suhbatlar</span><b>{workspace.database.chats}</b></div></article>
             </div>
             {desktop && <div className="classic-box">
-              <div className="row-copy"><b>SQLite ma’lumotlar bazasi zaxira nusxasi (Backup)</b><span>Barcha suhbatlar, hisoblar va tarixni bitta .sqlite3 fayl sifatida yuklab oling.</span></div>
-              <a className="primary-btn" href="/api/desktop/backup" download><Download size={15} /> Bazani zaxiralash (.sqlite3)</a>
+              <div className="row-copy"><b>SQLite ma’lumotlar bazasi zaxira nusxasi (Backup / Restore / ZIP)</b><span>Barcha suhbatlar, xotira va sozlamalarni zaxiralang yoki avvalgi zaxira fayldan qayta tiklang.</span></div>
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "8px" }}>
+                <a className="primary-btn" href="/api/desktop/backup" download><Download size={15} /> Bazani zaxiralash (.sqlite3)</a>
+                <a className="secondary-btn" href="/api/desktop/export-zip" download>📦 To‘liq arxiv (.zip)</a>
+                <input ref={restoreInput} type="file" hidden accept=".sqlite3,.db" onChange={(e) => { void handleRestoreBackup(e.target.files?.[0]); e.currentTarget.value = ""; }} />
+                <button type="button" className="secondary-btn" onClick={() => restoreInput.current?.click()}>♻️ Zaxiradan tiklash (.sqlite3)</button>
+              </div>
             </div>}
             <p className="settings-note">Ma’lumotlar bazasi holati ko‘rsatiladi. SQL buyruqlari va o‘chirish amallari xavfsizlik uchun web orqali ochilmagan.</p>
           </>}
@@ -759,11 +1067,15 @@ function App() {
           </div>
           <aside className="dash-rail">
             <article className="panel rail-panel"><div className="panel-heading"><h2><Zap /> Tezkor amallar</h2></div><div className="quick-grid">
-              <button onClick={() => fillPrompt("Word hujjat tayyorlab ber: ")}><span className="chip-icon word"><FileText /></span>Word yaratish</button>
+              <button onClick={() => setDocModal(true)}><span className="chip-icon word"><FileText /></span>📝 Blankalar</button>
               <button onClick={() => fillPrompt("Excel jadval tayyorlab ber: ")}><span className="chip-icon excel"><FileSpreadsheet /></span>Excel jadval</button>
               <button onClick={() => fillPrompt("Biriktirilgan PDF faylni tahlil qilib ber", true)}><span className="chip-icon pdf"><FileText /></span>PDF tahlil</button>
               <button onClick={() => fillPrompt("Internetdan shu mavzu bo‘yicha ma’lumot top: ")}><span className="chip-icon cyan"><Globe2 /></span>Veb-qidiruv</button>
             </div></article>
+            <article className="panel rail-panel"><div className="panel-heading"><h2>⭐ Saqlangan javoblar</h2>{bookmarks.length > 0 && <em className="count-badge">{bookmarks.length}</em>}</div>
+              {bookmarks.slice(0, 4).map((bm) => <div className="task-row" key={bm.id}><span className="row-copy" style={{ cursor: "pointer" }} onClick={() => copyMessage(bm.text)}><b>{bm.agent} · {bm.when}</b><span>{bm.text.slice(0, 95)}{bm.text.length > 95 ? "…" : ""}</span></span><button onClick={() => removeBookmark(bm.id)} title="O‘chirish"><X size={13} /></button></div>)}
+              {!bookmarks.length && <p className="rail-note">Muhim AI javoblari ostidagi «⭐ Saqlash» tugmasini bosing — shu yerda saqlanadi.</p>}
+            </article>
             <article className="panel rail-panel"><div className="panel-heading"><h2><CalendarClock /> Rejalashtirilgan vazifalar</h2></div>
               {tasks.map((task) => <div className={task.done ? "task-row done" : "task-row"} key={task.id}><label><input type="checkbox" checked={task.done} onChange={() => saveTasks(tasks.map((t) => t.id === task.id ? { ...t, done: !t.done } : t))} /><span className="task-box"><Check /></span><span className="row-copy"><b>{task.text}</b><span>{formatWhen(task.when)}</span></span></label><button onClick={() => saveTasks(tasks.filter((t) => t.id !== task.id))} title="O‘chirish"><X size={13} /></button></div>)}
               {!tasks.length && <p className="rail-note">Hozircha vazifa yo‘q. Quyida birinchisini qo‘shing.</p>}
@@ -778,6 +1090,72 @@ function App() {
         </div>}
       </div>
     </main>
+    {docModal && <div className="approval-backdrop" onClick={() => setDocModal(false)}>
+      <section className="approval-dialog panel" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "480px" }}>
+        <div className="approval-heading"><FileText /><div><h2>📝 Rasmiy hujjat blankalari (.docx)</h2><span>Ma’lumotlarni kiriting — tayyor Word hujjat yaratiladi</span></div></div>
+        <form onSubmit={(e) => void generateDocTemplate(e)} style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "12px" }}>
+          <select value={docKind} onChange={(e) => setDocKind(e.target.value)} style={{ padding: "9px 12px", borderRadius: "8px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.16)", color: "inherit" }}>
+            <option value="shartnoma">📄 Xizmat ko‘rsatish shartnomasi</option>
+            <option value="buyruq">📋 Korxona ichki buyrug‘i</option>
+            <option value="ariza">📝 Rasmiy ariza</option>
+            <option value="dalolatnoma">✅ Bajarilgan ishlar dalolatnomasi (Akt)</option>
+            <option value="ishonchnoma">🪪 Rasmiy ishonchnoma</option>
+            <option value="tijorat">💼 Tijorat taklifi (KP)</option>
+          </select>
+          <input value={docOrg} onChange={(e) => setDocOrg(e.target.value)} placeholder="1-tomon / Tashkilot nomi (masalan: «AGENT TECH» MChJ)" style={{ padding: "9px 12px", borderRadius: "8px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.16)", color: "inherit" }} />
+          <input value={docPartner} onChange={(e) => setDocPartner(e.target.value)} placeholder="2-tomon / Hamkor yoki Xodim F.I.Sh." style={{ padding: "9px 12px", borderRadius: "8px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.16)", color: "inherit" }} />
+          <input value={docSubject} onChange={(e) => setDocSubject(e.target.value)} placeholder="Hujjat predmeti / mazmuni" style={{ padding: "9px 12px", borderRadius: "8px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.16)", color: "inherit" }} />
+          <input value={docAmount} onChange={(e) => setDocAmount(e.target.value)} placeholder="Summa yoki muddat (masalan: 15 000 000 so‘m)" style={{ padding: "9px 12px", borderRadius: "8px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.16)", color: "inherit" }} />
+          <div className="approval-actions">
+            <button type="button" className="secondary-btn" onClick={() => setDocModal(false)}>Bekor qilish</button>
+            <button type="submit" className="primary-btn">Word (.docx) yaratish</button>
+          </div>
+        </form>
+      </section>
+    </div>}
+    {cmdOpen && <div className="approval-backdrop" onClick={() => setCmdOpen(false)}>
+      <section className="approval-dialog panel" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "480px" }}>
+        <div className="approval-heading"><Zap /><div><h2>⌨️ Tezkor buyruqlar palitrasi (Ctrl+K)</h2><span>Amalni tanlang yoki qidiring</span></div></div>
+        <input autoFocus value={cmdQuery} onChange={(e) => setCmdQuery(e.target.value)} placeholder="Buyruqni yozing..." style={{ width: "100%", margin: "10px 0", padding: "8px 12px", borderRadius: "8px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", color: "inherit" }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "260px", overflowY: "auto" }}>
+          {[
+            { label: "➕ Yangi suhbat boshlash", act: () => void createChat() },
+            { label: "📝 Rasmiy hujjat blankasi (.docx) yaratish", act: () => setDocModal(true) },
+            { label: "🌿 Joriy suhbatdan nusxa olish (Fork)", act: () => void forkCurrentChat() },
+            { label: "⚔️ AI Arena (2 ustunli solishtirish) rejimini yoqish/o‘chirish", act: () => setArenaMode((v) => !v) },
+            { label: "🛡️ Maxfiy ma’lumotlar (PII) himoyasini yoqish/o‘chirish", act: () => setPiiGuard((v) => !v) },
+            { label: "📸 Ekran rasmini olish (Screenshot)", act: () => void captureScreenshot() },
+            { label: "⚖️ 2 ta hujjatni o‘zaro solishtirish", act: () => { setActiveView("Suhbat"); fillPrompt("Biriktirilgan ikkala hujjatni bandma-band solishtirib, farqlarini jadval qilib ber.", true); } },
+            { label: "🌐 Veb-sahifa linkini tahlil qilish", act: () => { setActiveView("Suhbat"); askUrlSummary(); } },
+            { label: "👨‍⚖️ Rol: Yurist va shartnoma eksperti", act: () => { setPersona("lawyer"); toast.success("Yurist roli tanlandi"); } },
+            { label: "📊 Rol: Buxgalter va moliyachi", act: () => { setPersona("accountant"); toast.success("Buxgalter roli tanlandi"); } },
+            { label: "💻 Rol: Senior Dasturchi", act: () => { setPersona("developer"); toast.success("Dasturchi roli tanlandi"); } },
+            { label: "🌗 Mavzuni almashtirish (Qorong‘i / Yorug‘)", act: () => void saveSettings({ ...settings, theme: theme === "dark" ? "light" : "dark" }) },
+            { label: "🔒 Ekranni PIN-kodga qulflash", act: () => lockScreen() },
+          ].filter((item) => item.label.toLowerCase().includes(cmdQuery.toLowerCase())).map((item, i) => (
+            <button key={i} type="button" className="secondary-btn" style={{ justifyContent: "flex-start", textAlign: "left" }} onClick={() => { setCmdOpen(false); item.act(); }}>{item.label}</button>
+          ))}
+        </div>
+      </section>
+    </div>}
+    {locked && <div className="approval-backdrop">
+      <section className="approval-dialog panel" role="dialog" aria-modal="true" style={{ maxWidth: "360px", textAlign: "center" }}>
+        <div className="approval-heading"><ShieldCheck /><div><h2>🔒 Ekran qulflangan</h2><span>Davom etish uchun PIN-kodni kiriting</span></div></div>
+        <form onSubmit={unlockScreen} style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "12px" }}>
+          <input autoFocus type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN-kod..." style={{ padding: "10px", borderRadius: "8px", textAlign: "center", fontSize: "18px", letterSpacing: "4px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.16)", color: "inherit" }} />
+          <button type="submit" className="primary-btn" style={{ justifyContent: "center" }}>Qulfni ochish</button>
+        </form>
+      </section>
+    </div>}
+    {qrModal !== null && <div className="approval-backdrop" onClick={() => setQrModal(null)}>
+      <section className="approval-dialog panel" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "360px", textAlign: "center" }}>
+        <div className="approval-heading"><Sparkles /><div><h2>📱 QR-kod orqali olish</h2><span>Telefon kamerasini yo‘naltiring</span></div></div>
+        <img src={`/api/qr?text=${encodeURIComponent(qrModal.slice(0, 1200))}`} alt="QR Code" style={{ width: "220px", height: "220px", margin: "12px auto", borderRadius: "10px", background: "#fff", padding: "8px" }} />
+        <div className="approval-actions" style={{ justifyContent: "center" }}>
+          <button className="primary-btn" onClick={() => setQrModal(null)}>Yopish</button>
+        </div>
+      </section>
+    </div>}
     {approval && <div className="approval-backdrop">
       <section className="approval-dialog panel" role="dialog" aria-modal="true" aria-labelledby="approval-title">
         <div className="approval-heading"><ShieldCheck /><div><h2 id="approval-title">Amalga ruxsat kerak</h2><span>{approval.agent} · {approval.title}</span></div></div>
