@@ -88,10 +88,16 @@ TOOLS_BY_MODE: dict[str, list[dict]] = {
 
 def _handle_call(mode: str, name: str, args: dict) -> str:
     if name == "folder_summary":
-        target = Path(args.get("path") or ".")
+        base = Path.cwd().resolve()
+        raw_path = str(args.get("path") or ".")
+        try:
+            target = (base / raw_path).resolve()
+            target.relative_to(base)
+        except (OSError, ValueError):
+            return "Ruxsat yo'q: faqat loyiha papkasi ichini tekshirish mumkin."
         if not target.is_dir():
-            return f"Papka topilmadi: {target}"
-        files = [p for p in target.iterdir() if p.is_file()]
+            return f"Papka topilmadi: {raw_path}"
+        files = [p for p in target.iterdir() if p.is_file() and not p.is_symlink()]
         total = sum(p.stat().st_size for p in files)
         return f"Fayllar: {len(files)} ta, Jami hajm: {total:,} bayt"
     if name == "kv_note":
