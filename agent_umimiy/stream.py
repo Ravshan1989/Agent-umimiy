@@ -10,6 +10,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Iterator
 from typing import Callable
+from urllib.parse import urlparse
 
 from .base import AgentError
 
@@ -41,6 +42,20 @@ def _friendly_http_error(status: int, body: str) -> str:
     if status == 404 and ("model" in low or "endpoint" in low):
         return "Tanlangan model yoki API manzili topilmadi. Model nomi va manzilni tekshiring. " + message[:240]
     return f"HTTP {status}: {message[:500]}"
+
+
+def openai_payload(payload: dict, options: dict) -> dict:
+    """OpenRouter model defaultlari hisob qoldig'idan oshmasligi uchun javobni cheklaydi."""
+    result = dict(payload)
+    host = (urlparse(str(options.get("base_url", ""))).hostname or "").lower()
+    if host == "openrouter.ai" or host.endswith(".openrouter.ai"):
+        configured = options.get("max_completion_tokens", options.get("max_tokens", 2048))
+        try:
+            limit = int(configured)
+        except (TypeError, ValueError):
+            limit = 2048
+        result["max_completion_tokens"] = min(max(limit, 16), 2048)
+    return result
 
 
 def _lines(url: str, payload: dict, headers: dict, sse: bool = False) -> Iterator[str]:

@@ -55,7 +55,11 @@ def _roots(project: str | None) -> list[tuple[Path, str]]:
     out = []
     if project:
         out.append((Path(project) / ".claude" / "skills", "loyiha"))
-    out += [(config.user_dir() / "skills", "Agent Umimiy"), (Path.home() / ".claude" / "skills", "Claude")]
+    out += [
+        (config.user_dir() / "skills", "Agent Umimiy"),
+        (Path.home() / ".agents" / "skills", "Agent skills"),
+        (Path.home() / ".claude" / "skills", "Claude"),
+    ]
     return out
 
 
@@ -110,4 +114,7 @@ def load(name: str, project: str | None = None, file: str = "") -> str:
     others = [str(p.relative_to(sk.path)) for p in islice(sk.path.rglob("*"), MAX_SCAN_FILES)
               if p.is_file() and p.name != "SKILL.md"][:40]
     extra = ("\n\n[Bu ko'nikma papkasidagi boshqa fayllar (use_skill(name, file=...) bilan o'qing): " + ", ".join(others) + "]") if others else ""
-    return body + extra
+    # Skill instructions often tell the agent to execute bundled scripts. Give it
+    # the actual directory so it can run them instead of guessing a project path.
+    location = f"\n\n[Ko'nikma papkasi: {sk.path.resolve()}]"
+    return body + location + extra

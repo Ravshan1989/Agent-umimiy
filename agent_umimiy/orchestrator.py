@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import dataclasses
+import re
 from concurrent.futures import ThreadPoolExecutor
 
 from . import attachments
@@ -11,6 +12,17 @@ from .tools import Context
 MODES = ("auto", "single", "broadcast", "pipeline", "consensus")
 READ_ONLY_MODES = ("broadcast", "consensus")
 MAX_AGENTS = 16
+_STOP_WORDS = set("a an and are as at be bir bilan bu buni uchun from ga ham in is it kerak like men meniga mi my of on or odam this the to u va yoki uchun you siz men unda nima qanaqa qanday qil ber kerak bo'ladi shuni shu bilan uchun yana".split())
+
+
+def _terms(text: str) -> set[str]:
+    return {word for word in re.findall(r"[\w+#.-]+", str(text or "").lower())
+            if len(word) > 2 and word not in _STOP_WORDS}
+
+
+def _matches(term: str, profile: set[str]) -> bool:
+    return any(term == candidate or term.startswith(candidate) or candidate.startswith(term)
+               for candidate in profile if min(len(term), len(candidate)) >= 4)
 
 
 class Orchestrator:
@@ -56,31 +68,44 @@ class Orchestrator:
             raise KeyError(f"Agent topilmadi: {name}")
         return self.agents[name]
 
-    def pick(self, prompt: str, pool: list[Agent] | None = None) -> Agent:
+    def pick(self, prompt: str, pool: list[Agent] | None = None, files: list | None = None) -> Agent:
         pool = pool or list(self.agents.values())
         allowed = {a.name for a in pool}
-        low = prompt.lower()
+        task = _terms(prompt)
+        if any(getattr(file, "kind", "") == "image" for file in files or []):
+            task |= _terms("rasm skrinshot surat image vision")
         best, score = None, 0
         for name, words in self.routes.items():
-            s = sum(w.lower() in low for w in words)
+            s = sum(any(term.startswith(w.lower()) or w.lower().startswith(term) for term in task)
+                    for w in words)
             if s > score and name in allowed:
                 best, score = name, s
-        return self.agents[best] if best else pool[0]
+        if best:
+            return self.agents[best]
+
+        # If the user has described an agent's specialty, prefer the closest
+        # match to the task over the first item in the list.
+        ranked = []
+        for agent in pool:
+            description = _terms(agent.description)
+            identity = _terms(f"{agent.name} {agent.options.get('model', '')}")
+            if agent.kind == "ollama":
+                description |= _terms("mahalliy lokal offline internet yo'q maxfiy shaxsiy")
+            points = sum(3 for term in task if _matches(term, description))
+            points += sum(1 for term in task if _matches(term, identity))
+            ranked.append((points, agent))
+        top_score = max((points for points, _ in ranked), default=0)
+        return next((agent for points, agent in ranked if points == top_score), pool[0]) if top_score else pool[0]
 
     @staticmethod
-    def _quota_exhausted(result: Result) -> bool:
-        """Faqat limit/balans tugaganida boshqa agentga o'tamiz."""
-        error = result.error.lower()
-        return any(marker in error for marker in (
-            "so'rov limiti vaqtincha oshib ketdi", "provayder hisobida bepul limit tugagan",
-            "http 429", "http 402", "rate limit", "quota exceeded", "credits exhausted",
-        ))
+    def _cancelled(result: Result) -> bool:
+        return any(word in result.error.lower() for word in ("to'xtatildi", "cancelled", "canceled"))
 
     def _ask_with_fallback(self, first: Agent, prompt: str, history: list[dict], ctx: Context,
                            files: list, fallback_pool: list[Agent]) -> list[Result]:
-        """Limit tugagan agentdan so'ng qolgan API agentlarni navbat bilan sinaydi."""
+        """Xato bo'lsa, bekor qilishdan tashqari, qolgan AI provayderlarni navbat bilan sinaydi."""
         results = [first.ask(prompt, history, ctx, files)]
-        if results[0].ok or not self._quota_exhausted(results[0]):
+        if results[0].ok or self._cancelled(results[0]):
             return results
         attempted = {first.name}
         for agent in fallback_pool:
@@ -109,7 +134,7 @@ class Orchestrator:
         self.ctx.readonly = mode in READ_ONLY_MODES  # bir nechta agent bir vaqtda fayl o'zgartirmasligi uchun
 
         if mode == "auto":
-            first = self.pick(prompt, agents)
+            first = self.pick(prompt, agents, files)
             results = self._ask_with_fallback(first, prompt, self.history, self.ctx, files, agents)
         elif mode == "single":
             # Single tanlovda ham provider limiti tugasa, loyihadagi keyingi API agentga o'tamiz.

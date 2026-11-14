@@ -218,7 +218,7 @@ Ekranda Agent Umimiy belgisi paydo bo'ladi va u to'liq ekranda ochiladi. Android
 - Kalitlar (`NOTION_TOKEN`, GitHub tokeni...) faqat shu kompyuterdagi sozlama faylida saqlanadi.
 - **Cheklov:** claude.ai'dagi tayyor ulanishlar (Gmail, Google Drive, Calendar...) sizning claude.ai hisobingizga bog'liq, ularni bu dasturga ko'chirib bo'lmaydi. Ularning o'rniga shu xizmatlarning o'z MCP serverlarini (o'z kalitingiz bilan) ulaysiz. OAuth (brauzerda «Kirish» tugmasi) talab qiladigan masofaviy serverlar hozircha qo'llanmaydi.
 
-**Ko'nikmalar.** `SKILL.md` fayli bor papka (Claude formatida: `name`, `description`, matn). Quyidagi joylardan avtomatik topiladi: `%APPDATA%\AgentUmimiy\skills\<nom>\SKILL.md`, `~/.claude/skills`, Claude plaginlaridagi ko'nikmalar va loyihadagi `.claude/skills`. Agent tavsifga qarab kerakli ko'nikmani o'zi yuklaydi va unga amal qiladi.
+**Ko'nikmalar.** `SKILL.md` fayli bor papka (Claude formatida: `name`, `description`, matn). Quyidagi joylardan avtomatik topiladi: `%APPDATA%\AgentUmimiy\skills\<nom>\SKILL.md`, `~/.agents/skills`, `~/.claude/skills`, Claude plaginlaridagi ko'nikmalar va loyihadagi `.claude/skills`. Agent tavsifga qarab kerakli ko'nikmani o'zi yuklaydi, haqiqiy papka manzilini oladi va ko'nikmadagi skriptlarni shu yerdan ishga tushiradi. Loyihani rivojlantirishda kerak bo'lsa GitHub repolarini va bog'liqliklarni yuklab o'rnatishi mumkin; buyruqlar ilovadagi ruxsat oynasi orqali tasdiqlanadi.
 
 ### Agent brauzerda ishlaydi
 
@@ -241,11 +241,13 @@ Suhbatlar dastur yopilganda saqlanadi (yuqoridagi «Saqlash» bandiga qarang).
 
 | Rejim | Ishlashi |
 |---|---|
-| Avtomatik | `routes` dagi kalit so'zlar bo'yicha agentni tanlaydi |
-| Bitta agent | birinchi tanlangan agent |
+| Avtomatik | Topshiriqni agent yo'nalishi va `routes` kalit so'zlari bilan solishtirib tanlaydi; xato bo'lsa keyingi AI agentni sinaydi |
+| Bitta agent | tanlangan agent ishlaydi; xato bo'lsa keyingi AI agentni sinaydi va muvaffaqiyatli agent keyingi so'rovlar uchun tanlanadi |
 | Hammasi bir vaqtda | barcha agentlar parallel javob beradi |
 | Ketma-ket | har bir agent oldingisining javobini yaxshilaydi |
 | Kengash | hammasi javob beradi, hakam agent yagona xulosa chiqaradi |
+
+Agent sozlamasidagi **Yo'nalishi** maydoniga, masalan, «Python backend», «video montaj» yoki «tarjima» deb yozing. Avtomatik tanlov topshiriqni shu tavsiflar bilan solishtiradi. Zaxira urinishlar API, OpenRouter va lokal Ollama kabi AI agentlar orasida amalga oshadi. Bekor qilingan so'rov qayta yuborilmaydi.
 
 ### FreeLLMAPI (lokal shlyuz) ulash
 

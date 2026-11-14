@@ -198,6 +198,7 @@ function handle(ev){var stick=nearBottom();
  else if(ev.type==='delta'){setLive(ev.agent,((live[ev.agent]||{}).text||'')+ev.text);typing()}
  else if(ev.type==='turn'){dropLive(ev.agent);typing()}
  else if(ev.type==='busy')setBusy(true)
+ else if(ev.type==='agent_changed')$('agent').value=ev.agent
  else if(ev.type==='done'){dropAllLive();setBusy(false);refresh()}
  if(stick)scroll()}
 function empty(){add('<div>✦</div><p>Qanday yordam bera olaman?</p>','empty')}

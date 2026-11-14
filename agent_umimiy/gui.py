@@ -134,7 +134,7 @@ class AgentDialog(tk.Toplevel):
         super().__init__(parent)
         self.title(i18n.t("Agent sozlamasi"))
         self.configure(bg=P["bg"])
-        fit(self, 640, 600)
+        fit(self, 720, 650)
         self.result = None
         self.transient(parent)
         spec = spec or {}
@@ -142,7 +142,8 @@ class AgentDialog(tk.Toplevel):
         label(f, i18n.t("Agent sozlamasi"), size=14, weight="bold").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
         self.vars = {}
         rows = [("name", "Nomi"), ("type", "Turi"), ("model", "Model"), ("api_key", "API kalit"),
-                ("base_url", "Manzil (ixtiyoriy)"), ("command", "Buyruq (CLI uchun)")]
+                ("base_url", "Manzil (ixtiyoriy)"), ("command", "Buyruq (CLI uchun)"),
+                ("description", "Yo'nalishi (ixtiyoriy)")]
         for i, (k, text) in enumerate(rows, start=1):
             label(f, i18n.t(text), fg=P["muted"]).grid(row=i, column=0, sticky="w", pady=5)
             v = tk.StringVar(value=spec.get(k, ""))
@@ -209,12 +210,12 @@ class AgentDialog(tk.Toplevel):
             "gemini": "Kalitni aistudio.google.com dan oling.",
             "ollama": "Avval ollama.com dan o'rnating va modelni yuklab oling. Kalit shart emas.",
             "cli": "Masalan: codex exec {prompt}  yoki  claude -p {prompt}",
-        }[self._type()]))
+        }[self._type()]) + "\nAvtomatik tanlov uchun «Yo'nalishi» maydonida agent nima ishga mosligini yozing.")
 
     def _spec(self):
         t = REAL_TYPE.get(self._type(), self._type())
         s = {"name": self.vars["name"].get().strip(), "type": t}
-        for k in ("model", "api_key", "base_url", "command"):
+        for k in ("model", "api_key", "base_url", "command", "description"):
             val = self.vars[k].get().strip()
             if val:
                 s[k] = val
@@ -2072,6 +2073,14 @@ class App(tk.Tk):
         if self.cancelled:
             self.add_activity("Siz", "info", "Ish to'xtatildi.")
             results = []
+        if self.mode.get() == "single" and any(not r.ok for r in results):
+            fallback = next((r.agent for r in reversed(results) if r.ok), "")
+            if fallback:
+                self.selected = {fallback}
+                for row in self.agent_box.winfo_children():
+                    row.on = row.agent.name in self.selected
+                    row.draw()
+                self._count()
         if error:
             self.add_agent("Xato", error, err=True)
         for r in results:

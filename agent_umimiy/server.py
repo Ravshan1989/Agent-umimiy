@@ -177,7 +177,7 @@ class App:
 
     def agents(self, local_desktop: bool = False) -> list[dict]:
         return [{"name": "auto", "model": "Avtomatik — o‘zi tanlaydi"}] + [
-            {"name": a.name, "model": a.options.get("model", "")}
+            {"name": a.name, "model": a.options.get("model", ""), "description": a.description}
             for a in self.orchestrator(local_desktop).agents.values()
         ]
 
@@ -375,6 +375,10 @@ class App:
                 results = orch.run(prompt, "auto", files=atts)
             else:
                 results = orch.run(prompt, "single", [agent], atts)
+            if agent != "auto":
+                fallback = next((r.agent for r in reversed(results) if r.ok and r.agent != agent), "")
+                if fallback:
+                    self._publish(chat_id, {"type": "agent_changed", "agent": fallback})
             for r in results:
                 if r.ok:
                     record = {"k": "agent", "name": r.agent, "text": r.text or "(bo'sh javob)", "meta": f"{r.seconds:.1f} s"}
@@ -563,7 +567,7 @@ def make_handler(app: App):
 
         # ---- javob ----
         def _send(self, code: int, body: bytes, ctype: str = "application/json; charset=utf-8", cookie: str = "",
-                  download: str = "", csp: str = PAGE_CSP):
+                  download: str = "", csp: str = PAGE_CSP, inline: bool = False):
             self._drain()
             self.send_response(code)
             self.send_header("Content-Type", ctype)
@@ -575,7 +579,8 @@ def make_handler(app: App):
             if cookie:
                 self.send_header("Set-Cookie", cookie)
             if download:
-                self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{quote(download)}")
+                disposition = "inline" if inline else "attachment"
+                self.send_header("Content-Disposition", f"{disposition}; filename*=UTF-8''{quote(download)}")
             self.end_headers()
             self.wfile.write(body)
 
@@ -727,7 +732,7 @@ def make_handler(app: App):
                     user_id, _ = self._user()
                     query = parse_qs(url.query)
                     return self._file(self._chat(user_id, query.get("chat", [""])[0]), query.get("name", [""])[0],
-                                      bool(query.get("view")))
+                                      bool(query.get("view")), bool(query.get("inline")))
                 raise Refused("Topilmadi.", 404)
             except Refused as exc:
                 self._json(exc.code, {"error": str(exc)})
@@ -876,7 +881,7 @@ def make_handler(app: App):
                 raise Refused("Topilmadi.", 404)
             return {"ok": True}, ""
 
-        def _file(self, chat_id: int, name: str, view: bool):
+        def _file(self, chat_id: int, name: str, view: bool, inline: bool = False):
             """Agent shu suhbatda yaratgan fayl: yuklab beradi yoki (view) qum qutisidagi ko'rinish sahifasini beradi."""
             path = safe_file_path(app.files_dir(chat_id), name) or safe_file_path(app.uploads_dir(chat_id), name)
             if path is None:
@@ -889,7 +894,8 @@ def make_handler(app: App):
             ctype = FILE_TYPES.get(path.suffix.lower(), "application/octet-stream")  # .html faqat ko'rinishda ochiladi
             # Content-Disposition brauzerdagi download= atributidan ustun turadi, shuning uchun
             # biriktirmaning diskdagi vaqt belgisi emas, foydalanuvchi bergan nom yuboriladi.
-            self._send(200, path.read_bytes(), ctype, download=shown_name(name))
+            is_image = path.suffix.lower() in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
+            self._send(200, path.read_bytes(), ctype, download=shown_name(name), inline=inline and is_image)
 
         def _stream(self, chat_id: int, local_desktop: bool = False):
             """Suhbat hodisalari oqimi (SSE). Ulanish uzilguncha ochiq turadi."""
