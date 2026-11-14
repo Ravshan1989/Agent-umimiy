@@ -97,8 +97,11 @@ class Orchestrator:
         top_score = max((points for points, _ in ranked), default=0)
         if top_score:
             return next(agent for points, agent in ranked if points == top_score)
-        # mos yo'nalish ham, tavsif ham yo'q: sinov (echo) agentidan ko'ra haqiqiy agent afzal
-        return next((a for a in pool if a.kind != "echo"), pool[0])
+        # Mos yo'nalish ham, tavsif ham yo'q (masalan oddiy "salom"): lokal Ollama agenti
+        # birinchi o'ringa chiqadi — u tarmoqsiz, tez ishlaydi va bepul bulut shlyuzidagi
+        # kechikish/limitlarga bog'liq emas. Keyin sinov (echo) bo'lmagan haqiqiy agent.
+        return (next((a for a in pool if a.kind == "ollama"), None)
+                or next((a for a in pool if a.kind != "echo"), pool[0]))
 
     @staticmethod
     def _cancelled(result: Result) -> bool:

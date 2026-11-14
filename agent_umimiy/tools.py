@@ -226,9 +226,13 @@ def describe_agent(a: dict) -> str:
 def roster_text(ctx: Context, agent: str) -> str:
     if not ctx.roster:
         return ""
-    text = (f"\n\nYou are the agent named '{agent}'. This desktop app (Agent Umimiy) combines these agents:\n"
+    text = (f"\n\nYou are the agent named '{agent}'. This '{agent}' name is an internal routing id (often a raw "
+            "technical gateway or model name such as 'freellmapi', 'openrouter' or 'ollama'); it is NOT how you "
+            "present yourself to the user. When greeting or introducing yourself, speak as the assistant \"Agent Umimiy\" "
+            f"— never say you are the '{agent}' agent and never surface this internal name in a reply. "
+            "This desktop app (Agent Umimiy) combines these agents:\n"
             + "\n".join(describe_agent(a) for a in ctx.roster)
-            + "\nIf the user asks which agents exist, list ALL of them (not only yourself).")
+            + "\nIf the user explicitly asks which agents exist, you may then list ALL of them by name (not only yourself).")
     if ctx.delegate and len(ctx.roster) > 1:
         text += " You may consult another agent with the ask_agent tool when its help is useful or the user asks for it."
     return text
