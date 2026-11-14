@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
-  Activity, BarChart3, Bell, Bot, Boxes, CalendarClock, Check, CheckCircle2, ChevronDown, ChevronRight,
+  Activity, BarChart3, Bell, Bot, Boxes, CalendarClock, Camera, Check, CheckCircle2, ChevronDown, ChevronRight,
   Clock3, Database, Download, FileSpreadsheet, FileText, Folder, FolderKanban, Globe2, Home, Layers,
   LayoutGrid, Loader2, LogOut, Menu, MessageSquare, Mic, Moon, Paperclip, Plus, Puzzle, Search, Send,
   Settings, ShieldCheck, SlidersHorizontal, Sparkles, Square, Sun, Trash2, TriangleAlert, Volume2, X, Zap,
@@ -21,13 +21,33 @@ type ApiError = Error & { code?: number };
 type AutoJob = { id: number; title: string; prompt: string; agent: string; interval_minutes: number; enabled: boolean; last_run: number; last_status: string; last_result: string };
 type RagHit = { path: string; name: string; snippet: string };
 type TelegramInfo = { enabled: boolean; status: string; bot_username: string; allowed_username: string; error: string };
-type Workspace = { project: string; plugins: { name: string; transport: string; enabled: boolean }[]; skills: { name: string; description: string; source: string }[]; automation: { available: boolean; reason: string; jobs?: AutoJob[] }; rag?: { indexed: number }; telegram?: TelegramInfo; database: { engine: string; status: string; users: number; chats: number } };
+type AgentStat = { agent: string; calls: number; errors: number; avg_seconds: number };
+type AnalyticsInfo = { user_messages: number; agent_messages: number; errors: number; files_created: number; by_agent: AgentStat[] };
+type Workspace = { project: string; plugins: { name: string; transport: string; enabled: boolean }[]; skills: { name: string; description: string; source: string }[]; automation: { available: boolean; reason: string; jobs?: AutoJob[] }; rag?: { indexed: number }; telegram?: TelegramInfo; analytics?: AnalyticsInfo; database: { engine: string; status: string; users: number; chats: number } };
 type Task = { id: number; text: string; when: string; done: boolean };
 type Approval = { id: string; agent: string; kind: string; title: string; detail: string };
 type SpeechRec = { lang: string; interimResults: boolean; start: () => void; stop: () => void; onresult: ((e: { results: { 0: { transcript: string } }[] }) => void) | null; onend: (() => void) | null; onerror: (() => void) | null };
 const MAX_FILE = 15 * 1024 * 1024;
 const NAV: [string, typeof Home][] = [["Bosh sahifa", Home], ["Suhbat", MessageSquare], ["Agentlar", Bot], ["Fayllar", FileText], ["Loyihalar", FolderKanban], ["Plaginlar", Puzzle], ["Avtomatlashtirish", Boxes], ["Hisobotlar", BarChart3], ["Ma’lumotlar bazasi", Database], ["Sozlamalar", Settings]];
-const WORKSPACE_VIEWS = ["Bosh sahifa", "Loyihalar", "Plaginlar", "Avtomatlashtirish", "Ma’lumotlar bazasi"];
+const WORKSPACE_VIEWS = ["Bosh sahifa", "Loyihalar", "Plaginlar", "Avtomatlashtirish", "Hisobotlar", "Ma’lumotlar bazasi"];
+const I18N: Record<"ru" | "en", Record<string, string>> = {
+  ru: {
+    "Bosh sahifa": "Главная", "Suhbat": "Чат", "Agentlar": "Агенты", "Fayllar": "Файлы", "Loyihalar": "Проекты",
+    "Plaginlar": "Плагины", "Avtomatlashtirish": "Автоматизация", "Hisobotlar": "Отчёты", "Ma’lumotlar bazasi": "База данных",
+    "Sozlamalar": "Настройки", "Yangi suhbat": "Новый чат", "Agent Umimiy bilan suhbat": "Чат с Agent Umimiy",
+    "Sizning ko‘p funksiyali AI yordamchingiz": "Ваш многофункциональный ИИ-помощник",
+    "Faol agentlar": "Активные агенты", "Vazifalar": "Задачи", "Server: Ulangan": "Сервер: Подключён",
+    "Avtomatik agent": "Авто-выбор агента", "Xabaringizni yozing...": "Введите сообщение...",
+  },
+  en: {
+    "Bosh sahifa": "Dashboard", "Suhbat": "Chat", "Agentlar": "Agents", "Fayllar": "Files", "Loyihalar": "Projects",
+    "Plaginlar": "Plugins", "Avtomatlashtirish": "Automation", "Hisobotlar": "Analytics", "Ma’lumotlar bazasi": "Database",
+    "Sozlamalar": "Settings", "Yangi suhbat": "New chat", "Agent Umimiy bilan suhbat": "Chat with Agent Umimiy",
+    "Sizning ko‘p funksiyali AI yordamchingiz": "Your multi-functional AI assistant",
+    "Faol agentlar": "Active agents", "Vazifalar": "Tasks", "Server: Ulangan": "Server: Connected",
+    "Avtomatik agent": "Auto-select agent", "Xabaringizni yozing...": "Type your message...",
+  },
+};
 const PROMPTS: [string, string, typeof Home, string][] = [
   ["Excel ma’lumotni tahlil qil", "Biriktirilgan Excel faylni tahlil qilib ber", FileSpreadsheet, "excel"],
   ["Word hujjat tayyorla", "Word hujjat tayyorlab ber: ", FileText, "word"],
@@ -291,7 +311,8 @@ function App() {
     const Recognition = scope.SpeechRecognition || scope.webkitSpeechRecognition;
     if (!Recognition) { toast.info("Bu brauzer ovozli kiritishni qo‘llamaydi"); return; }
     const rec = new Recognition();
-    rec.lang = "uz-UZ"; rec.interimResults = false;
+    rec.lang = settings.lang === "ru" ? "ru-RU" : settings.lang === "en" ? "en-US" : "uz-UZ";
+    rec.interimResults = false;
     rec.onresult = (e) => { const said = e.results[0][0].transcript; setMessage((current) => current ? `${current} ${said}` : said); };
     rec.onerror = () => toast.error("Ovozni aniqlab bo‘lmadi");
     rec.onend = () => { recognition.current = null; setListening(false); };
@@ -304,10 +325,21 @@ function App() {
     const clean = text.replace(/[#*`_~[\]()>-]/g, " ").slice(0, 1500);
     const u = new SpeechSynthesisUtterance(clean);
     const voices = window.speechSynthesis.getVoices();
-    const preferred = voices.find((v) => /uz|tr|ru/i.test(v.lang));
+    const targetRe = settings.lang === "ru" ? /ru/i : settings.lang === "en" ? /en/i : /uz|tr|ru/i;
+    const preferred = voices.find((v) => targetRe.test(v.lang));
     if (preferred) u.voice = preferred;
-    u.lang = preferred?.lang || "uz-UZ";
+    u.lang = preferred?.lang || (settings.lang === "ru" ? "ru-RU" : settings.lang === "en" ? "en-US" : "uz-UZ");
     window.speechSynthesis.speak(u);
+  }
+
+  async function captureScreenshot() {
+    try {
+      const res = await api<{ name: string; data: string }>("/api/desktop/screenshot", {});
+      setAttachments((current) => [...current, { name: res.name, data: res.data }].slice(0, 6));
+      toast.success("Ekran rasmi biriktirildi");
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
   }
 
   function fillPrompt(text: string, pickFile = false) {
@@ -441,6 +473,7 @@ function App() {
     return () => { alive = false; };
   }, [activeView, desktop]);
 
+  const t = useCallback((key: string) => settings.lang === "uz" ? key : (I18N[settings.lang]?.[key] || key), [settings.lang]);
   const generatedFiles = useMemo(() => records.filter((r) => r.k === "act" && r.kind === "file"), [records]);
   const completed = records.filter((r) => r.k === "agent").length;
   const notices = useMemo(() => records.filter(isNotice), [records]);
@@ -448,17 +481,17 @@ function App() {
   const openTasks = tasks.filter((task) => !task.done).length;
   const projectCount = workspace?.project ? 1 : 0;
   const metrics = [
-    { label: "Faol agentlar", value: agents.length, icon: Layers, color: "violet", hint: "onlayn" },
-    { label: "Loyihalar", value: projectCount, icon: FileText, color: "blue", hint: projectCount ? "faol" : "sozlanmagan" },
-    { label: "Vazifalar", value: tasks.length, icon: BarChart3, color: "pink", hint: `${openTasks} ochiq` },
-    { label: "Fayllar", value: generatedFiles.length, icon: Folder, color: "amber", hint: "joriy suhbat" },
+    { label: t("Faol agentlar"), value: agents.length, icon: Layers, color: "violet", hint: "onlayn" },
+    { label: t("Loyihalar"), value: projectCount, icon: FileText, color: "blue", hint: projectCount ? "faol" : "sozlanmagan" },
+    { label: t("Vazifalar"), value: tasks.length, icon: BarChart3, color: "pink", hint: `${openTasks} ochiq` },
+    { label: t("Fayllar"), value: generatedFiles.length, icon: Folder, color: "amber", hint: "joriy suhbat" },
   ];
   const fileHref = (name?: string) => chatId ? `/api/file?chat=${chatId}&name=${encodeURIComponent(name || "")}` : "#";
   const agentIcons = [FileText, BarChart3, Globe2, FileSpreadsheet];
   const agentTones = ["blue", "", "cyan", "amber"];
 
   const chatPanel = (full: boolean) => <section className={full ? "workspace panel chat-full" : "workspace panel"}>
-    <div className="workspace-title"><div className="spark-badge"><Sparkles /></div><h2>Agent Umimiy bilan suhbat</h2><button className="new-chat-btn" onClick={createChat}><Plus size={15} /> Yangi suhbat</button></div>
+    <div className="workspace-title"><div className="spark-badge"><Sparkles /></div><h2>{t("Agent Umimiy bilan suhbat")}</h2>{chatId && records.length > 0 && <><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=docx`} download title="Word (.docx) yuklab olish"><Download size={14} /> .docx</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=md`} download title="Markdown (.md) yuklab olish"><Download size={14} /> .md</a></>}<button className="new-chat-btn" onClick={createChat}><Plus size={15} /> {t("Yangi suhbat")}</button></div>
     {!records.length && !busy && !Object.keys(live).length ? <>
       <p className="workspace-sub">Savolingizni yozing yoki quyidagi misollardan birini tanlang:</p>
       <div className="prompt-chips">{PROMPTS.map(([label, text, Icon, tone], i) => <button type="button" key={label} onClick={() => fillPrompt(text, i === 0)}><span className={`chip-icon ${tone}`}><Icon /></span>{label}</button>)}</div>
@@ -476,10 +509,11 @@ function App() {
     </div>}
     <form className="composer-row" onSubmit={sendMessage}><input ref={fileInput} type="file" multiple hidden accept="image/*,.pdf,.docx,.xlsx,.pptx,.csv,.tsv,.txt,.md,.json,.py,.js,.html,.log" onChange={(e) => { void addFiles(e.target.files); e.currentTarget.value = ""; }} />
       <button type="button" className="round-btn" onClick={() => fileInput.current?.click()} title="Fayl biriktirish"><Paperclip /></button>
-      <div className="composer"><div className="composer-main">{attachments.length > 0 && <div className="attachment-chips">{attachments.map((file, i) => <button type="button" key={i} onClick={() => setAttachments((a) => a.filter((_, n) => n !== i))}>{file.name} <X size={12} /></button>)}</div>}<input ref={composerInput} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Xabaringizni yozing..." onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!busy) void sendMessage(); } }} /></div>
+      {desktop && <button type="button" className="round-btn" onClick={() => void captureScreenshot()} title="Ekran rasmini olish (Screenshot)"><Camera /></button>}
+      <div className="composer"><div className="composer-main">{attachments.length > 0 && <div className="attachment-chips">{attachments.map((file, i) => <button type="button" key={i} onClick={() => setAttachments((a) => a.filter((_, n) => n !== i))}>{file.name} <X size={12} /></button>)}</div>}<input ref={composerInput} value={message} onChange={(e) => setMessage(e.target.value)} placeholder={t("Xabaringizni yozing...")} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!busy) void sendMessage(); } }} /></div>
         <button type="button" className={listening ? "mic-btn on" : "mic-btn"} onClick={toggleMic} title="Ovoz bilan yozish"><Mic /></button></div>
       <button className={busy ? "send-btn stop-btn" : "send-btn"} type="submit" title={busy ? "To‘xtatish" : "Yuborish"} disabled={!busy && !message.trim() && !attachments.length}>{busy ? <Square size={16} /> : <Send size={18} />}</button>
-      <button type="button" className="round-btn" onClick={() => setActiveView("Sozlamalar")} title="Sozlamalar"><SlidersHorizontal /></button></form>
+      <button type="button" className="round-btn" onClick={() => setActiveView("Sozlamalar")} title={t("Sozlamalar")}><SlidersHorizontal /></button></form>
   </section>;
   const filteredChats = chats.filter((chat) => (chat.title || "Yangi suhbat").toLowerCase().includes(search.toLowerCase()));
 
@@ -491,17 +525,22 @@ function App() {
     <aside className={`sidebar${mobileNav ? " open" : ""}${navHidden ? " hidden" : ""}`}>
       <div className="brand"><div className="brand-mark">AU</div><div><b>Agent Umimiy</b><span>AI platformasi</span></div><button className="icon-btn mobile-close" onClick={() => setMobileNav(false)}><X /></button></div>
       <nav>
-        {NAV.map(([label, Icon]) => <button key={label} title={label} className={activeView === label ? "nav-item selected" : "nav-item"} onClick={() => { setActiveView(label); setMobileNav(false); }}><Icon size={18} /><span>{label}</span>{activeView === label && <ChevronRight size={15} />}</button>)}
+        {NAV.map(([label, Icon]) => <button key={label} title={t(label)} className={activeView === label ? "nav-item selected" : "nav-item"} onClick={() => { setActiveView(label); setMobileNav(false); }}><Icon size={18} /><span>{t(label)}</span>{activeView === label && <ChevronRight size={15} />}</button>)}
       </nav>
-      <div className="sidebar-section"><div className="sidebar-section-title">SO‘NGGI SUHBATLAR <button onClick={createChat} title="Yangi suhbat"><Plus size={14} /></button></div>
-        <div className="chat-list">{filteredChats.slice(0, 6).map((chat) => <div className={chat.id === chatId ? "chat-link active" : "chat-link"} key={chat.id}><button onClick={() => openChat(chat.id)}><MessageSquare size={13} /><span>{chat.title || "Yangi suhbat"}</span></button><button className="delete-chat" onClick={() => void deleteChat(chat.id)} title="O‘chirish"><Trash2 size={13} /></button></div>)}</div>
+      <div className="sidebar-section"><div className="sidebar-section-title">SO‘NGGI SUHBATLAR <button onClick={createChat} title={t("Yangi suhbat")}><Plus size={14} /></button></div>
+        <div className="chat-list">{filteredChats.slice(0, 6).map((chat) => <div className={chat.id === chatId ? "chat-link active" : "chat-link"} key={chat.id}><button onClick={() => openChat(chat.id)}><MessageSquare size={13} /><span>{chat.title || t("Yangi suhbat")}</span></button><button className="delete-chat" onClick={() => void deleteChat(chat.id)} title="O‘chirish"><Trash2 size={13} /></button></div>)}</div>
       </div>
       <div className="sidebar-bottom"><div className="side-bot"><Robot /></div></div>
     </aside>
     <main className="main-area">
       <header className="topbar"><button className="icon-btn menu-btn" title="Menyu" onClick={() => { if (window.innerWidth <= 900) setMobileNav(true); else setNavHidden(!navHidden); }}><Menu /></button><div className="search"><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Qidirish (suhbat, fayl, agent)..." /><Search size={17} /></div>
-        <label className="agent-select"><Bot size={16} /><select value={selectedAgent} onChange={(e) => setSelectedAgent(e.target.value)} aria-label="Agent tanlash">{agents.map((a) => <option key={a.name} value={a.name} title={a.description || undefined}>{a.name === "auto" ? "Avtomatik agent" : a.name}</option>)}</select><ChevronDown size={14} /></label>
-        <div className="server-pill"><i /> Server: Ulangan</div>
+        <label className="agent-select"><Bot size={16} /><select value={selectedAgent} onChange={(e) => setSelectedAgent(e.target.value)} aria-label="Agent tanlash">
+          {agents.map((a) => <option key={a.name} value={a.name} title={a.description || undefined}>{a.name === "auto" ? t("Avtomatik agent") : a.name}</option>)}
+          <option value="broadcast">⚡ Barcha agentlar (Broadcast)</option>
+          <option value="pipeline">🔗 Zanjir rejimi (Pipeline)</option>
+          <option value="consensus">⚖️ Konsensus (Hakam xulosasi)</option>
+        </select><ChevronDown size={14} /></label>
+        <div className="server-pill"><i /> {t("Server: Ulangan")}</div>
         <div className="topbar-right">
           <button className="icon-btn notification" title="Bildirishnomalar" onClick={() => { setSeenNotices(notices.length); setActiveView("Bosh sahifa"); window.setTimeout(() => noticePanel.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 50); }}><Bell />{unread > 0 && <em>{unread}</em>}</button>
           <button className="icon-btn" title="Plaginlar" onClick={() => setActiveView("Plaginlar")}><LayoutGrid /></button>
@@ -564,13 +603,17 @@ function App() {
               <article className="stat-card pink"><div className="stat-copy"><span>Foydalanuvchilar</span><b>{workspace.database.users}</b></div></article>
               <article className="stat-card amber"><div className="stat-copy"><span>Suhbatlar</span><b>{workspace.database.chats}</b></div></article>
             </div>
-            <p className="settings-note">Ma’lumotlar bazasi holati ko‘rsatiladi. SQL buyruqlari, zaxira nusxa va o‘chirish amallari xavfsizlik uchun web orqali ochilmagan.</p>
+            {desktop && <div className="classic-box">
+              <div className="row-copy"><b>SQLite ma’lumotlar bazasi zaxira nusxasi (Backup)</b><span>Barcha suhbatlar, hisoblar va tarixni bitta .sqlite3 fayl sifatida yuklab oling.</span></div>
+              <a className="primary-btn" href="/api/desktop/backup" download><Download size={15} /> Bazani zaxiralash (.sqlite3)</a>
+            </div>}
+            <p className="settings-note">Ma’lumotlar bazasi holati ko‘rsatiladi. SQL buyruqlari va o‘chirish amallari xavfsizlik uchun web orqali ochilmagan.</p>
           </>}
         </section>}
         {activeView === "Sozlamalar" && <section className="panel settings-page">
-          <div className="panel-heading"><h2><Settings /> Sozlamalar</h2><span className="text-link">Xavfsiz web sozlamalari</span></div>
+          <div className="panel-heading"><h2><Settings /> {t("Sozlamalar")}</h2><span className="text-link">Xavfsiz web sozlamalari</span></div>
           <div className="settings-grid">
-            <div className="settings-info"><b>Interfeys tili</b><span>O‘zbekcha · boshqa tillar tarjimasi hali ulanmagan</span></div>
+            <label>Interfeys tili<select value={settings.lang} disabled={settingsSaving} onChange={(e) => void saveSettings({ ...settings, lang: e.target.value as WebSettings["lang"] })}><option value="uz">O‘zbekcha</option><option value="ru">Русский</option><option value="en">English</option></select></label>
             <label>Ko‘rinish<select value={settings.theme} disabled={settingsSaving} onChange={(e) => void saveSettings({ ...settings, theme: e.target.value as WebSettings["theme"] })}><option value="dark">Qorong‘i</option><option value="light">Yorug‘</option></select></label>
             <label>Asosiy rang<select value={settings.accent} disabled={settingsSaving} onChange={(e) => void saveSettings({ ...settings, accent: e.target.value as WebSettings["accent"] })}><option value="violet">Neon binafsha</option><option value="blue">Ko‘k</option><option value="cyan">Moviy</option><option value="emerald">Zumrad</option></select></label>
           </div>
@@ -628,14 +671,19 @@ function App() {
           {generatedFiles.length ? generatedFiles.slice().reverse().map((file, i) => <div className="file-row" key={i}><div className="file-icon blue"><FileText /></div><b>{file.text}</b><a href={chatId ? `/api/file?chat=${chatId}&name=${encodeURIComponent(file.text || "")}` : "#"} download><Download size={14} /> Yuklab olish</a></div>) : <div className="empty-state"><FileText /><span>Agent yaratgan fayllar hozircha yo‘q. Chatda fayl yaratishni so‘rang.</span></div>}
         </section>}
         {activeView === "Hisobotlar" && <section className="panel settings-page">
-          <div className="panel-heading"><h2><Activity /> Hisobotlar</h2><span className="text-link">Joriy hisob ma’lumotlari</span></div>
+          <div className="panel-heading"><h2><Activity /> {t("Hisobotlar")}</h2><span className="text-link">Jonli analitika va agentlar tezligi</span></div>
           <div className="stats-grid">
-            <article className="stat-card violet"><div className="stat-icon"><Bot /></div><div className="stat-copy"><span>Agentlar</span><b>{agents.length}</b></div></article>
+            <article className="stat-card violet"><div className="stat-icon"><Bot /></div><div className="stat-copy"><span>{t("Agentlar")}</span><b>{agents.length}</b></div></article>
             <article className="stat-card blue"><div className="stat-icon"><MessageSquare /></div><div className="stat-copy"><span>Suhbatlar</span><b>{chats.length}</b></div></article>
-            <article className="stat-card pink"><div className="stat-icon"><Activity /></div><div className="stat-copy"><span>Joriy chat javoblari</span><b>{completed}</b></div></article>
-            <article className="stat-card amber"><div className="stat-icon"><Folder /></div><div className="stat-copy"><span>Joriy chat fayllari</span><b>{generatedFiles.length}</b></div></article>
+            <article className="stat-card pink"><div className="stat-icon"><Activity /></div><div className="stat-copy"><span>Jami javoblar</span><b>{workspace?.analytics?.agent_messages ?? completed}</b></div></article>
+            <article className="stat-card amber"><div className="stat-icon"><Folder /></div><div className="stat-copy"><span>Yaratilgan fayllar</span><b>{workspace?.analytics?.files_created ?? generatedFiles.length}</b></div></article>
           </div>
-          <p className="settings-note">Bu ko‘rsatkichlar serverdan olinadi. To‘liq tarixiy tahlil uchun alohida analitika ombori hali mavjud emas.</p>
+          <div className="panel-heading"><b>Agentlar javob tezligi va faolligi</b><span className="text-link">{workspace?.analytics?.by_agent?.length ?? 0} ta agent</span></div>
+          {(workspace?.analytics?.by_agent || []).length ? (workspace?.analytics?.by_agent || []).map((stat) => <div className="agent-row" key={stat.agent}>
+            <div className="file-icon cyan"><Zap /></div>
+            <div className="row-copy"><b>{stat.agent}</b><span>So‘rovlar: {stat.calls} ta · Xatolar: {stat.errors} ta</span></div>
+            <span className="online"><i /> O‘rtacha: {stat.avg_seconds ? `${stat.avg_seconds} s` : "—"}</span>
+          </div>) : <div className="empty-state"><Activity /><span>Agentlar javob bergandan so‘ng ularning tezlik statistikasi shu yerda chiqadi.</span></div>}
         </section>}
         {activeView === "Suhbat" && chatPanel(true)}
         {activeView === "Bosh sahifa" && <div className="dash">

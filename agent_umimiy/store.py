@@ -227,3 +227,72 @@ class Store:
 
     def records(self, chat_id: int) -> list[dict]:
         return [json.loads(r[0]) for r in self._all("SELECT body FROM records WHERE chat_id = ? ORDER BY id", (chat_id,))]
+
+    def analytics(self, user_id: int) -> dict:
+        """Foydalanuvchi suhbatlari bo'yicha real-vaqt analitikasi va agentlar tezligi."""
+        rows = self._all(
+            "SELECT r.body FROM records r JOIN chats c ON c.id = r.chat_id WHERE c.user_id = ? ORDER BY r.id",
+            (user_id,),
+        )
+        user_msgs = agent_msgs = errors = files = 0
+        per_agent: dict[str, dict] = {}
+        for (raw,) in rows:
+            try:
+                item = json.loads(raw)
+            except ValueError:
+                continue
+            k = item.get("k")
+            if k == "user":
+                user_msgs += 1
+            elif k == "act" and item.get("kind") == "file":
+                files += 1
+            elif k == "agent":
+                name = str(item.get("name") or item.get("agent") or "Agent")
+                entry = per_agent.setdefault(name, {"agent": name, "calls": 0, "errors": 0, "sec_sum": 0.0, "sec_n": 0})
+                entry["calls"] += 1
+                if item.get("err"):
+                    errors += 1
+                    entry["errors"] += 1
+                else:
+                    agent_msgs += 1
+                    meta = str(item.get("meta") or "")
+                    if meta.endswith(" s"):
+                        try:
+                            sec = float(meta[:-2].strip())
+                            entry["sec_sum"] += sec
+                            entry["sec_n"] += 1
+                        except ValueError:
+                            pass
+        by_agent = [
+            {
+                "agent": v["agent"],
+                "calls": v["calls"],
+                "errors": v["errors"],
+                "avg_seconds": round(v["sec_sum"] / v["sec_n"], 2) if v["sec_n"] else 0.0,
+            }
+            for v in sorted(per_agent.values(), key=lambda x: (-x["calls"], x["agent"]))
+        ]
+        return {
+            "user_messages": user_msgs,
+            "agent_messages": agent_msgs,
+            "errors": errors,
+            "files_created": files,
+            "by_agent": by_agent,
+        }
+
+    def backup_bytes(self) -> bytes:
+        """SQLite bazasining to'liq va xavfsiz zaxira nusxasini baytlarda qaytaradi."""
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".sqlite3", delete=False) as tmp:
+            tmp_path = Path(tmp.name)
+        try:
+            with self.lock:
+                dst = sqlite3.connect(str(tmp_path))
+                try:
+                    self.db.backup(dst)
+                finally:
+                    dst.close()
+            return tmp_path.read_bytes()
+        finally:
+            tmp_path.unlink(missing_ok=True)
+

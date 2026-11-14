@@ -1,0 +1,5 @@
+pypdf
+qrcode
+pillow
+python-docx
+openpyxl

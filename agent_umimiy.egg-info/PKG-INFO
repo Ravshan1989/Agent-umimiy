@@ -1,0 +1,386 @@
+Metadata-Version: 2.4
+Name: agent-umimiy
+Version: 0.3.0
+Summary: Barcha AI agentlarni birlashtiruvchi desktop ilova
+License: MIT
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pypdf
+Requires-Dist: qrcode
+Requires-Dist: pillow
+Requires-Dist: python-docx
+Requires-Dist: openpyxl
+Dynamic: license-file
+
+<div align="center">
+
+# 🤖 Agent Umimiy
+
+**Barcha AI agentlarni bitta desktop ilovada birlashtiruvchi o'zbekcha dastur**
+
+Claude, ChatGPT, Gemini, Ollama va boshqa modellar bilan bitta oynada ishlang:
+agentlar fayllaringizni o'qiydi, tahrirlaydi, brauzerni boshqaradi va bir-biriga yordam beradi.
+
+![Platforma](https://img.shields.io/badge/platforma-Windows-0078D6?logo=windows&logoColor=white)
+![Versiya](https://img.shields.io/badge/versiya-0.3.0-orange)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![Litsenziya](https://img.shields.io/badge/litsenziya-MIT-green)
+![Til](https://img.shields.io/badge/interfeys-o'zbek%20tilida-1EB53A)
+[![Testlar](https://github.com/Ravshan1989/Agent-umimiy/actions/workflows/tests.yml/badge.svg)](https://github.com/Ravshan1989/Agent-umimiy/actions/workflows/tests.yml)
+
+[📥 Yuklab olish](#-ornatish) · [✨ Imkoniyatlar](#-imkoniyatlar) · [⚙️ Sozlash](#️-sozlash) · [📖 Qo'llanma](#-batafsil-qollanma) · [👨‍💻 Dasturchilar](#-dasturchilar-uchun)
+
+🌐 **O'zbekcha** · [English](README.en.md) · [Русский](README.ru.md)
+
+</div>
+
+---
+
+## 📌 Bu nima?
+
+**Agent Umimiy** — bir nechta sun'iy intellekt agentlarini bitta joyga yig'adigan desktop ilova.
+Har bir xizmat uchun alohida sayt yoki dastur ochish shart emas: hammasi bitta qulay, qorong'i
+mavzudagi oynada, **to'liq o'zbek tilida**.
+
+Ilova kompyuteringizdagi mavjud agentlarni **o'zi topadi** — hech narsa yozib o'tirishingiz kerak emas.
+
+## 📸 Ko'rinishi
+
+> Skrinshotlar `docs/screenshots/` papkasiga qo'shiladi ([qo'llanma](docs/screenshots/README.md)).
+> Fayllarni qo'shganingizdan so'ng quyidagi izohni oching — rasmlar o'zi chiqadi.
+
+<!--
+<div align="center">
+<img src="docs/screenshots/main.png" alt="Asosiy oyna" width="800">
+<br><br>
+<img src="docs/screenshots/settings.png" alt="Sozlamalar" width="420">
+<img src="docs/screenshots/phone.png" alt="Telefondan boshqarish" width="240">
+</div>
+-->
+
+## ✨ Imkoniyatlar
+
+| | Imkoniyat | Tavsif |
+|---|---|---|
+| 🧠 | **Ko'p modelli** | Anthropic (Claude), OpenAI va unga mos API'lar (OpenRouter, Groq, LM Studio), Google Gemini, Ollama, FreeLLMAPI |
+| 🔍 | **Avtomatik aniqlash** | Kompyuterdagi Ollama, LM Studio, FreeLLMAPI va Claude CLI'ni o'zi topib, agent sifatida taklif qiladi |
+| 🛠 | **Haqiqiy agent rejimi** | Agent loyiha papkasida fayllarni o'qiydi, yozadi, tahrirlaydi, qidiradi va buyruqlarni ishga tushiradi (ruxsatingiz bilan) |
+| 🤝 | **Agentlar jamoasi** | Bir agent boshqasidan yordam so'rashi mumkin — masalan, Claude Gemini'dan maslahat oladi |
+| 🌐 | **Brauzerni boshqarish** | Agent Edge/Chrome'ni ochadi, sahifani o'qiydi, tugma bosadi, matn yozadi. Qo'shimcha dastur kerak emas |
+| 📎 | **Fayl biriktirish** | Rasm, PDF, Word va matn fayllarini suhbatga qo'shish |
+| 📊 | **Hujjatlar tahlili** | Excel (xlsx), PowerPoint (pptx), Word (docx) va CSV jadvallarini o'qish va tahlil qilish |
+| 🔌 | **MCP plaginlari** | GitHub, Notion, fayllar va boshqa tayyor MCP serverlarini agentlarga asbob sifatida ulash |
+| 📚 | **Ko'nikmalar (Skills)** | `SKILL.md` ko'rsatmalari bilan agentga ish uslubini o'rgatish. `~/.claude/skills` papkasi ham avtomatik topiladi |
+| 📱 | **Telefondan boshqarish** | QR-kodni skanerlang — chat telefon brauzerida ochiladi, ruxsat so'rovlari ham telefonga keladi |
+| 💾 | **Suhbatlar saqlanadi** | Dasturni yopib ochganingizda suhbatlar joyida qoladi |
+| 🌿 | **Git yordamchisi** | Loyihadagi Git holatini oddiy tilda ko'rsatadi |
+
+## 📥 O'rnatish
+
+**Windows 10/11 (64-bit)**
+
+1. **[Oxirgi nashr (Releases)](https://github.com/Ravshan1989/Agent-umimiy/releases/latest)** sahifasidan
+   **`AgentUmimiy-Setup.exe`** faylini yuklab oling.
+2. Faylni ikki marta bosing va o'rnating: ish stolida «Agent Umimiy» yorlig'i paydo bo'ladi.
+3. Windows ogohlantirsa: **«Qo'shimcha ma'lumot»** → **«Baribir ishga tushirish»**.
+
+> [!NOTE]
+> Windows ogohlantirishi dastur raqamli imzo bilan imzolanmaganligi uchun chiqadi — bu yangi va
+> mustaqil dasturlar uchun odatiy holat.
+
+**Linux (64-bit)**
+
+1. **[Oxirgi nashr](https://github.com/Ravshan1989/Agent-umimiy/releases/latest)** sahifasidan **`AgentUmimiy-Linux-x86_64.tar.gz`** ni yuklab oling.
+2. Oching va ishga tushiring: `tar -xzf AgentUmimiy-Linux-x86_64.tar.gz && ./AgentUmimiy/AgentUmimiy`
+3. Skrinshotni Ctrl+V bilan qo'yish uchun `xclip` (X11) yoki `wl-clipboard` (Wayland) o'rnatilgan bo'lsin.
+
+**Telefon (iPhone, Android)**: alohida ilova yo'q. Kompyuter yoki serverda [veb-server](#veb-server-lokal-tarmoqda-kop-kishi-ishlatadi) ni yoqib, telefonda ilova kabi ishlatasiz.
+
+## ⚙️ Sozlash
+
+### Agent qo'shish
+
+Ilova ishga tushganda mavjud agentlarni o'zi qidiradi. Qolganini **⚙ Sozlamalar → ➕ Qo'shish** orqali qo'shing: turini tanlang, API kalitni qo'ying, **Sinab ko'rish** ni bosing. API kalitni muhit o'zgaruvchisi orqali ham berish mumkin:
+
+| Xizmat | Muhit o'zgaruvchisi | Standart model |
+|---|---|---|
+| Anthropic (Claude) | `ANTHROPIC_API_KEY` | `claude-sonnet-5-5` |
+| OpenAI | `OPENAI_API_KEY` | `gpt-4o` |
+| Google Gemini | `GEMINI_API_KEY` | `gemini-2.0-flash` |
+| Ollama / LM Studio | kerak emas (lokal) | kompyuterdagi modellar |
+
+### Telefondan boshqarish
+
+1. Ilovada **«Telefondan boshqarish»** bo'limini oching va yoqing.
+2. Telefon va kompyuter **bitta Wi-Fi tarmog'ida** bo'lsin.
+3. Ekrandagi QR-kodni telefon kamerasi bilan skanerlang.
+
+Kirish maxfiy kalit (token) bilan himoyalangan.
+
+### Sozlamalar qayerda saqlanadi?
+
+```
+%APPDATA%\AgentUmimiy\agents.json
+```
+
+### Loyiha ko'rsatmalari
+
+Loyiha papkasida `CLAUDE.md` yoki `AGENTS.md` fayli bo'lsa, agent uni har doim hisobga oladi.
+
+## 🔒 Xavfsizlik
+
+- Agent fayllarni faqat **siz tanlagan loyiha papkasida** o'zgartiradi.
+- Buyruq ishga tushirish va fayl yozish **ruxsatingiz bilan** bajariladi.
+- Brauzer alohida profilda ishlaydi — asosiy brauzeringiz ma'lumotlariga tegmaydi.
+- API kalitlaringiz faqat sizning kompyuteringizda saqlanadi.
+
+## 📖 Batafsil qo'llanma
+
+### Loyiha bilan ishlash (dasturlash yordamchisi)
+
+Yuqoridagi **«Loyiha papkasini tanlash»** tugmasi bilan o'z loyihangiz papkasini tanlang. Shundan so'ng agentlar (Claude, ChatGPT-mos, Ollama) o'zlari:
+
+- papka va fayllarni **o'qiydi**, kod ichidan **qidiradi** (so'rashsiz);
+- fayl **yaratadi / tahrirlaydi** va **buyruq ishga tushiradi** (testlar, o'rnatish...) — **har safar ruxsat so'raydi**, o'zgarish (diff) ko'rsatiladi;
+- «Shu suhbatda doim ruxsat» tugmasi ruxsat so'rashni o'chiradi; **■** tugmasi ishni to'xtatadi.
+
+Xavfsizlik: agent faqat tanlangan papka ichida ishlaydi (tashqariga chiqolmaydi, `.git` ga tegmaydi). «Hammasi birga» va «Kengash» rejimlarida bir nechta agent bir vaqtda ishlagani uchun ular **faqat o'qiydi**.
+`claude`, `codex` kabi CLI agentlar tanlangan papkada ishga tushadi.
+
+**Git** tugmasi: nima o'zgargani (oddiy tilda), o'zgarishlarni ko'rish, **Saqlash (commit)**, **Yuborish (push)**, **Olish (pull)**. Git kompyuteringizda o'rnatilgan bo'lishi kerak (git-scm.com); parollar sizning Git sozlamangizdan olinadi.
+
+### Fayllarni o'qish va tahlil qilish
+
+| Fayl | Nima o'qiladi |
+|---|---|
+| **Excel (.xlsx)** | barcha varaqlar, sanalar (2024-03-15), sonlar, mantiqiy qiymatlar; formulalarning hisoblangan natijasi |
+| **PowerPoint (.pptx)** | slayd sarlavhalari, matn, jadvallar, spiker izohlari |
+| **Word (.docx)** | sarlavhalar (#), ro'yxatlar (•), jadvallar |
+| **CSV/TSV** | `,` `;` Tab ajratgichlari va UTF-8/Windows-1251 kodirovkalari avtomatik aniqlanadi |
+| **PDF** | matni; skaner PDF uchun sahifani rasm qilib yuboring (Claude/GPT-4/Gemini o'zi o'qiydi) |
+| **Rasm** | ko'ra oladigan modellar |
+
+Loyiha papkasidagi katta jadvallar uchun agent maxsus asboblardan foydalanadi: **`analyze_data`** (ustunlar, turlari, bo'sh joylar, min/maks/o'rtacha/median/jami, eng ko'p uchraydigan qiymatlar) va **`read_table`** (qatorlarni raqamlari bilan o'qish yoki matn bo'yicha topish). Katta matn fayllari (3 MB+) bo'laklab o'qiladi. Biriktirilgan juda katta jadval o'rniga tahlil va birinchi qatorlar beriladi.
+**Cheklovlar:** eski `.xls/.doc/.ppt` formatlari qo'llanmaydi (yangi formatda saqlab yuboring); rasm ichidagi matnni o'qish (OCR) modelga bog'liq; tahlil sifati tanlangan model kuchiga bog'liq.
+
+### Rasm, PDF va fayllar
+
+Yozish maydonidagi **＋** tugmasi bilan **rasm** (PNG, JPG, GIF, WebP), **PDF**, **Word (.docx)** yoki **matn fayl** biriktiring — agent ularni ko'rib javob beradi. Rasmlarni Claude, ChatGPT-mos modellar, Gemini va ko'rish qobiliyatli Ollama modellari ko'ra oladi. PDF matni boshqa modellarga ham yuboriladi. Cheklov: rasm ≤ 5 MB, PDF ≤ 20 MB.
+
+### Fayl yaratish (Word, Excel)
+
+Agentdan hujjat yoki jadval so'rang: «Shu ma'lumotdan Excel jadval qilib ber», «Word'da xat yozib ber». Agent tayyor **.docx** yoki **.xlsx** fayl yaratadi (matn fayllari ham: .txt, .md, .csv, .html) va chatda ko'rsatadi.
+- **Dastur oynasida:** fayl `Hujjatlar\Agent Umimiy` papkasiga saqlanadi; chatdagi qatorni bossangiz ochiladi.
+- **Veb-serverda:** chatda «Yuklab olish» havolasi chiqadi; faylni faqat shu suhbat egasi ola oladi.
+- Mavjud fayl hech qachon almashtirilmaydi: nom band bo'lsa, raqam qo'shiladi.
+- **Jonli ko'rinish (veb-serverda):** agent yaratgan sahifa, diagramma (`.html`) va jadval (`.xlsx`, `.csv`) chat yonidagi oynada darhol ochiladi; fayl qatoridagi «Ko'rish» tugmasi bilan qayta ochasiz. Diagramma so'rash uchun: «Shu sonlardan diagramma chiz». Sahifa qum qutisida ishlaydi: suhbatlaringizga va hisobingizga kira olmaydi. Dastur oynasida fayl bosilganda brauzer yoki Excel'da ochiladi.
+- Asboblarni qo'llaydigan agentlarda ishlaydi (Claude, OpenAI-mos, Ollama); Gemini va CLI agentlarda hozircha yo'q.
+
+### Internet
+
+Agentlar **internetdan qidirishi** (DuckDuckGo) va **sahifalarni o'qishi** mumkin, kerak bo'lsa sahifani **sizning brauzeringizda ochish**ni (ruxsat bilan) taklif qiladi. Sozlamalarda o'chirib qo'yish mumkin. Xavfsizlik: kompyuter va ichki tarmoq manzillariga (localhost, 192.168.x.x va h.k.) kirish taqiqlangan; sahifadagi matn «buyruq» emas, faqat ma'lumot sifatida qaraladi.
+Saytlarda tugma bosish va forma to'ldirish uchun pastdagi «Agent brauzerda ishlaydi» bo'limiga qarang.
+
+### Suhbatlarni saqlash, ko'rsatmalar, reja
+
+- **Saqlash:** suhbatlar (tablar, tarix, loyiha) `%APPDATA%\AgentUmimiy\chats.json` da saqlanadi va dastur qayta ochilganda tiklanadi (oxirgi 15 ta suhbat). Sozlamalarda o'chirib qo'yish yoki tarixni tozalash mumkin. Fayl shifrlanmagan: maxfiy ma'lumot yozmang yoki saqlashni o'chiring.
+- **Loyiha ko'rsatmalari:** loyiha papkasida `CLAUDE.md`, `AGENTS.md` yoki `AGENT.md` bo'lsa, agent uni avtomatik o'qiydi va qoidalarga amal qiladi.
+- **Reja kartasi:** ko'p bosqichli ishda agent «Reja» ro'yxatini ko'rsatadi va bosqichlarni belgilab boradi.
+- **Markdown:** javoblarda sarlavha, ro'yxat, jadval, `kod`, havola va kod bloklari chiroyli ko'rinadi.
+
+### Telefondan boshqarish
+
+**Sozlamalar → «Telefondan boshqarish» → Yoqish.** Dastur QR-kod ko'rsatadi: telefon kamerasi bilan skanerlang (telefon va kompyuter bir Wi-Fi'da bo'lsin) va chat telefon brauzerida ochiladi. U yerdan yozasiz, fayl/rasm yuborasiz, ishni to'xtatasiz, suhbatlar orasida o'tasiz va **ruxsat so'rovlariga («Fayl o'zgartiriladi», «Buyruq ishga tushadi»...) telefondan javob berasiz**: kompyuterdagi oyna o'zi yopiladi.
+- Kompyuter yoqilgan va dastur ochiq bo'lishi kerak. Sozlamalar, agent va plagin qo'shish faqat kompyuterda.
+- Kirish uzun maxfiy kalit (QR-dagi `t=...`) bilan: noto'g'ri urinishlar bloklanadi. **Kalit parol kabi**: kimgadir ko'rinib qolsa, «Yangi kalit» ni bosing.
+- Ulanish **shifrlanmagan (HTTP)**: faqat ishonchli uy Wi-Fi'ida ishlating (kafe/ommaviy tarmoqda emas). Uydan tashqarida ishlatish uchun Tailscale kabi shifrlangan tunnel o'rnating.
+- Windows xavfsizlik devori birinchi marta so'rasa, «Shaxsiy tarmoqlar» uchun ruxsat bering. Sukut bo'yicha o'chiq.
+
+### Veb-server: lokal tarmoqda ko'p kishi ishlatadi
+
+Dasturni bitta kompyuter yoki serverda ishga tushirasiz, tarmoqdagi odamlar brauzerdan kirib ishlatadi (o'rnatish shart emas).
+
+**Dastur oynasidan:** Sozlamalar → **«Veb-server»** → **Yoqish**. Oynada manzillar va taklif kodi ko'rinadi. Bir marta yoqilgach, dastur har ochilganda server o'zi ishga tushadi.
+
+**Oynasiz (server kompyuterda):**
+
+```bash
+python -m agent_umimiy --serve            # standart: barcha tarmoqlar, 8080-port
+python -m agent_umimiy --serve --port 9000 --host 192.168.1.10
+```
+
+Dastur manzilni va **taklif kodini** chiqaradi. Odamlar manzilni brauzerda ochib, ism, parol va shu kod bilan ro'yxatdan o'tadi. Har kimning o'z suhbatlari bor, javoblar yozilishi bilan ko'rinadi, fayl va skrinshot (Ctrl+V) biriktirish mumkin.
+- Agentlar va API kalitlar kompyuterdagi `agents.json` dan olinadi: hamma **sizning kalitlaringiz va limitingizdan** foydalanadi.
+- Xavfsizlik uchun veb-rejimda agentlar serverdagi fayllarga, buyruqlarga, brauzerga va plaginlarga **tegmaydi**; CLI agentlar (`claude`, `codex`...) ro'yxatda ko'rinmaydi. Suhbat, fayl tahlili va veb-qidiruv ishlaydi.
+- Ma'lumotlar `server.db` (SQLite) faylida, sozlamalar papkasida saqlanadi. Parollar xeshlangan holda turadi.
+- Ulanish **shifrlanmagan (HTTP)**: faqat ishonchli lokal tarmoqda ishlating. Internetga ochish uchun oldiga HTTPS beruvchi proksi (Caddy, nginx) qo'ying. Windows'da devor (firewall) portga ruxsat so'rasa, ruxsat bering.
+
+**Telefonda ilova kabi (PWA).** Server manzilini telefon brauzerida oching va bosh ekranga qo'shing:
+- **iPhone (Safari):** «Ulashish» tugmasi → **«Bosh ekranga qo'shish»**.
+- **Android (Chrome):** menyu (⋮) → **«Ilovani o'rnatish»** yoki **«Bosh ekranga qo'shish»**.
+
+Ekranda Agent Umimiy belgisi paydo bo'ladi va u to'liq ekranda ochiladi. Android'da to'liq ekran rejimi faqat **HTTPS** manzilda ishlaydi; oddiy `http://192.168...` manzilda belgi brauzer oynasini ochadi.
+
+**HTTPS va uydan tashqarida ishlatish.** Eng oson yo'l: [Tailscale](https://tailscale.com) (bepul). Server va telefonlarga o'rnating, so'ng serverda `tailscale serve --bg 8080` buyrug'ini bering: `https://...ts.net` ko'rinishidagi xavfsiz manzil paydo bo'ladi va u faqat sizning qurilmalaringizga ochiq bo'ladi.
+
+### Plaginlar (MCP) va ko'nikmalar (skills)
+
+**Plaginlar.** Chap paneldagi **Plaginlar** tugmasi: «Qo'shish» → tayyor shablonni tanlang (Fayllar, Xotira, Hujjatlar/Context7, Notion, Playwright, GitHub...) yoki istalgan MCP serverni o'zingiz kiriting (buyruq yoki URL, kerak bo'lsa kalit). Dastur serverni ishga tushiradi va uning asboblarini barcha agentlarga beradi.
+- **O'qiydigan** asboblar ruxsatsiz ishlaydi, **o'zgartiradigan**lari har safar ruxsat so'raydi («Bu plaginga doim ruxsat» tugmasi bor). «Hammasi birga» va «Kengash» rejimlarida faqat o'qiydiganlari ishlaydi.
+- `npx ...` bilan boshlanadigan plaginlar uchun kompyuterda **Node.js** (nodejs.org) kerak; birinchi ishga tushishda paket yuklanadi (1-2 daqiqa).
+- Kalitlar (`NOTION_TOKEN`, GitHub tokeni...) faqat shu kompyuterdagi sozlama faylida saqlanadi.
+- **Cheklov:** claude.ai'dagi tayyor ulanishlar (Gmail, Google Drive, Calendar...) sizning claude.ai hisobingizga bog'liq, ularni bu dasturga ko'chirib bo'lmaydi. Ularning o'rniga shu xizmatlarning o'z MCP serverlarini (o'z kalitingiz bilan) ulaysiz. OAuth (brauzerda «Kirish» tugmasi) talab qiladigan masofaviy serverlar hozircha qo'llanmaydi.
+
+**Ko'nikmalar.** `SKILL.md` fayli bor papka (Claude formatida: `name`, `description`, matn). Quyidagi joylardan avtomatik topiladi: `%APPDATA%\AgentUmimiy\skills\<nom>\SKILL.md`, `~/.claude/skills`, Claude plaginlaridagi ko'nikmalar va loyihadagi `.claude/skills`. Agent tavsifga qarab kerakli ko'nikmani o'zi yuklaydi va unga amal qiladi.
+
+### Agent brauzerda ishlaydi
+
+Agent **haqiqiy brauzer oynasida** sayt ochadi, o'qiydi, tugmalarni bosadi va formalarni to'ldiradi (siz oynada nima bo'layotganini ko'rib turasiz). Windows'da **Edge** (yoki Chrome) ishlatiladi, hech narsa o'rnatish shart emas.
+- Brauzer **alohida profilda** ochiladi (`%APPDATA%\AgentUmimiy\browser-profile`): asosiy brauzeringizdagi parollar va sessiyalarga tegmaydi. Biror saytga bir marta o'zingiz kirsangiz, keyingi safar ham kirgan holda qoladi.
+- **Har bir yangi sayt** va **har bir yozish** ruxsat so'raydi. **Parol maydoniga yozmaydi**: parolni o'zingiz oynada kiriting.
+- «Hammasi birga» va «Kengash» rejimlarida brauzer o'chiq. Sozlamalarda umuman o'chirib qo'yish mumkin.
+- Sahifa matni agent uchun faqat ma'lumot: u yerdagi «buyruqlarga» amal qilinmaydi.
+
+### Agentlar bir-birini biladi
+
+Har bir agent ilovadagi **barcha agentlar ro'yxatini** biladi («qaysi agentlar bor?» deb so'rasangiz hammasini sanab beradi) va kerak bo'lsa boshqa agentdan yordam so'raydi (`ask_agent`): masalan «gemini dan so'rab ko'r». Yordamga chaqirilgan agent faqat o'qiy oladi va o'zi boshqasini chaqira olmaydi. Chatda `⇄` qatori kimdan kimga so'ralganini ko'rsatadi.
+
+### Bir nechta suhbat
+
+Tepada brauzerdagi kabi **tablar**: har bir suhbatning o'z tarixi va o'z loyiha papkasi bor, bir vaqtda ishlayveradi (fon suhbat tugasa tabda yashil nuqta chiqadi). `＋` — yangi suhbat, `×` — yopish.
+Suhbatlar dastur yopilganda saqlanadi (yuqoridagi «Saqlash» bandiga qarang).
+
+### Rejimlar
+
+| Rejim | Ishlashi |
+|---|---|
+| Avtomatik | `routes` dagi kalit so'zlar bo'yicha agentni tanlaydi |
+| Bitta agent | birinchi tanlangan agent |
+| Hammasi bir vaqtda | barcha agentlar parallel javob beradi |
+| Ketma-ket | har bir agent oldingisining javobini yaxshilaydi |
+| Kengash | hammasi javob beradi, hakam agent yagona xulosa chiqaradi |
+
+### FreeLLMAPI (lokal shlyuz) ulash
+
+Kompyuteringizda FreeLLMAPI (`localhost:3001`) ishlab tursa:
+1. **Sozlamalar → ＋ Qo'shish → Turi: «FreeLLMAPI — lokal shlyuz»** (manzil o'zi to'ldiriladi). Yoki «Avto-topish» uni o'zi topadi.
+2. FreeLLMAPI sahifasidagi (**Agentlar** bo'limi) **API KEY** ni «API kalit» maydoniga qo'ying.
+3. **Ro'yxat** tugmasi shlyuzdagi modellarni oladi — birini tanlang, **Sinab ko'rish** → **Saqlash**.
+
+Kalit faqat sizning kompyuteringizdagi sozlama faylida saqlanadi. Model fayl asboblarini (tools) qo'llamasa, dastur oddiy chatga o'tadi.
+
+### Lokal agentlar
+
+- **Ollama** (`localhost:11434`) va **LM Studio** (`localhost:1234`) ishlab turgan bo'lsa, «Avto-topish» ularning modellarini qo'shadi.
+- `claude`, `codex`, `gemini`, `aider` dasturlari o'rnatilgan bo'lsa, ular ham avtomatik topiladi.
+- Boshqa istalgan dastur: tur «Kompyuterdagi dastur», buyruq `mening-agent {prompt}`.
+
+## 👨‍💻 Dasturchilar uchun
+
+### Manba koddan ishga tushirish
+
+Python 3.9+ kerak. Qo'shimcha kutubxonalar ixtiyoriy: `pypdf` (PDF o'qish), `qrcode` (telefon uchun QR-kod) `pillow` (skrinshotni Ctrl+V bilan qo'yish), `python-docx` va `openpyxl` (Word va Excel fayl yaratish).
+
+```bash
+git clone https://github.com/Ravshan1989/Agent-umimiy.git
+cd Agent-umimiy
+pip install pypdf qrcode pillow python-docx openpyxl
+python app.py                              # oyna
+python app.py --cli -m broadcast "salom"   # terminal
+python -m unittest discover -s tests -t .  # testlar
+```
+
+### Loyiha tuzilmasi
+
+| Fayl | Vazifasi |
+|---|---|
+| `gui.py`, `theme.py` | oyna va dizayn (Tkinter) |
+| `providers.py` | Claude, OpenAI, Gemini, Ollama, CLI agentlar |
+| `stream.py` | oqimli (streaming) javoblarni o'qish |
+| `writer.py` | Word, Excel va matn fayllarini yaratish |
+| `preview.py` | yaratilgan fayllarning jonli ko'rinishi (qum qutisi) |
+| `server.py`, `server_page.py`, `store.py` | veb-server rejimi: HTTP, sahifa, SQLite |
+| `agentic.py`, `tools.py` | agent sikli va asboblar (fayl, buyruq, qidiruv) |
+| `orchestrator.py` | rejimlar va agentlararo yordam |
+| `browser.py` | brauzerni boshqarish (CDP) |
+| `mcp.py`, `skills.py` | plaginlar va ko'nikmalar |
+| `remote.py`, `remote_page.py` | telefondan boshqarish |
+| `docs.py`, `attachments.py` | hujjat va fayllarni o'qish |
+| `detect.py` | agentlarni avtomatik topish |
+
+Yangi agent turi: `providers.py` da `Agent` ni meros qilib, `KINDS` ga qo'shing.
+
+### .exe ni yig'ish
+
+- **GitHub Actions:** Actions → "Dastur yig'ish / Build" → Run workflow. Natija: `AgentUmimiy-Setup.exe` (Windows) va `AgentUmimiy-Linux-x86_64.tar.gz` (Linux).
+- **Qo'lda (Windows):** `packaging\build_windows.bat` (Python va ixtiyoriy ravishda Inno Setup kerak).
+
+## ❓ Ko'p beriladigan savollar
+
+<details>
+<summary><b>Pullikmi?</b></summary>
+
+Dasturning o'zi bepul. Bulut modellaridan (Claude, ChatGPT) foydalanish uchun ularning o'z API
+kaliti kerak. Ollama yoki LM Studio orqali lokal modellarni esa butunlay bepul ishlatish mumkin.
+</details>
+
+<details>
+<summary><b>Internet kerakmi?</b></summary>
+
+Bulut modellari uchun — ha. Ollama/LM Studio bilan lokal modellar internetsiz ham ishlaydi.
+</details>
+
+<details>
+<summary><b>Mac yoki Linux'da ishlaydimi?</b></summary>
+
+Windows va Linux uchun tayyor paket bor (yuqoridagi «O'rnatish» bo'limi). macOS'da manba koddan (`python app.py`) ishga tushirib ko'rish mumkin, lekin u yerda sinovdan o'tmagan.
+</details>
+
+## 🗺 Reja
+
+- [x] Manba kodini ochiq qilish
+- [x] Hujjatlar (README) ingliz va rus tillarida
+- [x] Linux versiyasi
+- [ ] macOS versiyasi
+- [ ] Ingliz va rus tillaridagi ilova interfeysi
+- [ ] Avtomatik yangilanish
+
+## 💜 Claude for Open Source
+
+Agent Umimiy — ochiq kodli loyiha va u Claude bilan ishlashni to'liq qo'llab-quvvatlaydi.
+Anthropic ochiq kod hamjamiyati uchun **Claude for Open Source** dasturini taklif qiladi: mos
+keladigan OSS maintainer va hissa qo'shuvchilar **Claude Ultra** rejasidan **6 oy davomida bepul**
+foydalanishlari mumkin.
+
+- **Kimlar uchun?** Ochiq kodli loyihalarni faol yurituvchi yoki ularga muntazam hissa qo'shuvchilar.
+  GitHub'dagi faolligingiz hisobga olinadi.
+- **Shartlar bor:** dasturning o'z mezonlari bor — hammaga ham berilavermaydi. Batafsil shartlar va
+  savol-javoblar rasmiy sahifada.
+
+👉 **Ariza topshirish:** <https://claude.com/contact-sales/claude-for-oss>
+
+> Havola Anthropic'ning rasmiy sahifasiga olib boradi. Shartlar va imkoniyatlar Anthropic tomonidan
+> belgilanadi va o'zgarishi mumkin.
+
+## 📄 Litsenziya
+
+[MIT](LICENSE) — kodni erkin ishlatish, o'zgartirish va tarqatish mumkin.
+
+## 🤝 Hissa qo'shish
+
+Taklif yoki xato topsangiz — [Issue](../../issues) oching. Pull request'lar ham mamnuniyat bilan qabul qilinadi:
+
+1. Repozitoriyani fork qiling va yangi branch oching.
+2. O'zgarish kiriting va testlarni ishga tushiring: `python -m unittest discover -s tests -t .`
+3. Pull request yuboring.
+
+---
+
+<div align="center">
+
+**Agent Umimiy** — o'zbek tilida AI bilan ishlashni osonlashtirish uchun yaratilgan ❤️
+
+⭐ Loyiha yoqqan bo'lsa, yulduzcha bosishni unutmang!
+
+</div>

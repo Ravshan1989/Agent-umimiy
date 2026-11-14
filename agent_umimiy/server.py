@@ -306,7 +306,7 @@ class App:
         if not isinstance(files, list) or any(not isinstance(item, dict) for item in files):
             raise Refused("Fayllar ro'yxati noto'g'ri.")
         orch = self.orchestrator(local_desktop, chat_id, user_id)
-        if agent != "auto" and agent not in orch.agents:
+        if agent not in ("auto", "broadcast", "pipeline", "consensus") and agent not in orch.agents:
             raise Refused("Bu agent mavjud emas. Sahifani yangilang.")
         orch.ctx.files_dir = str(self.files_dir(chat_id))
         if len(files) > MAX_FILES:
@@ -388,9 +388,12 @@ class App:
             orch.ctx.emit = lambda name, kind, text: self._emit(chat_id, name, kind, text)
             if agent == "auto":
                 results = orch.run(prompt, "auto", files=atts)
+            elif agent in ("broadcast", "pipeline", "consensus"):
+                targets = [a.name for a in orch.agents.values() if a.kind != "cli"] or list(orch.agents)
+                results = orch.run(prompt, agent, targets, atts)
             else:
                 results = orch.run(prompt, "single", [agent], atts)
-            if agent != "auto":
+            if agent not in ("auto", "broadcast", "pipeline", "consensus"):
                 fallback = next((r.agent for r in reversed(results) if r.ok and r.agent != agent), "")
                 if fallback:
                     self._publish(chat_id, {"type": "agent_changed", "agent": fallback})
@@ -544,6 +547,44 @@ def safe_file_path(base, name: str) -> Path | None:
 
 
 _STATIC_CACHE: dict[str, tuple[int, int, bytes]] = {}
+
+
+def _export_chat(store: Store, chat_id: int, fmt: str) -> tuple[bytes, str, str]:
+    """Suhbat tarixini .md yoki .docx formatiga o'giradi."""
+    import io
+    raw_title = store.title(chat_id) or f"Suhbat-{chat_id}"
+    safe_title = re.sub(r"[^\w\- ]+", "_", raw_title).strip()[:40] or f"suhbat-{chat_id}"
+    recs = store.records(chat_id)
+    if fmt == "docx":
+        import docx
+        doc = docx.Document()
+        doc.add_heading(raw_title, level=1)
+        for r in recs:
+            if r.get("k") == "user":
+                p = doc.add_paragraph()
+                run = p.add_run("Siz: ")
+                run.bold = True
+                p.add_run(str(r.get("text") or ""))
+            elif r.get("k") == "agent":
+                name = str(r.get("name") or r.get("agent") or "Agent")
+                meta = f" ({r['meta']})" if r.get("meta") else ""
+                p = doc.add_paragraph()
+                run = p.add_run(f"{name}{meta}: ")
+                run.bold = True
+                p.add_run(str(r.get("text") or ""))
+        buf = io.BytesIO()
+        doc.save(buf)
+        return buf.getvalue(), FILE_TYPES[".docx"], f"{safe_title}.docx"
+    lines = [f"# {raw_title}\n"]
+    for r in recs:
+        if r.get("k") == "user":
+            lines.append(f"### Siz\n\n{r.get('text') or ''}\n")
+        elif r.get("k") == "agent":
+            name = str(r.get("name") or r.get("agent") or "Agent")
+            meta = f" *({r['meta']})*" if r.get("meta") else ""
+            lines.append(f"### {name}{meta}\n\n{r.get('text') or ''}\n")
+    return "\n".join(lines).encode("utf-8"), FILE_TYPES[".md"], f"{safe_title}.md"
+
 
 
 def _read_static(path: Path) -> bytes:
@@ -748,7 +789,7 @@ def make_handler(app: App):
                         raise Refused("Topilmadi.", 404)
                     return self._json(200, {"users": store.employees()})
                 if url.path == "/api/workspace":
-                    self._user()
+                    user_id, _ = self._user()
                     cfg = config.read(app.config_file)
                     local_desktop = self._desktop()
                     # Return metadata only: never expose MCP commands, headers, env vars, tokens or local paths.
@@ -766,8 +807,25 @@ def make_handler(app: App):
                                                            "jobs": automation.list_jobs() if local_desktop else []},
                                             "rag": rag.stats() if local_desktop else {"indexed": 0},
                                             "telegram": app.telegram.info() if local_desktop else {"enabled": False, "status": "o'chiq", "bot_username": "", "allowed_username": "", "error": ""},
+                                            "analytics": store.analytics(user_id),
                                             "database": {"engine": "SQLite", "status": "connected",
                                                          "users": store.user_count(), "chats": store.chat_count()}})
+                if url.path == "/api/chat/export":
+                    user_id, _ = self._user()
+                    query = parse_qs(url.query)
+                    chat_id = self._chat(user_id, query.get("chat", [""])[0])
+                    fmt = query.get("format", ["md"])[0].lower()
+                    if fmt not in ("md", "docx"):
+                        raise Refused("Format noto'g'ri.")
+                    data, ctype, filename = _export_chat(store, chat_id, fmt)
+                    return self._send(200, data, ctype, download=filename)
+                if url.path == "/api/desktop/backup":
+                    self._user()
+                    if not self._desktop():
+                        raise Refused("Topilmadi.", 404)
+                    stamp = time.strftime("%Y%m%d-%H%M%S")
+                    return self._send(200, store.backup_bytes(), "application/octet-stream",
+                                      download=f"agent-umimiy-backup-{stamp}.sqlite3")
                 if url.path == "/api/stream":
                     user_id, _ = self._user()
                     return self._stream(self._chat(user_id, parse_qs(url.query).get("chat", [""])[0]), self._desktop())
@@ -993,6 +1051,21 @@ def make_handler(app: App):
                 cfg["telegram_user"] = allowed
                 config.write(cfg, app.config_file)
                 return {"ok": True, "telegram": app.telegram.configure(token, allowed)}, ""
+            if path == "/api/desktop/screenshot":
+                if not self._desktop():
+                    raise Refused("Topilmadi.", 404)
+                try:
+                    import base64
+                    import io
+                    from PIL import ImageGrab
+                    img = ImageGrab.grab()
+                    img.thumbnail((1920, 1080))
+                    buf = io.BytesIO()
+                    img.save(buf, format="PNG")
+                    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+                    return {"ok": True, "name": f"ekran_{int(time.time())}.png", "data": b64}, ""
+                except Exception as exc:
+                    raise Refused(f"Ekran rasmini olib bo'lmadi: {exc}")
             if path == "/api/chat/new":
                 if len(store.chats(user_id)) >= 100:
                     raise Refused("Bir foydalanuvchi ko'pi bilan 100 ta suhbat yaratishi mumkin.", 429)
