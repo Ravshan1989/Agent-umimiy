@@ -70,6 +70,8 @@ def freellmapi(base: str = "http://localhost:3001") -> list[dict]:
         key = freellmapi_key()
         if key:
             spec["api_key"] = key
+            spec["model"] = "codestral"
+            spec["tools"] = False
             spec["description"] = "FreeLLMAPI (lokal shlyuz — avtomatik ulandi)"
     return [spec]
 

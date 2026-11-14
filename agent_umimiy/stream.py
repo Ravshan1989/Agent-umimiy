@@ -171,7 +171,7 @@ def gemini(url: str, payload: dict, headers: dict, on_text: OnText) -> str:
 def ollama(url: str, payload: dict, on_text: OnText) -> dict:
     """Ollama /api/chat (har qatorda bitta JSON) -> yig'ilgan assistant xabari."""
     msg: dict = {"role": "assistant", "content": ""}
-    opts = {"num_ctx": 2048, **(payload.get("options") or {})}
+    opts = {"num_ctx": 1024, "num_thread": 6, **(payload.get("options") or {})}
     body = {"keep_alive": -1, **payload, "options": opts, "stream": True}
     for line in _lines(url, body, {}):
         if not line.strip():
