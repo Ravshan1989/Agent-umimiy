@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest import mock
 
 from agent_umimiy import config, server
+from agent_umimiy import store as store_module
 from agent_umimiy.store import Store, StoreError
 
 PASSWORD = "parol12345"
@@ -77,6 +78,73 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(c.call("/api/me")[0], 401)
         self.assertEqual(c.call("/api/chat/new", {})[0], 401)
 
+    def test_desktop_window_logs_in_once_with_its_token(self):
+        app = self.httpd.app
+        c = Client(self.base)
+        self.assertEqual(c.call("/api/desktop-login?token=x")[0], 404)  # desktop rejimi yoqilmagan
+        app.desktop, app.desktop_token = True, "kalit-123"
+        self.assertEqual(c.call("/api/desktop-login?token=boshqa")[0], 404)
+        self.assertEqual(app.desktop_token, "kalit-123")  # noto'g'ri urinish kalitni kuydirmaydi
+
+        class NoRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, *a, **k):
+                return None
+
+        with self.assertRaises(urllib.error.HTTPError) as caught:
+            urllib.request.build_opener(NoRedirect).open(self.base + "/api/desktop-login?token=kalit-123", timeout=10)
+        self.assertEqual(caught.exception.code, 302)
+        self.assertEqual(caught.exception.headers["Location"], "/")
+        c.cookie = caught.exception.headers["Set-Cookie"].split(";")[0]
+        code, me = c.call("/api/me")
+        self.assertEqual(code, 200)
+        self.assertTrue(me["desktop"])
+        self.assertEqual(len(self.store.users()), 1)
+        self.assertEqual(c.call("/api/desktop-login?token=kalit-123")[0], 404)  # kalit bir marta ishlaydi
+        with mock.patch.object(server, "open_classic") as opened:
+            self.assertEqual(c.call("/api/desktop/classic", {})[0], 200)
+        opened.assert_called_once()
+        with mock.patch.object(server, "open_classic") as again:
+            self.assertEqual(c.call("/api/desktop/classic", {})[0], 429)  # ketma-ket bosilsa, jarayon ko'paymaydi
+        again.assert_not_called()
+        app.classic_at = 0.0
+        app.desktop = False
+        self.assertEqual(c.call("/api/desktop/classic", {})[0], 404)
+        self.assertFalse(c.call("/api/me")[1]["desktop"])
+
+    def test_desktop_account_is_separate_from_a_web_user_with_the_same_name(self):
+        self.user("Rasul")  # veb orqali kelgan odam o'sha nomni band qildi
+        taken = self.store.check_user("Rasul", PASSWORD)
+        self.assertIsNotNone(taken)
+        first = self.store.local_user("rasul")  # nomlar katta-kichik harfga bog'liq emas
+        self.assertNotEqual(first, taken)
+        self.assertEqual(self.store.local_user("rasul"), first)  # keyingi ochilishda o'sha hisob
+        self.assertEqual(self.store.check_user("Rasul", PASSWORD), taken)  # veb hisobi o'z parolida qoldi
+
+    def test_desktop_mode_rejects_requests_sent_to_another_host_name(self):
+        self.httpd.app.desktop = True
+        self.addCleanup(setattr, self.httpd.app, "desktop", False)
+        req = urllib.request.Request(self.base + "/", headers={"Host": "zararli.example"})
+        with self.assertRaises(urllib.error.HTTPError) as caught:
+            urllib.request.urlopen(req, timeout=10)
+        self.assertEqual(caught.exception.code, 404)
+        with urllib.request.urlopen(urllib.request.Request(self.base + "/"), timeout=10) as r:
+            self.assertEqual(r.status, 200)
+
+    def test_built_react_frontend_is_served_when_present(self):
+        web = self.d / "static" / "web"
+        assets = web / "assets"
+        assets.mkdir(parents=True)
+        (web / "index.html").write_text('<!doctype html><title>Agent Umumiy React</title><script type="module" src="/assets/app.js"></script>', encoding="utf-8")
+        (assets / "app.js").write_text("window.agentUmumiy = true;", encoding="utf-8")
+        with mock.patch.object(server, "STATIC_DIR", self.d / "static"):
+            with urllib.request.urlopen(self.base + "/") as response:
+                page = response.read()
+                self.assertIn(b"Agent Umumiy React", page)
+                self.assertIn("default-src 'self'", response.headers["Content-Security-Policy"])
+            with urllib.request.urlopen(self.base + "/assets/app.js") as response:
+                self.assertEqual(response.read(), b"window.agentUmumiy = true;")
+                self.assertIn("javascript", response.headers["Content-Type"])
+
     def test_installable_as_phone_app(self):
         with urllib.request.urlopen(self.base + "/") as r:
             self.assertIn(b'rel="manifest" href="/manifest.webmanifest"', r.read())
@@ -107,10 +175,51 @@ class ServerTests(unittest.TestCase):
         c = Client(self.base)
         self.assertEqual(c.call("/api/login", {"name": "ali", "password": PASSWORD})[0], 200)
         code, me = c.call("/api/me")
-        self.assertEqual(me["agents"][0]["name"], "auto")  # birinchi — avtomatik tanlov
-        self.assertEqual(me["agents"][1:], [{"name": "aks", "model": ""}])  # CLI agent veb-foydalanuvchilarga berilmaydi
+        self.assertEqual(me["agents"], [{"name": "auto", "model": "Avtomatik — o‘zi tanlaydi"},
+                                        {"name": "aks", "model": "", "description": ""}])  # CLI agent veb-foydalanuvchilarga berilmaydi
         self.assertEqual(c.call("/api/logout", {})[0], 200)
         self.assertEqual(c.call("/api/me")[0], 401)
+
+
+    def test_workspace_status_is_authenticated_and_redacts_plugin_secrets(self):
+        cfg_path = self.d / "agents.json"
+        cfg_path.write_text(json.dumps({"web": False, "project": "C:/work/demo-project",
+            "mcp": [{"name": "github", "transport": "http", "url": "https://example.test/mcp",
+                     "headers": "Authorization: Bearer TOP_SECRET", "env": "TOKEN=TOP_SECRET"}],
+            "agents": [{"name": "aks", "type": "echo"}]}))
+        httpd = server.create(self.store, config_file=str(cfg_path))
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        self.addCleanup(httpd.server_close)
+        self.addCleanup(httpd.shutdown)
+        client = Client(f"http://127.0.0.1:{httpd.server_port}")
+        self.assertEqual(client.call("/api/workspace")[0], 401)
+        self.assertEqual(client.call("/api/register", {"name": "TestUser", "password": PASSWORD,
+                                                       "invite": self.store.invite()})[0], 200)
+        code, data = client.call("/api/workspace")  # veb rejimi: mahalliy ma'lumot berilmaydi
+        self.assertEqual(code, 200)
+        self.assertEqual(data["project"], "")
+        self.assertEqual(data["plugins"], [])
+        self.assertEqual(data["skills"], [])
+        httpd.app.desktop = True  # dasturning o'z oynasi: mahalliy ma'lumot ko'rsatiladi
+        code, data = client.call("/api/workspace")
+        self.assertEqual(code, 200)
+        self.assertEqual(data["project"], "demo-project")
+        self.assertEqual(data["plugins"], [{"name": "github", "transport": "http", "enabled": True}])
+        self.assertEqual(data["database"]["engine"], "SQLite")
+        self.assertNotIn("TOP_SECRET", json.dumps(data))
+        self.assertNotIn("example.test", json.dumps(data))
+
+    def test_web_settings_are_authenticated_validated_and_persisted(self):
+        client = self.user("Ali")
+        self.assertEqual(client.call("/api/settings")[0], 200)
+        code, data = client.call("/api/settings", {"lang": "ru", "theme": "light", "accent": "cyan"})
+        self.assertEqual(code, 200)
+        self.assertEqual(data, {"ok": True, "lang": "ru", "theme": "light", "accent": "cyan"})
+        code, data = client.call("/api/settings")
+        self.assertEqual(code, 200)
+        self.assertEqual(data, {"lang": "ru", "theme": "light", "accent": "cyan"})
+        self.assertEqual(client.call("/api/settings", {"lang": "xx", "theme": "light", "accent": "cyan"})[0], 400)
+        self.assertEqual(Client(self.base).call("/api/settings")[0], 401)
 
     def test_chat_stream_history_and_isolation(self):
         ali, vali = self.user("Ali"), self.user("Vali")
@@ -136,10 +245,90 @@ class ServerTests(unittest.TestCase):
         note = {"name": "../eslatma.txt", "data": base64.b64encode(b"muhim matn").decode()}
         self.assertEqual(ali.call("/api/send", {"chat": chat, "text": "", "agent": "aks", "files": [note]})[0], 200)
         self.assertIn(".._eslatma.txt", ali.records(chat)[-1]["text"])
-        self.assertEqual([p.parent for p in (self.d / "uploads").iterdir()], [self.d / "uploads"])
+        uploads = self.d / "files" / str(chat) / "uploads"  # biriktirmalar shu suhbat papkasida qoladi
+        self.assertEqual([p.parent for p in uploads.iterdir()], [uploads])
+        self.assertFalse((self.d / "uploads").exists())
         self.assertEqual(ali.call("/api/send", {"chat": chat, "text": " ", "agent": "aks"})[0], 400)
         self.assertEqual(ali.call("/api/send", {"chat": chat, "text": "x", "agent": "buyruq"})[0], 400)
         self.assertEqual(ali.call("/api/chat/new", {}, ctype="text/plain")[0], 415)  # boshqa saytdagi forma
+
+    def test_send_throttle_limits_each_user(self):
+        throttle = server.Throttle()
+        for _ in range(20):
+            self.assertTrue(throttle.allow_send(10))
+        self.assertFalse(throttle.allow_send(10))
+        self.assertTrue(throttle.allow_send(11))
+
+    def test_safe_file_path_rejects_symlink_escape(self):
+        import os
+        base = self.d / "chat-files"
+        base.mkdir()
+        outside = self.d / "secret.txt"
+        outside.write_text("secret")
+        link = base / "leak.txt"
+        try:
+            os.symlink(outside, link)
+        except (OSError, NotImplementedError):
+            self.skipTest("Symlink yaratish huquqi yo'q")
+        self.assertIsNone(server.safe_file_path(base, "leak.txt"))
+        self.assertIsNone(server.safe_file_path(base, "../secret.txt"))
+        self.assertIsNone(server.safe_file_path(base, "missing.txt"))
+
+    def test_web_input_limits_and_file_count(self):
+        user_id = self.store.add_user("Ali", PASSWORD)
+        chat = self.store.new_chat(user_id)
+        app = server.App(self.store, str(self.d / "agents.json"))
+        with self.assertRaises(server.Refused):
+            app.send(chat, "x", "auto", [{}] * (server.MAX_FILES + 1))
+        with self.assertRaises(server.Refused):
+            app.send(chat, "x" * (server.MAX_PROMPT + 1), "auto", [])
+        self.assertEqual(self.store.records(chat), [])
+
+    def test_chat_records_are_capped(self):
+        user_id = self.store.add_user("Ali", PASSWORD)
+        chat = self.store.new_chat(user_id)
+        with mock.patch.object(store_module, "MAX_RECORDS_PER_CHAT", 5):
+            for i in range(8):
+                self.store.add_record(chat, {"n": i})
+        self.assertEqual([r["n"] for r in self.store.records(chat)], [3, 4, 5, 6, 7])
+
+    def test_attached_file_can_be_downloaded_back_from_its_own_chat(self):
+        """Foydalanuvchi biriktirgan fayl suhbat papkasida saqlanadi va faqat egasiga qaytariladi."""
+        ali, vali = self.user("Ali"), self.user("Vali")
+        chat = ali.call("/api/chat/new", {})[1]["id"]
+        data = base64.b64encode(b"rasm-baytlari").decode()
+        code, body = ali.call("/api/send", {"chat": chat, "text": "Shu rasmni ko'r", "agent": "aks",
+                                            "files": [{"name": "rasm.png", "data": data}]})
+        self.assertEqual(code, 200, body)
+        attached = next(r["files"] for r in ali.records(chat) if r.get("k") == "user" and r.get("files"))
+        self.assertEqual(attached[0]["name"], "rasm.png")
+        stored = attached[0]["file"]
+        self.assertTrue(stored.endswith("rasm.png"), stored)
+        self.assertNotEqual(stored, "rasm.png")  # diskda vaqt belgili nom bilan yotadi
+        url = f"/api/file?chat={chat}&name=" + urllib.parse.quote(stored)
+        with urllib.request.urlopen(urllib.request.Request(self.base + url, headers={"Cookie": ali.cookie})) as r:
+            self.assertEqual(r.read(), b"rasm-baytlari")
+            self.assertEqual(r.headers["Content-Type"], "image/png")
+            # Diskdagi vaqt belgisi emas, foydalanuvchi bergan nom bilan saqlanishi kerak
+            self.assertIn("attachment", r.headers["Content-Disposition"])
+            self.assertIn("rasm.png", r.headers["Content-Disposition"])
+            self.assertNotIn(stored, r.headers["Content-Disposition"])
+        self.assertEqual(vali.call(url)[0], 404)  # begona suhbat
+        boshqa = vali.call("/api/chat/new", {})[1]["id"]  # o'z suhbatidan turib ham ololmaydi
+        self.assertEqual(vali.call(f"/api/file?chat={boshqa}&name=" + urllib.parse.quote(stored))[0], 404)
+        self.assertEqual(Client(self.base).call(url)[0], 401)
+        self.assertEqual(ali.call("/api/chat/delete", {"chat": chat})[0], 200)
+        self.assertFalse((self.d / "files" / str(chat)).exists())  # biriktirmalar ham o'chadi
+
+    def test_old_records_with_plain_file_names_still_work(self):
+        """Eski yozuvlarda `files` oddiy matn ro'yxati edi: tarix tiklanganda dict'ning xom matni tushmasligi kerak."""
+        self.assertEqual(server.attached_names(["a.png", {"name": "b.pdf", "file": "123_b.pdf"}, 7, None]),
+                         ["a.png", "b.pdf"])
+        self.assertEqual(server.attached_names([{"file": "123_c.txt"}]), ["123_c.txt"])
+        self.assertEqual(server.attached_names(None), [])
+        self.assertEqual(server.shown_name("1794592181685_rasm.png"), "rasm.png")
+        self.assertEqual(server.shown_name("rasm.png"), "rasm.png")
+        self.assertEqual(server.shown_name("1794592181685_"), "1794592181685_")  # nomsiz qolmasin
 
     def test_created_file_download_is_private(self):
         ali, vali = self.user("Ali"), self.user("Vali")

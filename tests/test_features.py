@@ -56,12 +56,35 @@ class StoreTests(unittest.TestCase):
         chatstore.clear()
         self.assertEqual(chatstore.load()["chats"], [])
 
+    def test_config_size_and_agent_count_limits(self):
+        path = self.d / "large-agents.json"
+        path.write_text(" " * 20)
+        with mock.patch.object(config, "MAX_CONFIG_BYTES", 10):
+            with self.assertRaises(ValueError):
+                config.read(str(path))
+        with self.assertRaises(ValueError):
+            config.build({"agents": [{"name": f"a{i}", "type": "echo"} for i in range(config.MAX_AGENTS + 1)]})
+
+    def test_chatstore_rejects_oversized_json(self):
+        p = self.d / "chats.json"
+        p.write_text(" " * 20)
+        with mock.patch.object(chatstore, "MAX_CHATSTORE_BYTES", 10):
+            self.assertEqual(chatstore.load()["chats"], [])
+
     def test_corrupt_file_is_ignored(self):
         (self.d / "chats.json").write_text("{buzilgan")
         self.assertEqual(chatstore.load(), {"chats": [], "active": 0})
 
 
 class InstructionsAndTodo(unittest.TestCase):
+    def test_honesty_rules_are_given_to_both_project_and_chat_agents(self):
+        """Agent qurollari borligini bilmay rad etmasin va bajarmagan ishni bajardim demasin."""
+        for ctx in (Context(root=str(Path(tempfile.mkdtemp()))), Context(), Context(remote_user=True)):
+            sp = system_prompt(ctx)
+            self.assertIn("never answer that you have no such ability", sp)
+            self.assertIn("Never report work as done", sp)
+            self.assertIn("is installed or available unless you checked", sp)
+
     def test_project_instructions_in_system_prompt(self):
         d = tempfile.mkdtemp()
         self.assertNotIn("Project instructions", system_prompt(Context(root=d)))
@@ -166,3 +189,50 @@ class RosterTests(unittest.TestCase):
             o._delegate("b", "savol", "a")
         self.assertTrue(seen["ctx"].readonly)
         self.assertIsNone(seen["ctx"].delegate)
+
+class MemoryApprovalTests(unittest.TestCase):
+    def test_user_data_directory_is_private_on_posix(self):
+        import os
+        import stat
+        if os.name == "nt":
+            self.skipTest("POSIX file mode is not applicable on Windows")
+        home = Path(tempfile.mkdtemp())
+        with mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": str(home)}):
+            path = config.user_dir()
+        self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o700)
+
+    def test_memory_mutations_require_one_time_confirmation(self):
+        from agent_umimiy import config, memory
+        home = Path(tempfile.mkdtemp())
+        with mock.patch.object(config, "user_dir", return_value=home):
+            calls = []
+            ctx = Context(skills=False, confirm=lambda *args: (calls.append(args), "always")[1])
+            tb = Toolbox(ctx, "agent")
+            out, err = tb.run("memory_remember", {"fact": "User prefers Uzbek"})
+            self.assertTrue(err)
+            self.assertIn("tasdiqlamadi", out)
+            self.assertEqual(memory.search("Uzbek"), "Xotirada hali ma'lumot yo'q.")
+            self.assertEqual(calls[0][1], "memory_remember")
+
+            ctx.confirm = lambda *args: "yes"
+            out, err = tb.run("memory_remember", {"fact": "User prefers Uzbek"})
+            self.assertFalse(err, out)
+            self.assertIn("saqlandi", out)
+            item_id = memory._read(home / "memory.json")[0]["id"]
+
+            ctx.confirm = lambda *args: "no"
+            out, err = tb.run("memory_forget", {"id": item_id})
+            self.assertTrue(err)
+            self.assertIn("tasdiqlamadi", out)
+            self.assertIn("User prefers Uzbek", memory.search("Uzbek"))
+
+            ctx.confirm = lambda *args: "yes"
+            out, err = tb.run("memory_forget", {"id": item_id})
+            self.assertFalse(err, out)
+            self.assertEqual(memory.search("Uzbek"), "Xotirada hali ma'lumot yo'q.")
+
+    def test_readonly_cannot_mutate_memory_even_when_called_directly(self):
+        tb = Toolbox(Context(readonly=True, skills=False, confirm=lambda *args: "yes"), "agent")
+        self.assertTrue(tb.run("memory_remember", {"fact": "x"})[1])
+        self.assertTrue(tb.run("memory_forget", {"id": "x"})[1])
+

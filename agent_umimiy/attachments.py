@@ -13,6 +13,8 @@ from . import docs
 
 IMAGES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp"}
 MAX_IMAGE, MAX_PDF, MAX_TEXT = 5 * 1024 * 1024, 20 * 1024 * 1024, 300_000
+MAX_UPLOAD = 20 * 1024 * 1024
+MAX_PDF_PAGES = 200
 FILETYPES = [("Rasm, PDF, Word, Excel, PowerPoint va matn",
               "*.png *.jpg *.jpeg *.gif *.webp *.pdf *.docx *.xlsx *.pptx *.csv *.tsv *.txt *.md *.json *.py *.js *.html *.log"),
              ("Hamma fayllar", "*.*")]
@@ -42,17 +44,35 @@ def pdf_text(data_or_path, limit: int = MAX_TEXT) -> str:
     except ImportError:
         raise AttachError("PDF matnini o'qish uchun pypdf kerak (pip install pypdf).")
     import io
-    src = io.BytesIO(data_or_path) if isinstance(data_or_path, bytes) else str(data_or_path)
+    if isinstance(data_or_path, bytes):
+        if len(data_or_path) > MAX_UPLOAD:
+            raise AttachError("PDF fayl 20 MB dan katta.")
+        src = io.BytesIO(data_or_path)
+    else:
+        path = Path(data_or_path)
+        try:
+            if path.stat().st_size > MAX_UPLOAD:
+                raise AttachError("PDF fayl 20 MB dan katta.")
+        except OSError as exc:
+            raise AttachError(f"PDF fayl ochilmadi: {exc}")
+        src = str(path)
     try:
         reader = pypdf.PdfReader(src)
-        out = []
-        for i, page in enumerate(reader.pages, 1):
-            out.append(f"[{i}-sahifa]\n{page.extract_text() or ''}")
-            if sum(map(len, out)) > limit:
+        pages = reader.pages
+        out, total = [], 0
+        for i, page in enumerate(pages[:MAX_PDF_PAGES], 1):
+            block = f"[{i}-sahifa]\\n{page.extract_text() or ''}"
+            out.append(block)
+            total += len(block)
+            if total > limit:
                 break
+        if len(pages) > MAX_PDF_PAGES and total < limit:
+            out.append(f"[Faqat dastlabki {MAX_PDF_PAGES} sahifa o'qildi.]")
+    except AttachError:
+        raise
     except Exception as exc:
         raise AttachError(f"PDF o'qilmadi: {exc}")
-    text = "\n\n".join(out).strip()
+    text = "\\n\\n".join(out).strip()
     return text[:limit] or ("(PDF ichida matn topilmadi: bu skaner qilingan rasm bo'lishi mumkin. Sahifalarni rasm sifatida yuboring — "
                             "ko'ra oladigan model (Claude, GPT-4, Gemini) matnni o'zi o'qiydi)")
 
@@ -62,6 +82,8 @@ def load(path: str) -> Attachment:
     if not p.is_file():
         raise AttachError(f"Fayl topilmadi: {path}")
     ext, size = p.suffix.lower(), p.stat().st_size
+    if size > MAX_UPLOAD:
+        raise AttachError(f"{p.name}: fayl 20 MB dan katta.")
     if ext in IMAGES:
         if size > MAX_IMAGE:
             raise AttachError(f"{p.name}: rasm 5 MB dan katta. Kichikroq rasm tanlang.")
@@ -77,7 +99,8 @@ def load(path: str) -> Attachment:
             return Attachment(p.name, str(p), "text", "text/plain", text=docs.extract_text(p, MAX_TEXT))
         except docs.DocError as exc:
             raise AttachError(f"{p.name}: {exc}")
-    raw = p.read_bytes()[:MAX_TEXT * 2]
+    with p.open("rb") as fh:
+        raw = fh.read(MAX_TEXT * 2)
     if b"\x00" in raw[:4096]:
         raise AttachError(f"{p.name}: bu fayl turini o'qib bo'lmaydi (rasm, PDF, Word yoki matn fayl tanlang).")
     if len(raw) == MAX_TEXT * 2:  # kesilgan joyda chala qolgan UTF-8 belgi cp1251 ga o'tib ketmasin
@@ -94,13 +117,26 @@ def load(path: str) -> Attachment:
 def save_upload(save_dir: Path, name: str, data_b64: str) -> Attachment:
     """Brauzerdan yuborilgan (base64) faylni saqlab, biriktirma qiladi."""
     name = re.sub(r"[^\w.\- ]", "_", str(name))[-80:] or "fayl"
+    if not isinstance(data_b64, str) or len(data_b64) > ((MAX_UPLOAD + 2) // 3) * 4:
+        raise AttachError(f"{name}: fayl 20 MB dan katta yoki noto'g'ri yuborilgan.")
     try:
         data = base64.b64decode(data_b64, validate=True)
     except (binascii.Error, ValueError):
         raise AttachError(f"{name}: fayl buzilgan holda keldi.")
-    path = Path(save_dir) / f"{time.time_ns() // 1_000_000}_{name}"
-    path.write_bytes(data)
-    att = load(str(path))
+    if len(data) > MAX_UPLOAD:
+        raise AttachError(f"{name}: fayl 20 MB dan katta.")
+    folder = Path(save_dir)
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{time.time_ns() // 1_000_000}_{name}"
+    try:
+        path.write_bytes(data)
+        att = load(str(path))
+    except Exception:
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
     att.name = name  # vaqt belgisisiz asl nom ko'rinsin
     return att
 

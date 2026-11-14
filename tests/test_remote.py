@@ -1,3 +1,4 @@
+import io
 import json
 import sys
 import unittest
@@ -44,6 +45,7 @@ class RemoteServerTests(unittest.TestCase):
         self.assertIn("frame-ancestors 'none'", h["Content-Security-Policy"])
         self.assertEqual(h["Cache-Control"], "no-store")
         self.assertNotIn("sir", PAGE)  # sahifada hech qanday kalit yo'q
+        self.assertIn("location.hash", PAGE)  # token URL fragmentidan olinadi
 
     def test_api_requires_token(self):
         for tok in (None, "", "xato", "sir "):
@@ -80,6 +82,15 @@ class RemoteServerTests(unittest.TestCase):
         with self.assertRaises((urllib.error.HTTPError, urllib.error.URLError, ConnectionError)):
             urllib.request.urlopen(r, timeout=5)
 
+    def test_body_parser_rejects_negative_missing_and_truncated_lengths(self):
+        with self.assertRaises(remote.RequestBodyError):
+            remote.read_json_body(io.BytesIO(b""), {"Content-Length": "-1"})
+        with self.assertRaises(remote.RequestBodyError):
+            remote.read_json_body(io.BytesIO(b""), {})
+        with self.assertRaises(remote.RequestBodyError):
+            remote.read_json_body(io.BytesIO(b"{"), {"Content-Length": "2"})
+        self.assertEqual(remote.read_json_body(io.BytesIO(b'{"x":1}'), {"Content-Length": "7"}), {"x": 1})
+
     def test_actions_routed(self):
         for path, action in remote.ACTIONS.items():
             code, _, body = req(self.srv, path, body={"x": 1})
@@ -87,7 +98,7 @@ class RemoteServerTests(unittest.TestCase):
 
     def test_url_and_token(self):
         self.assertTrue(self.srv.url("192.168.0.5").startswith("http://192.168.0.5:"))
-        self.assertTrue(self.srv.url("1.2.3.4").endswith("?t=sir"))
+        self.assertTrue(self.srv.url("1.2.3.4").endswith("/#t=sir"))
         a, b = remote.new_token(), remote.new_token()
         self.assertNotEqual(a, b)
         self.assertGreaterEqual(len(a), 30)
@@ -144,20 +155,24 @@ class NetworkHelpersTests(unittest.TestCase):
 class FirewallScriptTests(unittest.TestCase):
     EXE = r"C:\Users\User\Downloads\AgentUmimiy-Windows\AgentUmimiy.exe"
 
-    def test_script_removes_blocks_then_allows(self):
+    def test_script_preserves_existing_program_rules(self):
         lines = remote.firewall_script(8765, self.EXE).splitlines()
         self.assertEqual(lines[0], "@echo off")
         self.assertEqual(lines[-1], "exit /b 0")
-        body = [l for l in lines if l.startswith("netsh")]
-        self.assertEqual(len(body), 3)
+        body = [line for line in lines if line.startswith("netsh")]
+        self.assertEqual(len(body), 2)
         self.assertIn('delete rule name="Agent Umimiy"', body[0])
-        self.assertIn(f'delete rule name=all program="{self.EXE}"', body[1])  # Windows'ning o'zi yaratgan to'suvchi qoidalar
-        self.assertTrue(body[2].startswith("netsh advfirewall firewall add rule"))
-        self.assertNotIn("firewall firewall firewall", remote.firewall_script(8765, self.EXE))
+        self.assertTrue(body[1].startswith("netsh advfirewall firewall add rule"))
+        self.assertIn(f'program="{self.EXE}"', body[1])
+        self.assertNotIn("name=all", remote.firewall_script(8765, self.EXE))
         self.assertIn("\r\n", remote.firewall_script(8765, self.EXE))
-        # delete add dan oldin bo'lishi shart
-        self.assertLess(remote.firewall_script(8765, self.EXE).index("delete rule name=all"),
+        self.assertLess(remote.firewall_script(8765, self.EXE).index("delete rule"),
                         remote.firewall_script(8765, self.EXE).index("add rule"))
+
+    def test_firewall_port_validation(self):
+        for port in (-1, 0, 65536):
+            with self.assertRaises(ValueError):
+                remote.firewall_args(port)
 
     def test_script_without_exe_has_no_program_rules(self):
         s = remote.firewall_script(9000)

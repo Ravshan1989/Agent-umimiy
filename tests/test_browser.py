@@ -1,7 +1,9 @@
+import shutil
 import tempfile
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 
 from agent_umimiy import browser as br
 from agent_umimiy.tools import Context, Toolbox
@@ -114,24 +116,28 @@ class BrowserToolTests(unittest.TestCase):
         self.url = f"http://127.0.0.1:{self.srv.server_port}/"
         self.asked = []
         self.answer = "yes"
-        br._shared = br.Browser(profile_dir=tempfile.mkdtemp(), headless=True)
+        profile = str(Path(tempfile.mkdtemp()).resolve())
+        self.addCleanup(shutil.rmtree, profile, True)
+        self.browser = br.Browser(profile_dir=profile, headless=True)
+        br._shared = {profile: self.browser}
         self.addCleanup(br.shutdown)
-        self.ctx = Context(confirm=lambda *a: (self.asked.append(a), self.answer)[1], emit=lambda *a: None)
+        self.ctx = Context(confirm=lambda *a: (self.asked.append(a), self.answer)[1], emit=lambda *a: None,
+                           browser_profile=profile)
         self.tb = Toolbox(self.ctx, "t")
 
     def test_site_and_click_permissions_and_typing_asks_each_time(self):
         out, err = self.tb.run("browser_open", {"url": self.url})
         self.assertFalse(err, out)
-        self.assertEqual(self.asked[0][1], "browser:127.0.0.1")
+        self.assertTrue(self.asked[0][1].startswith("browser:http://127.0.0.1:"))
         self.tb.run("browser_open", {"url": self.url})
         self.assertEqual(len(self.asked), 1)  # shu sayt uchun qayta so'ralmaydi
         btn = next(l.split(". <", 1)[0].strip() for l in out.splitlines() if ". <button>" in l and "Yuborish" in l)
         self.tb.run("browser_click", {"id": int(btn)})
-        self.assertEqual(self.asked[-1][1], "browser_action:127.0.0.1")
+        self.assertTrue(self.asked[-1][1].startswith("browser_action:http://127.0.0.1:"))
         n = next(l.split(". <", 1)[0].strip() for l in out.splitlines() if ". <input" in l and "Ismingiz" in l)
         self.tb.run("browser_type", {"id": int(n), "text": "a"})
         self.tb.run("browser_type", {"id": int(n), "text": "b"})
-        self.assertEqual([a[1] for a in self.asked].count("browser_type"), 2)
+        self.assertEqual(sum(a[1].startswith("browser-type:http://127.0.0.1:") for a in self.asked), 2)
 
     def test_denied_click_does_not_execute_page_action(self):
         out, err = self.tb.run("browser_open", {"url": self.url})
@@ -147,7 +153,7 @@ class BrowserToolTests(unittest.TestCase):
         self.answer = "no"
         out, err = self.tb.run("browser_open", {"url": self.url})
         self.assertTrue(err)
-        self.assertIsNone(br._shared.proc)
+        self.assertIsNone(self.browser.proc)
 
     def test_bad_schemes_and_readonly(self):
         for u in ("file:///etc/passwd", "javascript:alert(1)", "chrome://settings"):

@@ -67,7 +67,7 @@ class CreateToolTests(unittest.TestCase):
     def setUp(self):
         self.d = Path(tempfile.mkdtemp())
         self.events = []
-        self.ctx = Context(web=False, files_dir=str(self.d), emit=lambda *a: self.events.append(a))
+        self.ctx = Context(web=False, files_dir=str(self.d), confirm=lambda *a: "yes", emit=lambda *a: self.events.append(a))
 
     def test_tools_only_with_files_dir(self):
         names = {t.name for t in available(self.ctx)}
@@ -94,6 +94,7 @@ class CreateToolTests(unittest.TestCase):
             {"content": [{"type": "text", "text": "Tayyor"}]}])
         o = Orchestrator([build_agent({"name": "c", "type": "anthropic", "api_key": "k", "base_url": f"http://127.0.0.1:{srv.server_port}"})])
         o.ctx.web, o.ctx.files_dir = False, str(self.d)
+        o.ctx.confirm = lambda *a: "yes"
         self.assertEqual(o.run("excel qil", "single")[0].text, "Tayyor")
         self.assertIn("create_spreadsheet", seen[0]["system"])
         self.assertIn("hisobot.xlsx", json.dumps(seen[1]["messages"][-1], ensure_ascii=False))

@@ -1,11 +1,13 @@
 import base64
 import json
+import sys
 import tempfile
 import threading
 import unittest
 import zipfile
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 from agent_umimiy import attachments as att
@@ -154,6 +156,34 @@ class WebTests(unittest.TestCase):
         self.assertTrue(tb2.run("web_fetch", {"url": "file:///etc/passwd"})[1])
         self.assertTrue(tb2.run("web_fetch", {"url": "http://localhost:1/"})[1])
 
+    def test_pdf_extraction_stops_after_page_limit(self):
+        from agent_umimiy import attachments
+
+        class Page:
+            def extract_text(self):
+                return "matn"
+
+        fake_pdf = SimpleNamespace(PdfReader=lambda src: SimpleNamespace(pages=[Page() for _ in range(5)]))
+        with mock.patch.dict(sys.modules, {"pypdf": fake_pdf}), mock.patch.object(attachments, "MAX_PDF_PAGES", 2):
+            text = attachments.pdf_text(b"%PDF-test")
+        self.assertIn("[1-sahifa]", text)
+        self.assertIn("[2-sahifa]", text)
+        self.assertIn("Faqat dastlabki 2 sahifa", text)
+        self.assertNotIn("[3-sahifa]", text)
+
+    def test_uploaded_file_size_and_failed_file_cleanup(self):
+        import base64
+
+        from agent_umimiy import attachments
+        folder = Path(tempfile.mkdtemp())
+        with mock.patch.object(attachments, "MAX_UPLOAD", 3):
+            with self.assertRaises(attachments.AttachError):
+                attachments.save_upload(folder, "large.txt", base64.b64encode(b"four").decode())
+        self.assertEqual(list(folder.iterdir()), [])
+        with self.assertRaises(attachments.AttachError):
+            attachments.save_upload(folder, "bad.txt", base64.b64encode(bytes([0, 98, 97, 100])).decode())
+        self.assertEqual(list(folder.iterdir()), [])
+
     def test_redirect_to_private_blocked(self):
         srv = page_server({})
         tb = Toolbox(Context(allow_private=False), "t")
@@ -174,7 +204,13 @@ class WebTests(unittest.TestCase):
 
     def test_tool_lists(self):
         names = lambda ctx: {t.name for t in Toolbox(ctx, "t").tools()}
-        self.assertEqual(names(Context(skills=False)), {"web_search", "web_fetch", "open_url", "todo_write", "memory_search", "memory_remember", "memory_forget"} | {t for t in names(Context(skills=False)) if t.startswith("browser_")})
+        self.assertEqual(names(Context(skills=False)), {"web_search", "web_fetch", "open_url", "todo_write",
+                                                               "memory_search", "memory_remember", "memory_forget"}
+                         | {t for t in names(Context(skills=False)) if t.startswith("browser_")})
+        readonly = names(Context(root=tempfile.mkdtemp(), readonly=True, files_dir=tempfile.mkdtemp(), skills=False))
+        self.assertTrue({"read_file", "list_dir", "git_info", "memory_search"} <= readonly)
+        self.assertTrue({"write_file", "edit_file", "run_command", "create_document", "create_spreadsheet",
+                         "open_url", "browser_click", "memory_remember", "memory_forget"} .isdisjoint(readonly))
         self.assertIn("write_file", names(Context(root=tempfile.mkdtemp(), skills=False)))
         self.assertNotIn("web_fetch", names(Context(root=tempfile.mkdtemp(), web=False, skills=False)))
         self.assertEqual(len([n for n in names(Context(skills=False)) if n.startswith("browser_")]), 7)
