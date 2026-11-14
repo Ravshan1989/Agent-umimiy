@@ -29,6 +29,14 @@ def _clip(value, depth: int = 0):
     return str(value)[:MAX_TEXT_FIELD]
 
 
+# Har yozuv turi uchun gui._replay talab qiladigan kalitlar
+_NEED = {"user": ("text",), "agent": ("name", "text"), "act": ("agent", "kind", "text")}
+
+
+def _ok_record(r) -> bool:
+    return isinstance(r, dict) and r.get("k") in _NEED and all(key in r for key in _NEED[r["k"]])
+
+
 def _safe_chats_and_active(chats: list, active: int) -> tuple[list[dict], int]:
     """Sanitize chats and preserve the selected chat when invalid entries are discarded."""
     safe = []
@@ -42,10 +50,13 @@ def _safe_chats_and_active(chats: list, active: int) -> tuple[list[dict], int]:
         if not isinstance(records, list) or not isinstance(history, list) or not records:
             continue
         item = _clip(chat)
-        item["records"] = [_clip(r) for r in records[-MAX_RECORDS:] if isinstance(r, dict)]
+        item["records"] = [_clip(r) for r in records[-MAX_RECORDS:] if _ok_record(r)]
         item["history"] = [_clip(h) for h in history[-MAX_HISTORY:] if isinstance(h, dict)]
         if not item["records"]:
             continue
+        for key in ("title", "project"):
+            if not isinstance(item.get(key), str):
+                item[key] = ""
         if original_index == active:
             selected = len(safe)
         safe.append(item)
@@ -66,7 +77,7 @@ def load() -> dict:
         p = path()
         if not p.is_file() or p.stat().st_size > MAX_CHATSTORE_BYTES:
             return empty
-        data = json.loads(p.read_text(encoding="utf-8"))
+        data = json.loads(p.read_text(encoding="utf-8-sig"))  # BOM bo'lsa ham o'qiladi
         if not isinstance(data, dict) or not isinstance(data.get("chats"), list):
             return empty
         active = data.get("active", 0)

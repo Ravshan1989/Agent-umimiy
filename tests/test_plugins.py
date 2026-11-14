@@ -283,7 +283,9 @@ class SkillTests(unittest.TestCase):
         tb = Toolbox(ctx, "a")
         self.assertIn("use_skill", [t.name for t in tb.tools()])
         out, err = tb.run("use_skill", {"name": "tarjima"})
-        self.assertEqual((out.strip(), err), ("Faqat ravon tarjima qiling.", False))
+        self.assertFalse(err, out)
+        self.assertTrue(out.startswith("Faqat ravon tarjima qiling."), out)
+        self.assertIn("[Ko'nikma papkasi:", out)  # agent ko'nikma skriptlarini haqiqiy papkadan ishga tushiradi
         self.assertTrue(tb.run("use_skill", {"name": "yoq"})[1])
         self.assertTrue(tb.run("use_skill", {"name": "tarjima", "file": "../x"})[1])
         ctx.skills = False

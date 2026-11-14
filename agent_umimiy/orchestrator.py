@@ -95,7 +95,10 @@ class Orchestrator:
             points += sum(1 for term in task if _matches(term, identity))
             ranked.append((points, agent))
         top_score = max((points for points, _ in ranked), default=0)
-        return next((agent for points, agent in ranked if points == top_score), pool[0]) if top_score else pool[0]
+        if top_score:
+            return next(agent for points, agent in ranked if points == top_score)
+        # mos yo'nalish ham, tavsif ham yo'q: sinov (echo) agentidan ko'ra haqiqiy agent afzal
+        return next((a for a in pool if a.kind != "echo"), pool[0])
 
     @staticmethod
     def _cancelled(result: Result) -> bool:

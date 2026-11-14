@@ -30,6 +30,8 @@ from .server_page import PAGE
 from .store import SESSION_DAYS, Store, StoreError
 
 MAX_BODY = 40 * 1024 * 1024
+AUTH_BODY = 64 * 1024  # kirish/ro'yxatdan o'tish so'rovi uchun (sessiyasiz) yetarli hajm
+OPEN_PATHS = ("/api/login", "/api/register", "/api/logout")  # sessiyasiz ham ochiq yo'llar
 MAX_FILES = 6
 MAX_PROMPT = 100_000
 MAX_LIVE_TEXT = 200_000
@@ -124,7 +126,8 @@ class App:
             ctx.browser_profile = (str(config.user_dir() / "browser-profiles" / f"user-{int(user_id)}-chat-{int(chat_id)}")
                                    if user_id is not None and chat_id is not None else None)
             ctx.remote_user = True
-            ctx.skills = False
+            # Xotira va ko'nikmalar kompyuter egasiniki (~/.claude, memory.json): veb-foydalanuvchilarga berilmaydi
+            ctx.memory = ctx.skills = False
             if self.mcp_manager:
                 self.mcp_manager.configure(cfg.get("mcp", []))
             ctx.mcp = self.mcp_manager
@@ -539,6 +542,7 @@ def make_handler(app: App):
 
         def handle_one_request(self):
             self.body_read = False  # har bir so'rov uchun qaytadan: ulanish keyingi so'rovga ham ishlatiladi
+            self.drain_limit = MAX_BODY  # javobdan oldin bo'shatiladigan tananing eng katta hajmi
             super().handle_one_request()
 
         def _drain(self):
@@ -551,7 +555,7 @@ def make_handler(app: App):
                 return
             self.body_read = True
             raw = self.headers.get("Content-Length", "")
-            if not str(raw).isascii() or not str(raw).isdecimal() or int(raw) > MAX_BODY:
+            if not str(raw).isascii() or not str(raw).isdecimal() or int(raw) > getattr(self, "drain_limit", MAX_BODY):
                 self.close_connection = True  # hajmi noma'lum yoki juda katta: o'qimaymiz, ulanishni yopamiz
                 return
             left = int(raw)
@@ -581,6 +585,8 @@ def make_handler(app: App):
             if download:
                 disposition = "inline" if inline else "attachment"
                 self.send_header("Content-Disposition", f"{disposition}; filename*=UTF-8''{quote(download)}")
+            if self.close_connection:  # tana o'qilmay qoldi: mijoz ulanish yopilishini oldindan bilsin
+                self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(body)
 
@@ -591,7 +597,8 @@ def make_handler(app: App):
         def _forwarded(self, header: str) -> str:
             """Proksi qo'shgan sarlavha; faqat so'rov shu kompyuterdagi proksidan kelganda ishoniladi."""
             if self.client_address[0] in ("127.0.0.1", "::1"):
-                return self.headers.get(header, "").split(",")[0].strip()
+                # eng o'ngdagi qiymatni proksining o'zi qo'shadi; chapdagilarni mijoz soxtalashtira oladi
+                return self.headers.get(header, "").split(",")[-1].strip()
             return ""
 
         def _ip(self) -> str:
@@ -740,10 +747,16 @@ def make_handler(app: App):
                 self._json(500, {"error": "Ichki server xatoligi."})
 
         def do_POST(self):
+            path = urlparse(self.path).path
+            # Sessiyasiz so'rovda faqat kichik tana bo'shatiladi; kattasida ulanish yopiladi
+            self.drain_limit = AUTH_BODY
             try:
                 if not self._host_ok():
                     raise Refused("Topilmadi.", 404)
-                self._json(200, *self._post(urlparse(self.path).path, self._body()))
+                if path not in OPEN_PATHS:
+                    self._user()  # 40 MB tanani o'qishdan oldin sessiya tekshiriladi
+                    self.drain_limit = MAX_BODY
+                self._json(200, *self._post(path, self._body(MAX_BODY if path not in OPEN_PATHS else AUTH_BODY)))
             except Refused as exc:
                 self._json(exc.code, {"error": str(exc)})
             except StoreError as exc:
@@ -751,7 +764,7 @@ def make_handler(app: App):
             except Exception:
                 self._json(500, {"error": "Ichki server xatoligi. Qayta urinib ko'ring."})
 
-        def _body(self) -> dict:
+        def _body(self, limit: int = MAX_BODY) -> dict:
             # JSON turi talab qilinadi: boshqa saytdagi forma bunday so'rov yubora olmaydi (CSRF himoyasi)
             if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
                 raise Refused("Noto'g'ri so'rov.", 415)
@@ -765,7 +778,7 @@ def make_handler(app: App):
             # qilishi mumkin; juda katta uzunlik esa xotirani tugatishi mumkin.
             if size < 0:
                 raise Refused("Noto'g'ri so'rov.")
-            if size > MAX_BODY:
+            if size > limit:
                 self.body_read = self.close_connection = True  # katta tanani o'qimaymiz: ulanish yopiladi
                 raise Refused("Hajm juda katta.", 413)
             self.body_read = True

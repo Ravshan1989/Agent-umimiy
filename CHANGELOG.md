@@ -6,6 +6,26 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 
 ## [Nashr qilinmagan] / [Unreleased]
 
+### Xavfsizlik / Security
+- `search_files` orqali loyiha papkasidan tashqariga chiqish imkoni yopildi (`../`, mutlaq yo'l,
+  tashqariga olib chiquvchi symlink/junction rad etiladi).
+- Veb-server foydalanuvchilari uchun xotira va ko'nikmalar (skills) o'chirildi.
+- `X-Forwarded-For` sarlavhasidan eng o'ngdagi (proksi qo'shgan) qiymat olinadi.
+- Veb-serverda sessiya 40 MB gacha bo'lgan so'rov tanasi o'qilishidan oldin tekshiriladi; kirish va
+  ro'yxatdan o'tish so'rovlari 64 KB bilan cheklandi.
+
+### Tuzatildi / Fixed
+- Xato javobidan oldin o'qilmay qolgan tana tufayli ulanish yopilsa, javobda `Connection: close` yuboriladi.
+- HTTP xatolari «HTTP <kod>:» bilan boshlanadi; 400/404/422 qaytaruvchi API'lar uchun asboblarsiz rejimga
+  o'tish qayta tiklandi.
+- Matndagi asbob chaqiruvlari: qiymatlar kesilmaydi, `<` yoki `&` bo'lsa ham o'qiladi.
+- CLI agentlar bilan almashuv UTF-8 kodlashda.
+- Xotira fayli o'qishda xato bo'lsa endi o'chib ketmaydi (`.bad` nusxasi saqlanadi); bo'sh bo'lmagan so'rovga
+  mos topilmasa, tasodifiy yozuvlar qaytarilmaydi.
+- Buzilgan `agents.json` dasturni yiqitmaydi (`.broken` nusxasi saqlanadi), BOM bilan saqlangan fayl o'qiladi.
+- Suhbatlarni tiklashda buzilgan yozuvlar tashlab yuboriladi.
+- Yorug' mavzuda jadvallar ko'rinmay qolishi tuzatildi.
+
 ## [0.4.0] - 2026-11-13
 
 ### Qo'shildi / Added
@@ -15,6 +35,11 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 - **Bosh sahifa paneli**: statistik kartalar, agentlar/fayllar/loyihalar ustunlari, tezkor amallar,
   rejalashtirilgan vazifalar va bildirishnomalar; pastda suhbat maydoni va mikrofon tugmasi.
 - **Dastur ikonkasi**: `packaging/AgentUmimiy.ico` (AU belgisi) exe, o'rnatuvchi va oyna uchun.
+- **Xotira asboblari**: agent muhim ma'lumotlarni eslab qoladi va keyin qidiradi (`memory_search`,
+  `memory_remember`, `memory_forget`).
+- **Avtomatik agent tanlash**: «auto» tanlansa, savolga mos agentni dastur o'zi tanlaydi.
+- Asbob chaqiruvlarini qo'llamaydigan modellar uchun zaxira: javob matnidagi XML ko'rinishidagi asbob chaqiruvlari
+  ham bajariladi.
 
 ### Tuzatildi / Fixed
 - **GitHub'da yig'ilgan exe ishga tushmasligi**: CI skriptida tkinter yashirin importlari,

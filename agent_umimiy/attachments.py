@@ -103,7 +103,15 @@ def load(path: str) -> Attachment:
         raw = fh.read(MAX_TEXT * 2)
     if b"\x00" in raw[:4096]:
         raise AttachError(f"{p.name}: bu fayl turini o'qib bo'lmaydi (rasm, PDF, Word yoki matn fayl tanlang).")
-    return Attachment(p.name, str(p), "text", "text/plain", text=raw.decode("utf-8", errors="replace")[:MAX_TEXT])
+    if len(raw) == MAX_TEXT * 2:  # kesilgan joyda chala qolgan UTF-8 belgi cp1251 ga o'tib ketmasin
+        for cut in range(4):
+            try:
+                raw[:len(raw) - cut].decode("utf-8")
+            except UnicodeDecodeError:
+                continue
+            raw = raw[:len(raw) - cut]
+            break
+    return Attachment(p.name, str(p), "text", "text/plain", text=docs.decode_text(raw)[:MAX_TEXT])
 
 
 def save_upload(save_dir: Path, name: str, data_b64: str) -> Attachment:

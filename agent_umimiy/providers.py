@@ -138,7 +138,8 @@ class CLIAgent(Agent):
         use_stdin = batch or not any("{prompt}" in x for x in parts)
         argv = [exe] + [x.replace("{prompt}", prompt) for x in parts[1:]]
         try:
-            p = proc.run(argv, input=prompt if use_stdin else None, timeout=o.get("timeout", 300),
+            # node CLI'lar (claude, codex, gemini) UTF-8 gaplashadi; Windows'da standart ANSI kod sahifasi emas
+            p = proc.run(argv, input=prompt if use_stdin else None, timeout=o.get("timeout", 300), encoding="utf-8",
                          cwd=(ctx.root if ctx and ctx.root else o.get("cwd")) or None)
         except FileNotFoundError as exc:
             raise AgentError(f"Buyruq ishga tushmadi: {parts[0]}") from exc

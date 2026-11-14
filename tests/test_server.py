@@ -176,7 +176,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(c.call("/api/login", {"name": "ali", "password": PASSWORD})[0], 200)
         code, me = c.call("/api/me")
         self.assertEqual(me["agents"], [{"name": "auto", "model": "Avtomatik — o‘zi tanlaydi"},
-                                        {"name": "aks", "model": ""}])  # CLI agent veb-foydalanuvchilarga berilmaydi
+                                        {"name": "aks", "model": "", "description": ""}])  # CLI agent veb-foydalanuvchilarga berilmaydi
         self.assertEqual(c.call("/api/logout", {})[0], 200)
         self.assertEqual(c.call("/api/me")[0], 401)
 

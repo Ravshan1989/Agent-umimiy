@@ -52,13 +52,24 @@ def config_path(path: str | None = None) -> Path:
 
 def read(path: str | None = None) -> dict:
     p = config_path(path)
-    if p.exists():
-        if p.stat().st_size > MAX_CONFIG_BYTES:
-            raise ValueError("agents.json fayli 1 MB dan katta.")
-        data = json.loads(p.read_text(encoding="utf-8"))
-        if not isinstance(data, dict):
-            raise ValueError("agents.json ildiz elementi obyekt bo'lishi kerak.")
-        return {**DEFAULT, **data}
+    if not p.exists():
+        return json.loads(json.dumps(DEFAULT))
+    if p.stat().st_size > MAX_CONFIG_BYTES:
+        raise ValueError("agents.json fayli 1 MB dan katta.")
+    for attempt in range(2):
+        try:
+            data = json.loads(p.read_text(encoding="utf-8-sig"))  # BOM bo'lsa ham o'qiladi
+            if isinstance(data, dict):
+                return {**DEFAULT, **data}
+        except ValueError:
+            pass
+        if attempt == 0:
+            time.sleep(0.2)  # boshqa jarayon ayni paytda yozayotgan bo'lishi mumkin — bir marta qayta urinamiz
+    # Buzilgan fayl: dastur yiqilmasin, nusxasini saqlab standart sozlamalarni qaytaramiz
+    try:
+        os.replace(p, p.with_name(p.name + ".broken"))
+    except OSError:
+        pass
     return json.loads(json.dumps(DEFAULT))
 
 
@@ -70,6 +81,7 @@ def write(cfg: dict, path: str | None = None) -> None:
     payload = json.dumps(cfg, indent=2, ensure_ascii=False).encode("utf-8")
     if len(payload) > MAX_CONFIG_BYTES:
         raise ValueError("Konfiguratsiya 1 MB dan katta bo'lmasligi kerak.")
+    # Atomar yozish: avval yonidagi vaqtinchalik faylga, keyin os.replace (yarim yozilgan fayl qolmaydi)
     tmp = p.with_suffix(p.suffix + ".tmp")
     fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     try:

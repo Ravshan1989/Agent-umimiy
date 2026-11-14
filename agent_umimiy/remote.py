@@ -219,6 +219,8 @@ class RemoteServer:
                 self.send_header("Content-Security-Policy",
                                  "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; "
                                  "connect-src 'self'; frame-ancestors 'none'")
+                if self.close_connection:  # tana o'qilmay qoldi: ulanish yopiladi
+                    self.send_header("Connection", "close")
                 self.end_headers()
                 self.wfile.write(body)
 

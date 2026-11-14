@@ -54,6 +54,7 @@ class Context:
     remote_user: bool = False  # tarmoq foydalanuvchisi: admin kompyuteriga local kirish yo'q
     mcp: object = None  # mcp.Manager (plaginlar)
     skills: bool = True  # ko'nikmalar (SKILL.md)
+    memory: bool = True  # lokal xotira (kompyuter egasining xotirasi; veb-server rejimida o'chiriladi)
     files_dir: str | None = None  # agent yaratgan hujjatlar (Word, Excel...) saqlanadigan papka
     allow_private: bool = False  # faqat testlar uchun
 
@@ -185,6 +186,8 @@ def available(ctx: Context) -> list[Tool]:
         # Read-only is an execution boundary, not just a prompt hint.
         out = [t for t in out if t.kind not in ("write", "run", "open", "browser", "create")
                and t.name not in ("memory_remember", "memory_forget")]
+    if not ctx.memory:
+        out = [t for t in out if t.kind != "memory"]
     out = [t for t in out if ctx.files_dir or t.kind != "create"]
     out = [t for t in out if ctx.web or t.kind not in ("web", "open")]
     out = [t for t in out if t.kind != "browser" or (ctx.browser and not ctx.readonly)]
@@ -263,6 +266,8 @@ FILES_NOTE = (" When the user asks for a document, report, table or other file, 
 def _memory_guidance(ctx: Context) -> str:
     if ctx.remote_user:
         return " Local memory is unavailable to network employees; do not claim to remember cross-chat information."
+    if not ctx.memory:
+        return ""
     policy = (" Local memory is available. Search it before answering relevant user-specific questions. "
               "Save durable facts or preferences only when the user explicitly asks you to remember them. "
               "Use memory_forget only when the user asks you to forget a saved fact. Never save passwords, API keys, "
@@ -412,14 +417,21 @@ class Toolbox:
             return f"Xato: {exc}", True
 
     # ---- local memory ----
+    def _memory_on(self):
+        if not self.ctx.memory:
+            raise ToolError("Bu rejimda xotira o'chirilgan.")
+
     def t_memory_search(self, query: str, limit: int = 5) -> str:
+        self._memory_on()
         return memory.search(query, limit)
 
     def t_memory_remember(self, fact: str) -> str:
+        self._memory_on()
         self._approve_once("memory_remember", "Xotiraga ma'lumot saqlanadi", str(fact)[:1000])
         return memory.remember(fact)
 
     def t_memory_forget(self, id: str) -> str:
+        self._memory_on()
         self._approve_once("memory_forget", "Xotiradagi ma'lumot o'chiriladi", f"Xotira ID: {id}")
         return memory.forget(id)
 
@@ -521,12 +533,22 @@ class Toolbox:
         except re.error as exc:
             raise ToolError(f"Noto'g'ri regex: {exc}")
         base = self._path(path)
+        # glob loyiha papkasidan chiqib ketmasligi kerak ("../*.md", "C:/...", "/etc/*")
+        glob = glob or ""  # model null yuborishi mumkin
+        parts = re.split(r"[\\/]", glob)
+        if ".." in parts or glob.startswith(("/", "\\")) or ":" in glob or Path(glob).is_absolute():
+            raise ToolError("glob loyiha papkasidan tashqariga chiqa olmaydi.")
         self._say("read", f"Qidirdi: {pattern}")
         hits = []
         for f in sorted(base.rglob(glob or "*")):
             if len(hits) >= 100:
                 break
-            if not f.is_file() or any(p in SKIP_DIRS for p in f.relative_to(self.root).parts):
+            try:  # symlink/junction orqali tashqariga chiqqan fayllar o'tkazib yuboriladi (_path() kabi)
+                f = f.resolve()
+                rel = f.relative_to(self.root)
+            except (OSError, ValueError):
+                continue
+            if not f.is_file() or any(p in SKIP_DIRS for p in rel.parts):
                 continue
             try:
                 if f.stat().st_size > 1_000_000:
