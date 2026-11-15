@@ -12,7 +12,7 @@ agentlar fayllaringizni o'qiydi, tahrirlaydi, brauzerni boshqaradi va bir-biriga
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Litsenziya](https://img.shields.io/badge/litsenziya-MIT-green)
 ![Til](https://img.shields.io/badge/interfeys-UZ%20%7C%20RU%20%7C%20EN-1EB53A)
-[![Testlar](https://github.com/Ravshan1989/Agent-umimiy/actions/workflows/tests.yml/badge.svg)](https://github.com/Ravshan1989/Agent-umimiy/actions/workflows/tests.yml)
+[![Testlar](https://github.com/Ravshan1989/RMS-AI/actions/workflows/tests.yml/badge.svg)](https://github.com/Ravshan1989/RMS-AI/actions/workflows/tests.yml)
 
 [📥 Yuklab olish](#-ornatish) · [✨ Imkoniyatlar](#-imkoniyatlar) · [⚙️ Sozlash](#️-sozlash) · [📖 Qo'llanma](#-batafsil-qollanma) · [👨‍💻 Dasturchilar](#-dasturchilar-uchun)
 
@@ -64,7 +64,7 @@ Desktop interfeys tilini **Sozlamalar → Interfeys tili** orqali tanlang. Ilova
 
 **Windows 10/11 (64-bit)**
 
-1. **[Oxirgi nashr (Releases)](https://github.com/Ravshan1989/Agent-umimiy/releases/latest)** sahifasidan
+1. **[Oxirgi nashr (Releases)](https://github.com/Ravshan1989/RMS-AI/releases/latest)** sahifasidan
    **`AgentUmimiy-Setup.exe`** faylini yuklab oling.
 2. Faylni ikki marta bosing va o'rnating: ish stolida «Agent Umimiy» yorlig'i paydo bo'ladi.
 3. Windows ogohlantirsa: **«Qo'shimcha ma'lumot»** → **«Baribir ishga tushirish»**.
@@ -75,7 +75,7 @@ Desktop interfeys tilini **Sozlamalar → Interfeys tili** orqali tanlang. Ilova
 
 **Linux (64-bit)**
 
-1. **[Oxirgi nashr](https://github.com/Ravshan1989/Agent-umimiy/releases/latest)** sahifasidan **`AgentUmimiy-Linux-x86_64.tar.gz`** ni yuklab oling.
+1. **[Oxirgi nashr](https://github.com/Ravshan1989/RMS-AI/releases/latest)** sahifasidan **`AgentUmimiy-Linux-x86_64.tar.gz`** ni yuklab oling.
 2. Oching va ishga tushiring: `tar -xzf AgentUmimiy-Linux-x86_64.tar.gz && ./AgentUmimiy/AgentUmimiy`
 3. Skrinshotni Ctrl+V bilan qo'yish uchun `xclip` (X11) yoki `wl-clipboard` (Wayland) o'rnatilgan bo'lsin.
 
@@ -271,8 +271,8 @@ Kalit faqat sizning kompyuteringizdagi sozlama faylida saqlanadi. Model fayl asb
 Python 3.9+ kerak. Qo'shimcha kutubxonalar ixtiyoriy: `pypdf` (PDF o'qish), `qrcode` (telefon uchun QR-kod) `pillow` (skrinshotni Ctrl+V bilan qo'yish), `python-docx` va `openpyxl` (Word va Excel fayl yaratish).
 
 ```bash
-git clone https://github.com/Ravshan1989/Agent-umimiy.git
-cd Agent-umimiy
+git clone https://github.com/Ravshan1989/RMS-AI.git
+cd RMS-AI
 pip install pypdf qrcode pillow python-docx openpyxl
 python app.py                              # oyna
 python app.py --cli -m broadcast "salom"   # terminal
