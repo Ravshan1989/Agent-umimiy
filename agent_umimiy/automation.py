@@ -122,6 +122,15 @@ class Scheduler:
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
             return
+        with _LOCK:
+            jobs = list_jobs()
+            changed = False
+            for j in jobs:
+                if j.get("last_status") == "bajarilmoqda":
+                    j["last_status"] = "to'xtatilgan"
+                    changed = True
+            if changed:
+                _save_jobs(jobs)
         self._stop.clear()
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
@@ -138,8 +147,8 @@ class Scheduler:
                 if not job.get("enabled", True) or job.get("last_status") == "bajarilmoqda":
                     continue
                 interval_sec = max(300, int(job.get("interval_minutes", 60)) * 60)
-                last_run = int(job.get("last_run") or 0)
-                if last_run > 0 and now - last_run >= interval_sec:
+                last_run = int(job.get("last_run") or job.get("created_at") or 0)
+                if now - last_run >= interval_sec:
                     try:
                         run_job_now(int(job["id"]), self.runner_fn)
                     except Exception:

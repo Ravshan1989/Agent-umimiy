@@ -57,7 +57,7 @@ class Orchestrator:
         if target.kind == "cli":
             raise ValueError("Xavfsizlik uchun CLI agentni boshqa agent nomidan chaqirib bo'lmaydi.")
         child = dataclasses.replace(self.ctx, readonly=True, delegate=None, always=set())
-        r = copy.copy(target).ask(f"[{frm} agent sizdan so'rayapti]\\n{prompt}", [], child, None)
+        r = copy.copy(target).ask(f"[{frm} agent sizdan so'rayapti]\n{prompt}", [], child, None)
         return r.text if r.ok else f"[{name} javob bera olmadi: {r.error}]"
 
     def reset(self):

@@ -61,7 +61,7 @@ def pdf_text(data_or_path, limit: int = MAX_TEXT) -> str:
         pages = reader.pages
         out, total = [], 0
         for i, page in enumerate(pages[:MAX_PDF_PAGES], 1):
-            block = f"[{i}-sahifa]\\n{page.extract_text() or ''}"
+            block = f"[{i}-sahifa]\n{page.extract_text() or ''}"
             out.append(block)
             total += len(block)
             if total > limit:
@@ -72,7 +72,7 @@ def pdf_text(data_or_path, limit: int = MAX_TEXT) -> str:
         raise
     except Exception as exc:
         raise AttachError(f"PDF o'qilmadi: {exc}")
-    text = "\\n\\n".join(out).strip()
+    text = "\n\n".join(out).strip()
     return text[:limit] or ("(PDF ichida matn topilmadi: bu skaner qilingan rasm bo'lishi mumkin. Sahifalarni rasm sifatida yuboring — "
                             "ko'ra oladigan model (Claude, GPT-4, Gemini) matnni o'zi o'qiydi)")
 

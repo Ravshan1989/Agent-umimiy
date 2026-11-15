@@ -94,6 +94,7 @@ class App:
         self.channels: dict[int, Channel] = {}
         self.pending_approvals: dict[str, dict] = {}
         self.mcp_manager = None
+        self.web_mcp_manager = None
         self.network_server = None
         self.network_error = ""
         self.discovery: discovery.DiscoveryResponder | None = None
@@ -141,11 +142,17 @@ class App:
             ctx.browser_profile = (str(config.user_dir() / "browser-profiles" / f"user-{int(user_id)}-chat-{int(chat_id)}")
                                    if user_id is not None and chat_id is not None else None)
             ctx.remote_user = True
-            # Xotira va ko'nikmalar kompyuter egasiniki (~/.claude, memory.json): veb-foydalanuvchilarga berilmaydi
+            # Xotira, ko'nikmalar va admin MCP vositalari veb-foydalanuvchilarga berilmaydi
             ctx.memory = ctx.skills = False
-            if self.mcp_manager:
-                self.mcp_manager.configure(cfg.get("mcp", []))
-            ctx.mcp = self.mcp_manager
+            web_mcp = [m for m in cfg.get("mcp", []) if isinstance(m, dict) and m.get("web_users")]
+            if web_mcp and self.mcp_manager:
+                if not self.web_mcp_manager:
+                    self.web_mcp_manager = type(self.mcp_manager)(web_mcp)
+                else:
+                    self.web_mcp_manager.configure(web_mcp)
+                ctx.mcp = self.web_mcp_manager
+            else:
+                ctx.mcp = None
         ctx.web = bool(cfg.get("web", True))
         return orch
 
@@ -178,6 +185,7 @@ class App:
                 raise Refused("Web-server porti noto'g'ri yoki desktop portiga teng.")
             server = Server(("0.0.0.0", port), make_handler(self))
             server.app, server.store = self, self.store
+            server.is_desktop = False
             self.network_server = server
             self.network_error = ""
             cfg["server"] = True
@@ -474,6 +482,9 @@ class App:
         if self.mcp_manager:
             self.mcp_manager.shutdown()
             self.mcp_manager = None
+        if self.web_mcp_manager:
+            self.web_mcp_manager.shutdown()
+            self.web_mcp_manager = None
         self.scheduler.stop()
         self.telegram.stop()
         network_server, self.network_server = self.network_server, None
@@ -776,7 +787,7 @@ def _export_zip(store: Store, user_id: int) -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("database/agent-umimiy.sqlite3", store.backup_bytes())
-        for fname in ("memory.json", "wiki.md", "automation.json"):
+        for fname in ("memory.json", "wiki.md", "automations.json"):
             fpath = config.user_dir() / fname
             if fpath.is_file():
                 try:
@@ -941,8 +952,9 @@ def make_handler(app: App):
             return self._forwarded("X-Forwarded-For") or self.client_address[0]
 
         def _desktop(self) -> bool:
-            """So'rov dasturning o'z oynasidan kelganmi: desktop rejimi, shu kompyuter, proksisiz."""
-            return (app.desktop and self.client_address[0] in ("127.0.0.1", "::1")
+            """So'rov dasturning o'z oynasidan kelganmi: desktop rejimi, tarmoq serveri emas, shu kompyuter, proksisiz."""
+            return (getattr(self.server, "is_desktop", True) and app.desktop
+                    and self.client_address[0] in ("127.0.0.1", "::1")
                     and not self.headers.get("X-Forwarded-For"))
 
         def _host_ok(self) -> bool:

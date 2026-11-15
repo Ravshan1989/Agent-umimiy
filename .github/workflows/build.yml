@@ -21,9 +21,11 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            asset: dist/AgentUmimiy-Setup.exe
+            asset: |
+              dist/RMSAI-Setup.exe
+              dist/RMSAIClient-Setup.exe
           - os: ubuntu-22.04  # eskiroq glibc: yangi va eski Linux'larda ishlaydi
-            asset: dist/AgentUmimiy-Linux-x86_64.tar.gz
+            asset: dist/RMSAI-Linux-x86_64.tar.gz
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -50,11 +52,17 @@ jobs:
           --add-data "agent_umimiy/static${{ runner.os == 'Windows' && ';' || ':' }}agent_umimiy/static"
           --add-data "packaging/AgentUmimiy.ico${{ runner.os == 'Windows' && ';' || ':' }}."
           ${{ runner.os == 'Windows' && '--icon packaging/AgentUmimiy.ico' || '' }}
-          --name AgentUmimiy app.py
+          --name RMSAI app.py
+      - if: runner.os == 'Windows'
+        name: Mijoz dasturini yig'ish (RMSAIClient)
+        run: >
+          python -m PyInstaller --noconfirm --clean --windowed
+          --hidden-import webview --icon packaging/AgentUmimiy.ico
+          --name RMSAIClient client_app.py
       - if: runner.os == 'Windows'  # klassik Tk oyna faqat Windows to'plamida tarqatiladi
         name: Yig'ilgan to'plam tekshiruvi (klassik oyna ishlashi uchun kerak bo'lgan fayllar)
         run: |
-          cd dist/AgentUmimiy
+          cd dist/RMSAI
           test -d _internal/_tcl_data || test -d _tcl_data
           test -d _internal/_tk_data || test -d _tk_data
           test -f _internal/AgentUmimiy.ico || test -f AgentUmimiy.ico
@@ -62,7 +70,7 @@ jobs:
           test -n "$(ls _internal/_tkinter* _tkinter* 2>/dev/null)"
       - name: Yig'ilgan dasturni sinash (veb-server rejimi)
         run: |
-          dist/AgentUmimiy/AgentUmimiy --serve --host 127.0.0.1 --port 8123 &
+          dist/RMSAI/RMSAI --serve --host 127.0.0.1 --port 8123 &
           for i in $(seq 1 30); do
             if curl -sf http://127.0.0.1:8123/ -o /tmp/agent-umimiy-index.html; then break; fi
             sleep 1
@@ -80,12 +88,13 @@ jobs:
         run: |
           choco install innosetup -y --no-progress
           iscc packaging\installer.iss
+          iscc packaging\client_installer.iss
       - if: runner.os == 'Linux'
         name: Arxiv (tar.gz)
-        run: tar -czf dist/AgentUmimiy-Linux-x86_64.tar.gz -C dist AgentUmimiy
+        run: tar -czf dist/RMSAI-Linux-x86_64.tar.gz -C dist RMSAI
       - uses: actions/upload-artifact@v7
         with:
-          name: AgentUmimiy-${{ runner.os }}
+          name: RMSAI-${{ runner.os }}
           path: ${{ matrix.asset }}
       - if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
         uses: softprops/action-gh-release@v3

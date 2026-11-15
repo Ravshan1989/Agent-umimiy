@@ -122,7 +122,7 @@ class BrowserToolTests(unittest.TestCase):
         br._shared = {profile: self.browser}
         self.addCleanup(br.shutdown)
         self.ctx = Context(confirm=lambda *a: (self.asked.append(a), self.answer)[1], emit=lambda *a: None,
-                           browser_profile=profile)
+                           browser_profile=profile, allow_private=True)
         self.tb = Toolbox(self.ctx, "t")
 
     def test_site_and_click_permissions_and_typing_asks_each_time(self):

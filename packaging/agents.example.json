@@ -1,6 +1,6 @@
 {
   "judge": "freellmapi",
-  "server": true,
+  "server": false,
   "server_port": 8080,
   "web_access": false,
   "routes": {

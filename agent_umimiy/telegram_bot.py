@@ -30,6 +30,11 @@ class TelegramBridge:
         if not token:
             self.status, self.error, self.bot_username = "o'chiq", "", ""
             return self.info()
+        if not allowed:
+            self.status = "xato"
+            self.error = "Xavfsizlik uchun ruxsat etilgan foydalanuvchi (@username yoki ID) majburiy."
+            self.bot_username = ""
+            return self.info()
         try:
             me = self._api("getMe", {}, timeout=5)
             if not me.get("ok"):
@@ -75,12 +80,19 @@ class TelegramBridge:
                 for upd in res.get("result") or []:
                     offset = max(offset, int(upd.get("update_id", 0)) + 1)
                     msg = upd.get("message") or {}
-                    chat_id = (msg.get("chat") or {}).get("id")
+                    chat = msg.get("chat") or {}
+                    chat_id = chat.get("id")
                     text = str(msg.get("text") or "").strip()
-                    sender = str((msg.get("from") or {}).get("username") or "").lower()
+                    user = msg.get("from") or {}
+                    sender = str(user.get("username") or "").lower()
+                    sender_id = str(user.get("id") or "")
                     if not chat_id or not text:
                         continue
-                    if self.allowed_username and sender != self.allowed_username:
+                    if chat.get("type") != "private":
+                        continue
+                    if not self.allowed_username or (
+                        sender != self.allowed_username and sender_id != self.allowed_username
+                    ):
                         self._api("sendMessage", {"chat_id": chat_id, "text": "Ruxsat yo'q."})
                         continue
                     if text == "/start":
