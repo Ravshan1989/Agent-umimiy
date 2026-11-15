@@ -2,22 +2,22 @@
 [Setup]
 AppName=RMS AI
 AppVersion=0.7.0
-DefaultDirName={autopf}\AgentUmimiy
+DefaultDirName={autopf}\RMSAI
 DefaultGroupName=RMS AI
 OutputDir=..\dist
 OutputBaseFilename=RMSAI-Setup
 Compression=lzma2
 SolidCompression=yes
 PrivilegesRequired=lowest
-UninstallDisplayIcon={app}\AgentUmimiy.exe
+UninstallDisplayIcon={app}\RMSAI.exe
 SetupIconFile=AgentUmimiy.ico
 
 [Files]
-Source: "..\dist\AgentUmimiy\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
+Source: "..\dist\RMSAI\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 
 [Icons]
-Name: "{group}\RMS AI"; Filename: "{app}\AgentUmimiy.exe"; IconFilename: "{app}\AgentUmimiy.exe"; AppUserModelID: "AgentUmimiy.Desktop"
-Name: "{autodesktop}\RMS AI"; Filename: "{app}\AgentUmimiy.exe"; IconFilename: "{app}\AgentUmimiy.exe"; AppUserModelID: "AgentUmimiy.Desktop"
+Name: "{group}\RMS AI"; Filename: "{app}\RMSAI.exe"; IconFilename: "{app}\RMSAI.exe"; AppUserModelID: "RMSAI.Desktop"
+Name: "{autodesktop}\RMS AI"; Filename: "{app}\RMSAI.exe"; IconFilename: "{app}\RMSAI.exe"; AppUserModelID: "RMSAI.Desktop"
 
 [Run]
-Filename: "{app}\AgentUmimiy.exe"; Description: "RMS AI ni ishga tushirish"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\RMSAI.exe"; Description: "RMS AI ni ishga tushirish"; Flags: nowait postinstall skipifsilent
