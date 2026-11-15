@@ -25,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import attachments, automation, config, memory, preview, rag, remote, skills, telegram_bot, translit
+from . import attachments, automation, config, discovery, memory, preview, rag, remote, skills, telegram_bot, translit
 from . import mcp as mcplib
 from .server_page import PAGE
 from .store import SESSION_DAYS, Store, StoreError
@@ -58,7 +58,7 @@ FILE_TYPES = {
 ICONS = {"/icon-192.png": 192, "/icon-512.png": 512, "/apple-touch-icon.png": 180}
 # Telefonda «Bosh ekranga qo'shish» orqali ilova kabi ochilishi uchun (PWA)
 MANIFEST = json.dumps({
-    "name": "Agent Umimiy", "short_name": "Agent Umimiy", "lang": "uz", "start_url": "/", "scope": "/",
+    "name": "RMS AI", "short_name": "RMS AI", "lang": "uz", "start_url": "/", "scope": "/",
     "display": "standalone", "background_color": "#0d0f16", "theme_color": "#0d0f16",
     "icons": [{"src": path, "sizes": f"{size}x{size}", "type": "image/png", "purpose": "any maskable"}
               for path, size in ICONS.items() if size != 180],
@@ -96,8 +96,10 @@ class App:
         self.mcp_manager = None
         self.network_server = None
         self.network_error = ""
+        self.discovery: discovery.DiscoveryResponder | None = None
         self.desktop = False  # dastur o'z oynasida ishlayaptimi (run_desktop)
         self.desktop_token = ""  # oynani avtomatik kiritadigan bir martalik kalit
+        self.client_key = secrets.token_urlsafe(24)  # AgentUmimiyClient ilovasi uchun kirish kaliti
         self.classic_at = 0.0  # klassik oyna oxirgi marta qachon ochilgani
         self.scheduler = automation.Scheduler(self.run_prompt_once)
         self.telegram = telegram_bot.TelegramBridge(lambda text: self.run_prompt_once(text, "auto"))
@@ -181,8 +183,17 @@ class App:
             cfg["server"] = True
             config.write(cfg, self.config_file)
             threading.Thread(target=server.serve_forever, daemon=True).start()
+            try:
+                resp = discovery.DiscoveryResponder(port, client_key=self.client_key)
+                resp.start()
+                self.discovery = resp
+            except OSError:
+                pass
         else:
             server, self.network_server = self.network_server, None
+            disc, self.discovery = self.discovery, None
+            if disc:
+                disc.stop()
             self.network_error = ""
             cfg["server"] = False
             config.write(cfg, self.config_file)
@@ -466,6 +477,9 @@ class App:
         self.scheduler.stop()
         self.telegram.stop()
         network_server, self.network_server = self.network_server, None
+        disc, self.discovery = self.discovery, None
+        if disc:
+            disc.stop()
         if network_server:
             network_server.shutdown()
             network_server.server_close()
@@ -638,6 +652,7 @@ def _export_chat(store: Store, chat_id: int, fmt: str) -> tuple[bytes, str, str]
         return buf.getvalue(), FILE_TYPES[".xlsx"], f"{safe_title}.xlsx"
     if fmt == "pdf":
         import textwrap
+
         from PIL import Image, ImageDraw
         all_lines = [raw_title, "=" * min(60, len(raw_title)), ""]
         for r in recs:
@@ -971,6 +986,14 @@ def make_handler(app: App):
             morsel = SimpleCookie(self.headers.get("Cookie", "")).get("session")
             return morsel.value if morsel else ""
 
+        def _client_allowed(self) -> bool:
+            if self._desktop():
+                return True
+            if bool(config.read(app.config_file).get("web_access", True)):
+                return True
+            morsel = SimpleCookie(self.headers.get("Cookie", "")).get("au_client")
+            return bool(morsel and hmac.compare_digest(morsel.value, app.client_key))
+
         def _user(self) -> tuple[int, str]:
             user = store.session_user(self._token())
             if not user:
@@ -992,6 +1015,30 @@ def make_handler(app: App):
             try:
                 if not self._host_ok():
                     raise Refused("Topilmadi.", 404)
+                if url.path == "/client-enter":
+                    key = parse_qs(url.query).get("key", [""])[0]
+                    if not key or not hmac.compare_digest(key, app.client_key):
+                        raise Refused("Kirish ruxsati yo'q.", 403)
+                    self.send_response(302)
+                    self.send_header("Location", "/")
+                    self.send_header("Set-Cookie", f"au_client={app.client_key}; HttpOnly; SameSite=Lax; Path=/")
+                    self.end_headers()
+                    return None
+                if not self._client_allowed():
+                    msg = (
+                        "<!doctype html><html lang='uz'><meta charset='utf-8'>"
+                        "<body style='font-family:Segoe UI,sans-serif;background:#0b101b;color:#e6edf7;"
+                        "display:grid;place-items:center;min-height:100vh;margin:0'>"
+                        "<div style='max-width:440px;padding:24px;border-radius:14px;background:#141d2e;"
+                        "border:1px solid rgba(148,163,184,.25)'>"
+                        "<h2 style='margin:0 0 8px'>Veb-brauzer orqali kirish yopiq</h2>"
+                        "<p style='margin:0;color:#9fb0c7;line-height:1.5'>Faqat <b>RMS AI Client</b> "
+                        "desktop ilovasi orqali ulanish mumkin (yoki admindan veb-ruxsat so‘rang).</p>"
+                        "</div></body></html>"
+                    )
+                    if url.path.startswith("/api/"):
+                        return self._json(403, {"error": "Veb-brauzer orqali kirish yopiq."})
+                    return self._send(403, msg.encode("utf-8"), "text/html; charset=utf-8")
                 if url.path == "/":
                     web_index = STATIC_DIR / "web" / "index.html"
                     if web_index.is_file():
@@ -1072,6 +1119,7 @@ def make_handler(app: App):
                 if url.path == "/api/qr":
                     self._user()
                     import io
+
                     import qrcode
                     text = parse_qs(url.query).get("text", [""])[0][:1500] or "Agent Umimiy"
                     img = qrcode.make(text)
@@ -1117,6 +1165,8 @@ def make_handler(app: App):
             try:
                 if not self._host_ok():
                     raise Refused("Topilmadi.", 404)
+                if not self._client_allowed():
+                    raise Refused("Veb-brauzer orqali kirish yopiq. Faqat RMS AI Client ilovasi orqali ulanish mumkin.", 403)
                 if path not in OPEN_PATHS:
                     self._user()  # 40 MB tanani o'qishdan oldin sessiya tekshiriladi
                     self.drain_limit = MAX_BODY
@@ -1347,6 +1397,7 @@ def make_handler(app: App):
                 try:
                     import base64
                     import io
+
                     from PIL import ImageGrab
                     img = ImageGrab.grab()
                     img.thumbnail((1920, 1080))
@@ -1575,7 +1626,14 @@ def urls(httpd: Server) -> list[str]:
 
 def run(host: str, port: int, config_file: str | None = None) -> None:
     httpd = open_default(host, port, config_file)
-    print("Agent Umimiy veb-server ishga tushdi. Brauzerda oching:")
+    disc = None
+    if host == "0.0.0.0":
+        try:
+            disc = discovery.DiscoveryResponder(httpd.server_port, client_key=httpd.app.client_key)
+            disc.start()
+        except OSError:
+            disc = None
+    print("RMS AI veb-server ishga tushdi. Brauzerda oching:")
     for url in urls(httpd):
         print("  " + url)
     print(f"Ro'yxatdan o'tish uchun taklif kodi: {httpd.store.invite()}")
@@ -1585,6 +1643,8 @@ def run(host: str, port: int, config_file: str | None = None) -> None:
     except KeyboardInterrupt:
         pass
     finally:
+        if disc:
+            disc.stop()
         httpd.app.shutdown()
         httpd.server_close()
         httpd.store.close()
@@ -1688,7 +1748,7 @@ def run_desktop(config_file: str | None = None) -> bool:
             except Exception:
                 pass
         webview.create_window(
-            "Agent Umimiy", f"http://127.0.0.1:{port}/api/desktop-login?token={httpd.app.desktop_token}",
+            "RMS AI", f"http://127.0.0.1:{port}/api/desktop-login?token={httpd.app.desktop_token}",
             width=width, height=height, min_size=(880, 560), maximized=maximized, background_color="#04061a")
         webview.start(on_shown, private_mode=False, storage_path=str(storage))
     except Exception:

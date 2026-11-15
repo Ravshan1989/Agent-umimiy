@@ -7,11 +7,11 @@ PAGE = r"""<!doctype html>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Agent Umimiy">
+<meta name="apple-mobile-web-app-title" content="RMS AI">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<title>Agent Umimiy</title>
+<title>RMS AI</title>
 <style>#lang{flex:none;width:auto;max-width:105px;padding:7px 8px;background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:9px;font:inherit}
 
 :root{--bg:#0d0f16;--side:#121521;--card:#1a1e2e;--hi:#232842;--line:#2a3047;--fg:#e8eaf4;--mut:#8b92ab;--acc:#7c6cff;--acc2:#9a8dff;--user:#5a49ee;--ok:#34d399;--err:#f87171;--warn:#fbbf24;--code:#080a10}
@@ -77,7 +77,7 @@ textarea{flex:1;resize:none;background:var(--card);border:1px solid var(--line);
  aside.open{transform:none;box-shadow:0 0 0 100vmax rgba(0,0,0,.5)}#menu{display:block}}
 </style></head><body>
 <div id="auth" hidden><form id="af">
- <h1>Agent Umimiy</h1><p id="ahint"></p>
+ <h1>RMS AI</h1><p id="ahint"></p>
  <input id="aname" placeholder="Ism" autocomplete="username" required>
  <input id="apass" type="password" placeholder="Parol" required>
  <input id="ainv" placeholder="Taklif kodi" autocomplete="off" hidden>
@@ -86,7 +86,7 @@ textarea{flex:1;resize:none;background:var(--card);border:1px solid var(--line);
  <button type="button" class="sw" id="asw"></button>
 </form></div>
 <div id="app" hidden>
- <aside id="side"><div class="top"><h2>Agent Umimiy</h2><button id="new">+ Yangi suhbat</button></div>
+ <aside id="side"><div class="top"><h2>RMS AI</h2><button id="new">+ Yangi suhbat</button></div>
   <div id="chats"></div>
   <div class="me"><span id="user"></span><button id="out">Chiqish</button></div></aside>
  <main><div id="banner" hidden>Ulanish yo'q — qayta urinilmoqda…</div>

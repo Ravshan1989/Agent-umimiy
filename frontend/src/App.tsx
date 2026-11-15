@@ -39,7 +39,7 @@ const I18N: Record<"ru" | "en", Record<string, string>> = {
   ru: {
     "Bosh sahifa": "Главная", "Suhbat": "Чат", "Agentlar": "Агенты", "Fayllar": "Файлы", "Loyihalar": "Проекты",
     "Plaginlar": "Плагины", "Avtomatlashtirish": "Автоматизация", "Hisobotlar": "Отчёты", "Ma’lumotlar bazasi": "База данных",
-    "Sozlamalar": "Настройки", "Yangi suhbat": "Новый чат", "Agent Umimiy bilan suhbat": "Чат с Agent Umimiy",
+    "Sozlamalar": "Настройки", "Yangi suhbat": "Новый чат", "RMS AI bilan suhbat": "Чат с RMS AI",
     "Sizning ko‘p funksiyali AI yordamchingiz": "Ваш многофункциональный ИИ-помощник",
     "Faol agentlar": "Активные агенты", "Vazifalar": "Задачи", "Server: Ulangan": "Сервер: Подключён",
     "Avtomatik agent": "Авто-выбор агента", "Xabaringizni yozing...": "Введите сообщение...",
@@ -47,7 +47,7 @@ const I18N: Record<"ru" | "en", Record<string, string>> = {
   en: {
     "Bosh sahifa": "Dashboard", "Suhbat": "Chat", "Agentlar": "Agents", "Fayllar": "Files", "Loyihalar": "Projects",
     "Plaginlar": "Plugins", "Avtomatlashtirish": "Automation", "Hisobotlar": "Analytics", "Ma’lumotlar bazasi": "Database",
-    "Sozlamalar": "Settings", "Yangi suhbat": "New chat", "Agent Umimiy bilan suhbat": "Chat with Agent Umimiy",
+    "Sozlamalar": "Settings", "Yangi suhbat": "New chat", "RMS AI bilan suhbat": "Chat with RMS AI",
     "Sizning ko‘p funksiyali AI yordamchingiz": "Your multi-functional AI assistant",
     "Faol agentlar": "Active agents", "Vazifalar": "Tasks", "Server: Ulangan": "Server: Connected",
     "Avtomatik agent": "Auto-select agent", "Xabaringizni yozing...": "Type your message...",
@@ -827,13 +827,13 @@ function App() {
     return (chat.title || "Yangi suhbat").toLowerCase().includes(search.toLowerCase());
   });
 
-  if (!authChecked) return <div className="boot-screen"><Robot /><span>Agent Umimiy ishga tushmoqda…</span><Loader2 className="spin" /></div>;
+  if (!authChecked) return <div className="boot-screen"><Robot /><span>RMS AI ishga tushmoqda…</span><Loader2 className="spin" /></div>;
 
-  if (!user) return <div className={`auth-screen ${theme}`}><Toaster richColors position="top-right" /><div className="auth-card panel"><Robot /><div className="eyebrow"><Sparkles size={14} /> Yagona AI ekotizimi</div><h1>Agent Umimiy</h1><p>{register ? "Yangi hisob yarating" : "Hisobingizga kiring"}</p><form onSubmit={submitAuth}><label>Foydalanuvchi nomi<input required minLength={2} value={authName} onChange={(e) => setAuthName(e.target.value)} autoComplete="username" /></label><label>Parol<input required minLength={8} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={register ? "new-password" : "current-password"} /></label>{register && <label>Taklif kodi<input required value={invite} onChange={(e) => setInvite(e.target.value)} /></label>}<button className="primary-btn" disabled={authBusy}>{authBusy ? <Loader2 className="spin" /> : <ShieldCheck size={17} />}{register ? "Ro‘yxatdan o‘tish" : "Kirish"}</button></form><button className="switch-auth" onClick={() => setRegister(!register)}>{register ? "Hisobim bor — kirish" : "Hisobim yo‘q — ro‘yxatdan o‘tish"}</button><small>Server egasidan taklif kodini oling.</small></div></div>;
+  if (!user) return <div className={`auth-screen ${theme}`}><Toaster richColors position="top-right" /><div className="auth-card panel"><Robot /><div className="eyebrow"><Sparkles size={14} /> Yagona AI ekotizimi</div><h1>RMS AI</h1><p>{register ? "Yangi hisob yarating" : "Hisobingizga kiring"}</p><form onSubmit={submitAuth}><label>Foydalanuvchi nomi<input required minLength={2} value={authName} onChange={(e) => setAuthName(e.target.value)} autoComplete="username" /></label><label>Parol<input required minLength={8} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={register ? "new-password" : "current-password"} /></label>{register && <label>Taklif kodi<input required value={invite} onChange={(e) => setInvite(e.target.value)} /></label>}<button className="primary-btn" disabled={authBusy}>{authBusy ? <Loader2 className="spin" /> : <ShieldCheck size={17} />}{register ? "Ro‘yxatdan o‘tish" : "Kirish"}</button></form><button className="switch-auth" onClick={() => setRegister(!register)}>{register ? "Hisobim bor — kirish" : "Hisobim yo‘q — ro‘yxatdan o‘tish"}</button><small>Server egasidan taklif kodini oling.</small></div></div>;
 
   return <div className={`app-shell ${theme} accent-${settings.accent}`}><Toaster richColors position="top-right" />
     <aside className={`sidebar${mobileNav ? " open" : ""}${navHidden ? " hidden" : ""}`}>
-      <div className="brand"><div className="brand-mark">AU</div><div><b>Agent Umimiy</b><span>AI platformasi</span></div><button className="icon-btn mobile-close" onClick={() => setMobileNav(false)}><X /></button></div>
+      <div className="brand"><div className="brand-mark">RMS</div><div><b>RMS AI</b><span>AI platformasi</span></div><button className="icon-btn mobile-close" onClick={() => setMobileNav(false)}><X /></button></div>
       <nav>
         {NAV.map(([label, Icon]) => <button key={label} title={t(label)} className={activeView === label ? "nav-item selected" : "nav-item"} onClick={() => { setActiveView(label); setMobileNav(false); }}><Icon size={18} /><span>{t(label)}</span>{activeView === label && <ChevronRight size={15} />}</button>)}
       </nav>
@@ -1053,8 +1053,8 @@ function App() {
             <section className="hero panel">
               <svg className="hero-waves" viewBox="0 0 900 180" preserveAspectRatio="none" aria-hidden="true"><path d="M0 150 C150 90 260 170 420 120 S700 60 900 110" /><path d="M0 165 C180 120 300 185 470 140 S730 90 900 135" /><path d="M0 135 C120 70 300 150 450 95 S720 40 900 85" /></svg>
               <div className="hero-mascot"><Robot /></div>
-              <div className="hero-copy"><h1>Agent Umimiy</h1><p>Sizning ko‘p funksiyali AI yordamchingiz</p></div>
-              <div className="hero-badge" aria-hidden="true"><b>AU</b></div>
+              <div className="hero-copy"><h1>RMS AI</h1><p>Sizning ko‘p funksiyali AI yordamchingiz</p></div>
+              <div className="hero-badge" aria-hidden="true"><b>RMS</b></div>
               <ul className="hero-tags"><li><Check /> Hujjatlar bilan ishlash (Word, Excel, PDF)</li><li><Check /> Ma’lumotlarni tahlil va hisobot</li><li><Check /> Veb-ma’lumotlarni olish (Web scraping)</li><li><Check /> Vazifalarni avtomatlashtirish</li></ul>
             </section>
             <section className="stats-grid">{metrics.map(({ label, value, icon: Icon, color, hint }) => <article className={`stat-card ${color}`} key={label}><div className="stat-icon"><Icon /></div><div className="stat-copy"><span>{label}</span><b>{value}</b></div><small>{hint}</small></article>)}</section>

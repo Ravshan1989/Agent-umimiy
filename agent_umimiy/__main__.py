@@ -19,6 +19,10 @@ def main():
     ap.add_argument("prompt", nargs="*", help="bir martalik so'rov (--cli bilan)")
     args = ap.parse_args()
 
+    from . import autostart
+
+    autostart.start_local_services_async()
+
     if args.serve:
         from . import server
 

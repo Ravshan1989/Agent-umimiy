@@ -73,7 +73,7 @@ class ServerTests(unittest.TestCase):
 
     def test_page_and_login_required(self):
         with urllib.request.urlopen(self.base + "/") as r:
-            self.assertIn(b"Agent Umimiy", r.read())
+            self.assertIn(b"RMS AI", r.read())
         c = Client(self.base)
         self.assertEqual(c.call("/api/me")[0], 401)
         self.assertEqual(c.call("/api/chat/new", {})[0], 401)
