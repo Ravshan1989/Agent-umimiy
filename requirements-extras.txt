@@ -1,0 +1,6 @@
+g4f[api]
+flask
+litellm[proxy]
+mcp-server-fetch
+mcp-server-git
+pywebview

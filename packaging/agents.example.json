@@ -1,0 +1,108 @@
+{
+  "judge": "freellmapi",
+  "server": true,
+  "server_port": 8080,
+  "web_access": false,
+  "routes": {
+    "freellmapi": ["bepul", "free", "freellm", "kod", "python", "dastur", "tahlil", "uzbek"],
+    "g4f-free": ["g4f", "gpt4free", "gemini", "gpt-oss", "nemotron"],
+    "litellm-router": ["litellm", "router", "zaxira", "fallback", "auto"],
+    "ollama-qwen2.5:0.5b": ["lokal", "local", "ollama", "offline"],
+    "openrouter": ["openrouter"]
+  },
+  "agents": [
+    {
+      "name": "freellmapi",
+      "type": "openai",
+      "base_url": "http://127.0.0.1:3001/v1",
+      "api_key_env": "FREELLM_API_KEY",
+      "model": "codestral",
+      "description": "FreeLLMAPI — Codestral (tezkor, bepul)",
+      "enabled": true,
+      "tools": false
+    },
+    {
+      "name": "g4f-free",
+      "type": "openai",
+      "base_url": "http://127.0.0.1:1337/v1",
+      "api_key": "g4f-free",
+      "model": "auto",
+      "description": "GPT4Free (g4f) — 250+ bepul modellar (lokal 1337 port)",
+      "enabled": true,
+      "tools": false
+    },
+    {
+      "name": "litellm-router",
+      "type": "openai",
+      "base_url": "http://127.0.0.1:4000/v1",
+      "api_key_env": "LITELLM_MASTER_KEY",
+      "model": "free-auto",
+      "description": "LiteLLM Proxy — FreeLLMAPI + g4f + Ollama avtomatik zaxira routeri",
+      "enabled": true,
+      "tools": false
+    },
+    {
+      "name": "ollama-qwen2.5:0.5b",
+      "type": "ollama",
+      "base_url": "http://127.0.0.1:11434",
+      "model": "qwen2.5:0.5b",
+      "description": "Lokal tezkor model (Ollama — Qwen 2.5 0.5B, offline)",
+      "enabled": true,
+      "tools": false
+    },
+    {
+      "name": "openrouter",
+      "type": "openai",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_key_env": "OPENROUTER_API_KEY",
+      "model": "openrouter/free",
+      "description": "OpenRouter — bepul bulutli modellar",
+      "enabled": true,
+      "tools": false
+    }
+  ],
+  "mcp": [
+    {
+      "name": "fayllar",
+      "transport": "stdio",
+      "command": "python -m agent_umimiy.builtin_mcp fayllar",
+      "enabled": true
+    },
+    {
+      "name": "xotira",
+      "transport": "stdio",
+      "command": "python -m agent_umimiy.builtin_mcp xotira",
+      "enabled": true
+    },
+    {
+      "name": "fikrlash",
+      "transport": "stdio",
+      "command": "python -m agent_umimiy.builtin_mcp fikrlash",
+      "enabled": true
+    },
+    {
+      "name": "hujjatlar",
+      "transport": "stdio",
+      "command": "python -m agent_umimiy.builtin_mcp hujjatlar",
+      "enabled": true
+    },
+    {
+      "name": "analitika",
+      "transport": "stdio",
+      "command": "python -m agent_umimiy.builtin_mcp analitika",
+      "enabled": true
+    },
+    {
+      "name": "veb-fetch",
+      "transport": "stdio",
+      "command": "python -m mcp_server_fetch",
+      "enabled": true
+    },
+    {
+      "name": "git-mcp",
+      "transport": "stdio",
+      "command": "python -m mcp_server_git",
+      "enabled": true
+    }
+  ]
+}

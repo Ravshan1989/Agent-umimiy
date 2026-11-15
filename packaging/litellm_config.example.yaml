@@ -1,0 +1,22 @@
+model_list:
+  - model_name: free-auto
+    litellm_params:
+      model: openai/codestral
+      api_base: http://127.0.0.1:3001/v1
+      api_key: os.environ/FREELLM_API_KEY
+  - model_name: free-auto
+    litellm_params:
+      model: openai/auto
+      api_base: http://127.0.0.1:1337/v1
+      api_key: g4f-free
+  - model_name: free-auto
+    litellm_params:
+      model: ollama/qwen2.5:0.5b
+      api_base: http://127.0.0.1:11434
+
+router_settings:
+  routing_strategy: simple-shuffle
+  num_retries: 2
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
