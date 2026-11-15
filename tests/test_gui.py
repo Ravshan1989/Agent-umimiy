@@ -108,7 +108,7 @@ class GuiSmokeTests(unittest.TestCase):
         self.app = gui.App(str(self.cfg))
         self.pump(lambda: self.app.web_server is not None)
         with urllib.request.urlopen(f"http://127.0.0.1:{self.app.web_server.server_port}/", timeout=5) as r:
-            self.assertIn(b"Agent Umimiy", r.read())
+            self.assertIn(b"RMS AI", r.read())
 
 
 if __name__ == "__main__":

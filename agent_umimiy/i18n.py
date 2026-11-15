@@ -139,9 +139,9 @@ TR: dict[str, dict[str, str]] = {
         {"ru": "Сохранять чаты на этом компьютере (восстановятся при перезапуске)",
          "en": "Save chats on this computer (restored when the app reopens)"},
     "Suhbatlar tarixini o'chirish": {"ru": "Очистить историю чатов", "en": "Clear chat history"},
-    "Agentlar brauzerni boshqara olsin (sayt ochish, bosish, yozish — har safar ruxsat so'raydi)":
-        {"ru": "Разрешить агентам управлять браузером (открытие сайтов, клики, ввод — каждый раз спрашивает)",
-         "en": "Let agents control the browser (open sites, click, type — asks each time)"},
+    "Agentlar brauzerni boshqara olsin (xodimlar alohida brauzerdan erkin foydalanadi)":
+        {"ru": "Разрешить управление браузером (у сотрудников отдельный браузер без подтверждений)",
+         "en": "Allow browser control (employees use a separate browser without prompts)"},
     "Veb-server (boshqalar brauzerdan ishlatadi)…":
         {"ru": "Веб-сервер (другие работают через браузер)…", "en": "Web server (others use it from a browser)…"},
     "Veb-server": {"ru": "Веб-сервер", "en": "Web server"},
@@ -157,9 +157,9 @@ TR: dict[str, dict[str, str]] = {
     "Eski kod ishlamay qoladi. Ro'yxatdan o'tib bo'lganlarga ta'sir qilmaydi. Davom etilsinmi?":
         {"ru": "Старый код перестанет работать. Уже зарегистрированных это не затронет. Продолжить?",
          "en": "The old code will stop working. People who already signed up are not affected. Continue?"},
-    "Hamma sizning API kalitlaringiz va limitingizdan foydalanadi. Veb-foydalanuvchilar uchun agentlar kompyuteringizdagi fayllarga, buyruqlarga, brauzerga va plaginlarga tegmaydi. Ulanish shifrlanmagan (HTTP): faqat ishonchli tarmoqda ishlating yoki Tailscale o'rnating.":
-        {"ru": "Все используют ваши API-ключи и лимиты. Для веб-пользователей агенты не трогают файлы, команды, браузер и плагины вашего компьютера. Соединение не шифруется (HTTP): используйте только в доверенной сети или установите Tailscale.",
-         "en": "Everyone uses your API keys and limits. For web users, agents cannot touch your computer's files, commands, browser or plugins. The connection is not encrypted (HTTP): use it only on a trusted network or set up Tailscale."},
+    "Hamma sizning API kalitlaringiz va limitingizdan foydalanadi. Xodimlar o'zlariga ajratilgan brauzer va administrator yoqqan plaginlardan foydalanadi; admin kompyuteridagi fayl va terminalga bevosita kira olmaydi. Dastur yoki paket o'rnatish kerak bo'lsa, administratorga murojaat qilish xabari chiqadi. Ulanish shifrlanmagan (HTTP): faqat ishonchli tarmoqda ishlating yoki Tailscale o'rnating.":
+        {"ru": "Все используют ваши API-ключи и лимиты. Сотрудники пользуются отдельным браузером и плагинами, которые включил администратор; прямого доступа к файлам и терминалу компьютера администратора нет. Если потребуется установка программы или пакета, появится просьба обратиться к администратору. Соединение не шифруется (HTTP): используйте только в доверенной сети или установите Tailscale.",
+         "en": "Everyone uses your API keys and limits. Employees get their own browser and admin-enabled plugins, with no direct access to the admin computer's files or terminal. If a program or package needs installing, they are told to contact the administrator. The connection is not encrypted (HTTP): use it only on a trusted network or set up Tailscale."},
     "Server ochilmadi:": {"ru": "Сервер не запустился:", "en": "The server did not start:"},
     "Telefondan boshqarish (mobil kirish)…":
         {"ru": "Управление с телефона (мобильный доступ)…", "en": "Phone control (mobile access)…"},

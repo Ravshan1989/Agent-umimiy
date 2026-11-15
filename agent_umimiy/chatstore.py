@@ -7,10 +7,26 @@ import os
 from . import config
 
 MAX_CHATS, MAX_RECORDS, MAX_HISTORY = 15, 80, 40
+MAX_CHATSTORE_BYTES = 50 * 1024 * 1024
+MAX_TEXT_FIELD = 10_000
 
 
 def path():
     return config.user_dir() / "chats.json"
+
+
+def _clip(value, depth: int = 0):
+    if depth > 8:
+        return None
+    if isinstance(value, str):
+        return value[-MAX_TEXT_FIELD:]
+    if isinstance(value, dict):
+        return {str(k)[:100]: _clip(v, depth + 1) for k, v in list(value.items())[:100]}
+    if isinstance(value, list):
+        return [_clip(v, depth + 1) for v in value[:100]]
+    if value is None or isinstance(value, (int, float, bool)):
+        return value
+    return str(value)[:MAX_TEXT_FIELD]
 
 
 # Har yozuv turi uchun gui._replay talab qiladigan kalitlar
@@ -21,51 +37,80 @@ def _ok_record(r) -> bool:
     return isinstance(r, dict) and r.get("k") in _NEED and all(key in r for key in _NEED[r["k"]])
 
 
-def _clean(c) -> dict | None:
-    """Buzilgan suhbatni tashlab yuboradi, yaroqsiz yozuvlarni olib tashlaydi."""
-    if not isinstance(c, dict):
-        return None
-    records, history = c.get("records"), c.get("history")
-    records = [r for r in records if _ok_record(r)] if isinstance(records, list) else []
-    if not records:
-        return None
-    history = [h for h in history if isinstance(h, dict)] if isinstance(history, list) else []
-    title, project = c.get("title"), c.get("project")
-    return dict(c, records=records, history=history, title=title if isinstance(title, str) else "",
-                project=project if isinstance(project, str) else "")
+def _safe_chats_and_active(chats: list, active: int) -> tuple[list[dict], int]:
+    """Sanitize chats and preserve the selected chat when invalid entries are discarded."""
+    safe = []
+    selected = None
+    start = max(0, len(chats) - MAX_CHATS)
+    for original_index, chat in enumerate(chats[start:], start=start):
+        if not isinstance(chat, dict):
+            continue
+        records = chat.get("records", [])
+        history = chat.get("history", [])
+        if not isinstance(records, list) or not isinstance(history, list) or not records:
+            continue
+        item = _clip(chat)
+        item["records"] = [_clip(r) for r in records[-MAX_RECORDS:] if _ok_record(r)]
+        item["history"] = [_clip(h) for h in history[-MAX_HISTORY:] if isinstance(h, dict)]
+        if not item["records"]:
+            continue
+        for key in ("title", "project"):
+            if not isinstance(item.get(key), str):
+                item[key] = ""
+        if original_index == active:
+            selected = len(safe)
+        safe.append(item)
+    if not safe:
+        return [], 0
+    if selected is None:
+        selected = min(max(active - start, 0), len(safe) - 1)
+    return safe, selected
+
+
+def _safe_chats(chats: list) -> list[dict]:
+    return _safe_chats_and_active(chats, 0)[0]
 
 
 def load() -> dict:
+    empty = {"chats": [], "active": 0}
     try:
-        data = json.loads(path().read_text(encoding="utf-8-sig"))
-    except (OSError, ValueError):
-        return {"chats": [], "active": 0}
-    if not isinstance(data, dict) or not isinstance(data.get("chats"), list):
-        return {"chats": [], "active": 0}
-    chats = [c for c in (_clean(c) for c in data["chats"]) if c is not None]
-    active = data.get("active", 0)
-    active = active if isinstance(active, int) and 0 <= active < len(chats) else 0
-    return {"chats": chats, "active": active}
+        p = path()
+        if not p.is_file() or p.stat().st_size > MAX_CHATSTORE_BYTES:
+            return empty
+        data = json.loads(p.read_text(encoding="utf-8-sig"))  # BOM bo'lsa ham o'qiladi
+        if not isinstance(data, dict) or not isinstance(data.get("chats"), list):
+            return empty
+        active = data.get("active", 0)
+        if not isinstance(active, int) or isinstance(active, bool):
+            active = 0
+        chats, active = _safe_chats_and_active(data["chats"], active)
+        return {"chats": chats, "active": active}
+    except (OSError, ValueError, TypeError, RecursionError):
+        return empty
 
 
 def save(chats: list[dict], active: int) -> None:
-    # Faol indeks filtrlangan ro'yxatga moslanadi (bo'sh suhbatlar tashlanadi, eng oxirgi MAX_CHATS qoladi)
-    keep = [i for i, c in enumerate(chats) if c["records"]][-MAX_CHATS:]
-    new_active = keep.index(active) if active in keep else max(0, len(keep) - 1)
-    chats = [dict(chats[i], records=chats[i]["records"][-MAX_RECORDS:], history=chats[i]["history"][-MAX_HISTORY:])
-             for i in keep]
     try:
+        if not isinstance(active, int) or isinstance(active, bool):
+            active = 0
+        safe, active = _safe_chats_and_active(chats, active)
+        payload = json.dumps({"chats": safe, "active": min(max(active, 0), max(0, len(safe) - 1))},
+                             ensure_ascii=False).encode("utf-8")
+        if len(payload) > MAX_CHATSTORE_BYTES:
+            raise ValueError("Suhbatlar fayli 50 MB dan katta.")
         p = path()
         p.parent.mkdir(parents=True, exist_ok=True)
         tmp = p.with_suffix(".tmp")
-        tmp.write_text(json.dumps({"chats": chats, "active": new_active},
-                                  ensure_ascii=False), encoding="utf-8")
+        fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         try:
-            tmp.chmod(0o600)
+            if hasattr(os, "fchmod"):
+                os.fchmod(fd, 0o600)
         except OSError:
             pass
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(payload)
         os.replace(tmp, p)
-    except OSError:
+    except (OSError, ValueError, TypeError):
         pass
 
 

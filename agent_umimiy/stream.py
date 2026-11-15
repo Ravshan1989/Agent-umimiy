@@ -10,10 +10,14 @@ import urllib.error
 import urllib.request
 from collections.abc import Iterator
 from typing import Callable
+from urllib.parse import urlparse
 
 from .base import AgentError
 
 TIMEOUT = 120  # ulanish va har bir bo'lakni kutish chegarasi (soniya)
+MAX_RESPONSE = 32 * 1024 * 1024
+MAX_LINE = 1024 * 1024
+MAX_ERROR_BODY = 1024 * 1024
 OnText = Callable[[str], None]
 
 
@@ -42,18 +46,48 @@ def _friendly_http_error(status: int, body: str) -> str:
     return f"HTTP {status}: {hint}{message[:240] if hint else message[:500]}"
 
 
+def openai_payload(payload: dict, options: dict) -> dict:
+    """OpenRouter model defaultlari hisob qoldig'idan oshmasligi uchun javobni cheklaydi."""
+    result = dict(payload)
+    host = (urlparse(str(options.get("base_url", ""))).hostname or "").lower()
+    if host == "openrouter.ai" or host.endswith(".openrouter.ai"):
+        configured = options.get("max_completion_tokens", options.get("max_tokens", 2048))
+        try:
+            limit = int(configured)
+        except (TypeError, ValueError):
+            limit = 2048
+        result["max_completion_tokens"] = min(max(limit, 16), 2048)
+    return result
+
+
 def _lines(url: str, payload: dict, headers: dict, sse: bool = False) -> Iterator[str]:
+    if url.startswith("http://localhost:"):
+        url = "http://127.0.0.1:" + url[len("http://localhost:"):]
+    elif url.startswith("http://localhost/"):
+        url = "http://127.0.0.1/" + url[len("http://localhost/"):]
     req = urllib.request.Request(url, data=json.dumps(payload).encode(),
                                  headers={"Content-Type": "application/json", **headers}, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
             if sse and resp.headers.get_content_type() == "application/json":
-                _fail(json.loads(resp.read() or b"{}"))  # xato JSON ko'rinishida kelgan bo'lishi mumkin
+                body = resp.read(MAX_ERROR_BODY + 1)
+                if len(body) > MAX_ERROR_BODY:
+                    raise AgentError("Provayder xato javobi 1 MB chegarasidan oshdi.")
+                _fail(json.loads(body or b"{}"))  # xato JSON ko'rinishida kelgan bo'lishi mumkin
                 raise AgentError("Server oqimli (streaming) javobni qo'llab-quvvatlamaydi.")
-            for raw in resp:
+            total = 0
+            while True:
+                raw = resp.readline(MAX_LINE + 1)
+                if not raw:
+                    break
+                if len(raw) > MAX_LINE:
+                    raise AgentError("Provayder javobidagi bitta qator 1 MB chegarasidan oshdi.")
+                total += len(raw)
+                if total > MAX_RESPONSE:
+                    raise AgentError("Provayderning oqimli javobi 32 MB chegarasidan oshdi.")
                 yield raw.decode("utf-8", errors="replace").rstrip("\r\n")
     except urllib.error.HTTPError as exc:
-        body = exc.read().decode(errors="replace")
+        body = exc.read(MAX_ERROR_BODY + 1).decode(errors="replace")
         raise AgentError(_friendly_http_error(exc.code, body), status=exc.code) from exc
     except urllib.error.URLError as exc:
         raise AgentError(f"Ulanish xatosi: {exc.reason}") from exc
@@ -137,7 +171,9 @@ def gemini(url: str, payload: dict, headers: dict, on_text: OnText) -> str:
 def ollama(url: str, payload: dict, on_text: OnText) -> dict:
     """Ollama /api/chat (har qatorda bitta JSON) -> yig'ilgan assistant xabari."""
     msg: dict = {"role": "assistant", "content": ""}
-    for line in _lines(url, {**payload, "stream": True}, {}):
+    opts = {"num_ctx": 1024, "num_thread": 6, **(payload.get("options") or {})}
+    body = {"keep_alive": -1, **payload, "options": opts, "stream": True}
+    for line in _lines(url, body, {}):
         if not line.strip():
             continue
         ev = json.loads(line)

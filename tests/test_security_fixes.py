@@ -159,6 +159,14 @@ class CheckUrlTests(unittest.TestCase):
             with self.assertRaises(tools.ToolError, msg=ip):
                 self.check(ip)
 
+    def test_non_global_ipv6_blocked(self):
+        # Eski Python patch versiyalarida ham (masalan 3.11.9) natija bir xil bo'lishi kerak.
+        for ip in ("::1", "::ffff:127.0.0.1", "::ffff:192.0.0.8", "2001:db8::1", "2002:a00:1::1", "fc00::1"):
+            info = [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", (ip, 0, 0, 0))]
+            with mock.patch.object(tools.socket, "getaddrinfo", return_value=info):
+                with self.assertRaises(tools.ToolError, msg=ip):
+                    tools._check_url("http://misol.uz/", False)
+
     def test_public_address_allowed(self):
         self.check("8.8.8.8")
 

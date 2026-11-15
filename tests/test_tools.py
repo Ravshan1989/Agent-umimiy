@@ -2,14 +2,17 @@ import json
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from unittest import mock
 
 from agent_umimiy import gitutil
+from agent_umimiy import tools as tools_mod
 from agent_umimiy.orchestrator import Orchestrator
 from agent_umimiy.providers import build_agent
-from agent_umimiy.tools import Context, Toolbox
+from agent_umimiy.tools import Context, Toolbox, project_notes
 
 
 def _sse(events) -> bytes:
@@ -65,6 +68,22 @@ def serve(script):
     return srv, seen
 
 
+class ProjectNotesTests(unittest.TestCase):
+    def test_instruction_symlink_is_rejected_and_content_is_bounded(self):
+        root = Path(tempfile.mkdtemp())
+        outside = root.parent / (root.name + "-outside.md")
+        outside.write_text("SECRET")
+        link = root / "CLAUDE.md"
+        try:
+            link.symlink_to(outside)
+        except (OSError, NotImplementedError):
+            self.skipTest("Symlink yaratish huquqi yo'q")
+        self.assertEqual(project_notes(str(root)), "")
+        link.unlink()
+        link.write_text("x" * 30_000)
+        self.assertLessEqual(len(project_notes(str(root))), 20_200)
+
+
 class ToolboxTests(unittest.TestCase):
     def setUp(self):
         self.d = tempfile.mkdtemp()
@@ -115,11 +134,31 @@ class ToolboxTests(unittest.TestCase):
         self.assertTrue(self.tb.run("run_command", {"command": "echo hi"})[1])
         self.assertEqual(len(self.asked), 1)  # readonly rejimda so'ralmaydi ham
 
-    def test_always_allows_without_asking_again(self):
+    def test_always_approval_is_scoped_to_one_file(self):
         self.answer = "always"
         self.tb.run("write_file", {"path": "1.txt", "content": "1"})
         self.tb.run("write_file", {"path": "2.txt", "content": "2"})
-        self.assertEqual(len(self.asked), 1)
+        self.tb.run("write_file", {"path": "1.txt", "content": "updated"})
+        self.assertEqual(len(self.asked), 2)
+
+    def test_create_document_requires_approval(self):
+        folder = self.root / "out"
+        self.ctx.files_dir = str(folder)
+        self.answer = "no"
+        self.assertTrue(self.tb.run("create_document", {"name": "report.txt", "content": "hello"})[1])
+        self.assertFalse((folder / "report.txt").exists())
+        self.assertEqual(self.asked[-1][1], "create:report.txt")
+        self.answer = "yes"
+        out, err = self.tb.run("create_document", {"name": "report.txt", "content": "hello"})
+        self.assertFalse(err, out)
+        self.assertTrue((folder / "report.txt").is_file())
+
+    def test_always_run_permission_is_scoped_to_exact_command(self):
+        self.answer = "always"
+        self.tb.run("run_command", {"command": "echo same"})
+        self.tb.run("run_command", {"command": "echo same"})
+        self.tb.run("run_command", {"command": "echo different"})
+        self.assertEqual(len(self.asked), 2)
 
     def test_search_list_run(self):
         (self.root / "m.py").write_text("def foo():\n    return 1\n")
@@ -129,10 +168,41 @@ class ToolboxTests(unittest.TestCase):
         self.assertIn("salom", out)
         self.assertIn("exit code: 0", out)
 
+    def test_timed_out_command_keeps_its_output_and_warns_about_partial_work(self):
+        slow = (f"{sys.executable} -c \"import sys,time; print('boshlandi', flush=True); time.sleep(30)\"")
+        started = time.monotonic()
+        out, err = self.tb.run("run_command", {"command": slow, "timeout": 2})
+        # Chegaradan keyin buyruq bolalari bilan o'ldiriladi: aks holda shell=True bilan nabira jarayon
+        # ishlashda davom etadi va chaqiruv 30 soniya osilib qoladi.
+        self.assertLess(time.monotonic() - started, 20, "buyruq chegaradan keyin ham ishlashda davom etdi")
+        self.assertTrue(err, out)
+        self.assertIn("qisman", out)  # agent ishni bajarilgan deb o'ylamasin
+        self.assertIn("900", out)  # kattaroq chegara bilan qayta urinish mumkinligi aytiladi
+        self.assertIn("boshlandi", out)  # to'xtatilgunga qadar olingan chiqish yo'qolmaydi
+
+    def test_slow_command_finishes_when_the_timeout_is_large_enough(self):
+        quick = f"{sys.executable} -c \"import time; time.sleep(1); print('tugadi')\""
+        out, err = self.tb.run("run_command", {"command": quick, "timeout": 60})
+        self.assertFalse(err, out)
+        self.assertIn("tugadi", out)
+
+    def test_check_program_reports_the_truth_and_refuses_other_names(self):
+        """Agent dasturni tekshira olsin, lekin bu orqali o'zboshimcha buyruq ishga tushira olmasin."""
+        out, err = self.tb.run("check_program", {"name": "python"})
+        self.assertFalse(err, out)
+        self.assertIn("o'rnatilgan", out)
+        out, err = self.tb.run("check_program", {"name": "bunday-dastur-yo'q; echo salom"})
+        self.assertTrue(err)
+        self.assertIn("Faqat shu dasturlarni", out)
+        with mock.patch.object(tools_mod.shutil, "which", return_value=None):
+            out, err = self.tb.run("check_program", {"name": "ffmpeg"})
+        self.assertFalse(err, out)
+        self.assertIn("o'rnatilmagan", out)
+
     def test_run_command_asks(self):
         self.answer = "no"
         self.assertTrue(self.tb.run("run_command", {"command": "echo x"})[1])
-        self.assertEqual(self.asked[0][1], "run")
+        self.assertTrue(self.asked[0][1].startswith("run:"))
 
 
 class LoopTests(unittest.TestCase):

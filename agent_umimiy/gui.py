@@ -32,19 +32,21 @@ MODES = {
     "consensus": ("⚖", "Kengash", "Hammasi javob beradi, hakam yagona xulosa chiqaradi"),
 }
 FREELLM_URL = "http://localhost:3001/v1"
+OPENROUTER_URL = "https://openrouter.ai/api/v1"
 TYPE_LABELS = {
     "freellm": "FreeLLMAPI — lokal shlyuz (localhost:3001)",
+    "openrouter": "OpenRouter — bepul va pullik modellar (openrouter.ai)",
+    "ollama": "Lokal model — Ollama",
     "anthropic": "Claude (API kalit kerak)",
     "openai": "ChatGPT / OpenAI-mos (API kalit)",
     "gemini": "Google Gemini (API kalit)",
-    "ollama": "Lokal model — Ollama",
     "cli": "Kompyuterdagi dastur (CLI)",
 }
 SHORT_TYPE = {"anthropic": "Claude", "openai": "OpenAI-mos", "gemini": "Gemini", "ollama": "Lokal · Ollama",
               "cli": "Dastur (CLI)", "echo": "Demo"}
 DEFAULT_MODEL = {"anthropic": "claude-sonnet-5-5", "openai": "gpt-4o", "gemini": "gemini-2.0-flash", "ollama": "llama3"}
 LABEL_TO_TYPE = {v: k for k, v in TYPE_LABELS.items()}
-REAL_TYPE = {"freellm": "openai"}  # shablon -> haqiqiy agent turi
+REAL_TYPE = {"freellm": "openai", "openrouter": "openai"}  # shablon -> haqiqiy agent turi
 PROJECT_SUGGESTIONS = ["Bu loyiha nima haqida? Qisqa tushuntirib ber", "Kodda xatolarni top va tuzat",
                        "README.md faylini yoz yoki yangila", "Testlarni ishga tushir, xato bo'lsa tuzat"]
 KIND_ICON = {"read": "◧", "write": "✎", "run": "▶", "info": "•", "agent": "⇄", "browser": "◎", "mcp": "⬡", "skill": "✧"}
@@ -134,7 +136,7 @@ class AgentDialog(tk.Toplevel):
         super().__init__(parent)
         self.title(i18n.t("Agent sozlamasi"))
         self.configure(bg=P["bg"])
-        fit(self, 640, 600)
+        fit(self, 720, 650)
         self.result = None
         self.transient(parent)
         spec = spec or {}
@@ -142,7 +144,8 @@ class AgentDialog(tk.Toplevel):
         label(f, i18n.t("Agent sozlamasi"), size=14, weight="bold").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
         self.vars = {}
         rows = [("name", "Nomi"), ("type", "Turi"), ("model", "Model"), ("api_key", "API kalit"),
-                ("base_url", "Manzil (ixtiyoriy)"), ("command", "Buyruq (CLI uchun)")]
+                ("base_url", "Manzil (ixtiyoriy)"), ("command", "Buyruq (CLI uchun)"),
+                ("description", "Yo'nalishi (ixtiyoriy)")]
         for i, (k, text) in enumerate(rows, start=1):
             label(f, i18n.t(text), fg=P["muted"]).grid(row=i, column=0, sticky="w", pady=5)
             v = tk.StringVar(value=spec.get(k, ""))
@@ -181,6 +184,18 @@ class AgentDialog(tk.Toplevel):
             self.vars["base_url"].set(FREELLM_URL)
             if not self.vars["name"].get():
                 self.vars["name"].set("freellmapi")
+            if not self.vars["model"].get():
+                self.vars["model"].set("auto")
+            if not self.vars["api_key"].get():
+                k = detect.freellmapi_key()
+                if k:
+                    self.vars["api_key"].set(k)
+        elif self._type() == "openrouter":
+            self.vars["base_url"].set(OPENROUTER_URL)
+            if not self.vars["name"].get():
+                self.vars["name"].set("openrouter")
+            if not self.vars["model"].get():
+                self.vars["model"].set("meta-llama/llama-3.3-70b-instruct:free")
         self._hint()
 
     def _load_models(self):
@@ -204,17 +219,18 @@ class AgentDialog(tk.Toplevel):
     def _hint(self):
         self.hint.config(text=i18n.t({
             "freellm": "Brauzerda localhost:3001 → «Agentlar» bo'limidagi API KEY ni «API kalit» maydoniga qo'ying, so'ng «Ro'yxat» tugmasi bilan modelni tanlang.",
+            "openrouter": "Kalitni openrouter.ai/keys dan oling. «Ro'yxat» tugmasi bilan bepul (:free) va pullik modellarni tanlang.",
             "anthropic": "Kalitni console.anthropic.com dan oling. Model bo'sh qolsa, standarti ishlatiladi.",
             "openai": "OpenAI, OpenRouter, Groq yoki LM Studio. Lokal bo'lsa manzilni yozing: http://localhost:1234/v1",
             "gemini": "Kalitni aistudio.google.com dan oling.",
             "ollama": "Avval ollama.com dan o'rnating va modelni yuklab oling. Kalit shart emas.",
             "cli": "Masalan: codex exec {prompt}  yoki  claude -p {prompt}",
-        }[self._type()]))
+        }[self._type()]) + "\nAvtomatik tanlov uchun «Yo'nalishi» maydonida agent nima ishga mosligini yozing.")
 
     def _spec(self):
         t = REAL_TYPE.get(self._type(), self._type())
         s = {"name": self.vars["name"].get().strip(), "type": t}
-        for k in ("model", "api_key", "base_url", "command"):
+        for k in ("model", "api_key", "base_url", "command", "description"):
             val = self.vars[k].get().strip()
             if val:
                 s[k] = val
@@ -304,7 +320,7 @@ class Settings(tk.Toplevel):
         Pill(f, i18n.t("Suhbatlar tarixini o'chirish"), self._wipe, width=210, height=32, size=9, fg=P["err"],
              outline=P["line"], bg=P["bg"]).pack(anchor="w", pady=(8, 0))
         self.brow = tk.BooleanVar(value=cfg.get("browser", True))
-        tk.Checkbutton(f, text=i18n.t("Agentlar brauzerni boshqara olsin (sayt ochish, bosish, yozish — har safar ruxsat so'raydi)"),
+        tk.Checkbutton(f, text=i18n.t("Agentlar brauzerni boshqara olsin (xodimlar alohida brauzerdan erkin foydalanadi)"),
                        variable=self.brow, bg=P["bg"], fg=P["text"], selectcolor=P["card"], activebackground=P["bg"],
                        activeforeground=P["text"], highlightthickness=0, bd=0, font=font(10)).pack(anchor="w", pady=(12, 0))
         Pill(f, i18n.t("Telefondan boshqarish (mobil kirish)…"), lambda: self.master.open_remote(), width=300, height=32, size=9,
@@ -673,7 +689,7 @@ class ServerDialog(tk.Toplevel):
         Pill(row, i18n.t("Windows devoriga ruxsat berish"), self._firewall, width=230, height=34, size=9).pack(side="left")
         self.fw_lbl = label(f, "", size=9, fg=P["muted"], wraplength=500, justify="left")
         self.fw_lbl.pack(anchor="w")
-        label(f, i18n.t("Hamma sizning API kalitlaringiz va limitingizdan foydalanadi. Veb-foydalanuvchilar uchun agentlar kompyuteringizdagi fayllarga, buyruqlarga, brauzerga va plaginlarga tegmaydi. Ulanish shifrlanmagan (HTTP): faqat ishonchli tarmoqda ishlating yoki Tailscale o'rnating."),
+        label(f, i18n.t("Hamma sizning API kalitlaringiz va limitingizdan foydalanadi. Xodimlar o'zlariga ajratilgan brauzer va administrator yoqqan plaginlardan foydalanadi; admin kompyuteridagi fayl va terminalga bevosita kira olmaydi. Dastur yoki paket o'rnatish kerak bo'lsa, administratorga murojaat qilish xabari chiqadi. Ulanish shifrlanmagan (HTTP): faqat ishonchli tarmoqda ishlating yoki Tailscale o'rnating."),
               fg=P["muted"], size=9, wraplength=500, justify="left").pack(anchor="w", pady=(8, 0))
         self.refresh()
 
@@ -1691,13 +1707,27 @@ class App(tk.Tk):
         if action == "send":
             if chat.busy:
                 raise ValueError("Agent hozir band. To'xtatib, qayta urining.")
-            text = (p.get("text") or "").strip()
+            text = p.get("text", "")
+            files = p.get("files") or []
+            if not isinstance(text, str) or len(text) > serverlib.MAX_PROMPT:
+                raise ValueError(f"Xabar {serverlib.MAX_PROMPT} belgidan oshmasin.")
+            if not isinstance(files, list) or len(files) > serverlib.MAX_FILES or any(not isinstance(f, dict) for f in files):
+                raise ValueError(f"Ko'pi bilan {serverlib.MAX_FILES} ta fayl yuborish mumkin.")
             atts = []
-            for f in (p.get("files") or [])[:6]:
-                atts.append(self._remote_attachment(f))
-            if not text and not atts:
-                raise ValueError("Xabar bo'sh")
-            self._dispatch(chat, text, atts)
+            try:
+                for f in files:
+                    atts.append(self._remote_attachment(f))
+                text = text.strip()
+                if not text and not atts:
+                    raise ValueError("Xabar bo'sh")
+                self._dispatch(chat, text, atts)
+            except Exception:
+                for att in atts:
+                    try:
+                        Path(att.path).unlink(missing_ok=True)
+                    except OSError:
+                        pass
+                raise
             return {"ok": True}
         raise ValueError("Noma'lum amal")
 
@@ -1821,14 +1851,17 @@ class App(tk.Tk):
             self._save_soon()
 
     def add_user(self, text, files=()):
-        self._record(k="user", text=text, files=[getattr(a, "name", a) for a in files])
+        def shown(a):  # Attachment, oddiy matn yoki {"name": ..., "file": ...} ko'rinishidagi yozuv
+            return a.get("name") or a.get("file") or "fayl" if isinstance(a, dict) else str(getattr(a, "name", a))
+
+        self._record(k="user", text=text, files=[shown(a) for a in files])
         self._clear_empty()
         row = tk.Frame(self.inner, bg=P["bg"])
         row.pack(fill="x", padx=28, pady=8)
         col = tk.Frame(row, bg=P["bg"])
         col.pack(side="right")
         if files:
-            label(col, "   ".join(("▣ " if getattr(a, "kind", "") == "image" else "▤ ") + getattr(a, "name", a) for a in files), fg=P["muted"],
+            label(col, "   ".join(("▣ " if getattr(a, "kind", "") == "image" else "▤ ") + shown(a) for a in files), fg=P["muted"],
                   size=9).pack(anchor="e", pady=(0, 4))
         self._bubble(col, text, P["user"], "white").pack(anchor="e")
         self._scroll()
@@ -2056,6 +2089,14 @@ class App(tk.Tk):
         if self.cancelled:
             self.add_activity("Siz", "info", "Ish to'xtatildi.")
             results = []
+        if self.mode.get() == "single" and any(not r.ok for r in results):
+            fallback = next((r.agent for r in reversed(results) if r.ok), "")
+            if fallback:
+                self.selected = {fallback}
+                for row in self.agent_box.winfo_children():
+                    row.on = row.agent.name in self.selected
+                    row.draw()
+                self._count()
         if error:
             self.add_agent("Xato", error, err=True)
         for r in results:

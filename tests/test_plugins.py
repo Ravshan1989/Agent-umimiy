@@ -55,6 +55,34 @@ class McpStdioTests(unittest.TestCase):
         self.assertEqual(self.m.servers, {})
 
 
+
+class McpHardeningTests(unittest.TestCase):
+    def test_child_environment_does_not_inherit_provider_secrets(self):
+        with mock.patch.dict("os.environ", {"PATH": "/bin", "HOME": "/tmp", "OPENAI_API_KEY": "leak-me",
+                                             "ANTHROPIC_API_KEY": "leak-me-too"}):
+            env = mcp._child_env({"NOTION_TOKEN": "explicit-token"})
+        self.assertEqual(env["PATH"], "/bin")
+        self.assertEqual(env["NOTION_TOKEN"], "explicit-token")
+        self.assertNotIn("OPENAI_API_KEY", env)
+        self.assertNotIn("ANTHROPIC_API_KEY", env)
+
+    def test_remote_http_requires_tls_but_localhost_is_allowed(self):
+        with self.assertRaises(mcp.McpError):
+            mcp.HttpTransport("http://example.com/mcp", {}).start()
+        mcp.HttpTransport("http://127.0.0.1:8765/mcp", {}).start()
+        mcp.HttpTransport("https://example.com/mcp", {}).start()
+
+    def test_tool_name_collisions_always_terminate(self):
+        manager = mcp.Manager([])
+        server = mcp.Server({"name": "fake"})
+        server.status = "tayyor"
+        server.tools = [{"name": "a" * 65 + str(i), "inputSchema": {"type": "object"}} for i in range(4)]
+        manager.servers["fake"] = server
+        names = [tool.name for tool in manager.tools()]
+        self.assertEqual(len(names), 4)
+        self.assertEqual(len(set(names)), 4)
+        self.assertTrue(all(len(name) <= 64 for name in names))
+
 class McpToolboxTests(unittest.TestCase):
     def setUp(self):
         self.m = mcp.Manager([stdio_cfg()])
@@ -72,12 +100,21 @@ class McpToolboxTests(unittest.TestCase):
         self.assertTrue(echo.read_only)
         out, err = self.tb.run("fake__echo", {"text": "x"})
         self.assertEqual((out, err), ("echo: x", False))
-        self.assertEqual(self.asked[0][1], "mcp:fake")
+        self.assertEqual(self.asked[0][1], "mcp:fake:echo")
         self.assertIn('"text": "x"', self.asked[0][3])
         out, err = self.tb.run("fake__save-note", {"note": "n"})
         self.assertFalse(err)
-        self.assertEqual(self.asked[1][1], "mcp:fake")
+        self.assertEqual(self.asked[1][1], "mcp:fake:save-note")
         self.assertIn('"note": "n"', self.asked[1][3])
+
+    def test_always_approval_is_scoped_to_one_mcp_tool(self):
+        self.answer = "always"
+        self.assertFalse(self.tb.run("fake__echo", {"text": "x"})[1])
+        self.assertFalse(self.tb.run("fake__echo", {"text": "y"})[1])
+        self.assertEqual(len(self.asked), 1)
+        self.assertFalse(self.tb.run("fake__save-note", {"note": "n"})[1])
+        self.assertEqual(len(self.asked), 2)
+        self.assertIn("save-note", self.asked[1][1])
 
     def test_denied_and_readonly_mode_hides_all_mcp_tools(self):
         self.answer = "no"
@@ -219,6 +256,23 @@ class SkillTests(unittest.TestCase):
         with self.assertRaises(KeyError):
             skills.load("yoq")
 
+    def test_skill_file_size_limit_and_symlink_escape(self):
+        d = self.home / "app" / "skills" / "large"
+        d.mkdir(parents=True)
+        (d / "SKILL.md").write_text("---\\nname: large\\ndescription: large\\n---\\nbody text")
+        skills._cache.clear()
+        with mock.patch.object(skills, "MAX_SKILL_BYTES", 3):
+            with self.assertRaises(ValueError):
+                skills.load("large")
+        outside = self.home / "secret.txt"
+        outside.write_text("secret")
+        try:
+            (d / "escape.md").symlink_to(outside)
+        except (OSError, NotImplementedError):
+            self.skipTest("Symlink yaratish huquqi yo'q")
+        with self.assertRaises(ValueError):
+            skills.load("large", file="escape.md")
+
     def test_toolbox_use_skill_and_prompt(self):
         self.make(self.home / "app" / "skills", "tarjima", "Tarjima qilish qoidalari", body="Faqat ravon tarjima qiling.")
         skills._cache.clear()
@@ -229,7 +283,9 @@ class SkillTests(unittest.TestCase):
         tb = Toolbox(ctx, "a")
         self.assertIn("use_skill", [t.name for t in tb.tools()])
         out, err = tb.run("use_skill", {"name": "tarjima"})
-        self.assertEqual((out.strip(), err), ("Faqat ravon tarjima qiling.", False))
+        self.assertFalse(err, out)
+        self.assertTrue(out.startswith("Faqat ravon tarjima qiling."), out)
+        self.assertIn("[Ko'nikma papkasi:", out)  # agent ko'nikma skriptlarini haqiqiy papkadan ishga tushiradi
         self.assertTrue(tb.run("use_skill", {"name": "yoq"})[1])
         self.assertTrue(tb.run("use_skill", {"name": "tarjima", "file": "../x"})[1])
         ctx.skills = False

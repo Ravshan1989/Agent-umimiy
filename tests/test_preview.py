@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from agent_umimiy import preview, writer
 
@@ -39,10 +40,24 @@ class PreviewTests(unittest.TestCase):
         self.assertIsNone(preview.page(writer.docx(self.d, "xat", "# Salom")))
 
     def test_sandbox_policy_blocks_app_access(self):
-        self.assertTrue(preview.CSP.startswith("sandbox allow-scripts"))
+        self.assertTrue(preview.CSP.startswith("sandbox allow-scripts;"))
+        self.assertNotIn("https://", preview.CSP)
+        self.assertIn("form-action 'none'", preview.CSP)
+        self.assertIn("base-uri 'none'", preview.CSP)
+        self.assertIn("navigate-to 'none'", preview.CSP)
+
+    def test_oversized_html_preview_is_not_rendered(self):
+        path = Path(tempfile.mktemp(suffix=".html"))
+        path.write_text("<h1>test</h1>")
+        with mock.patch.object(preview, "MAX_PREVIEW_BYTES", 3):
+            page = preview.page(path)
+        self.assertIn("10 MB dan kichik", page)
+        self.assertNotIn("<h1>test</h1>", page)
         self.assertNotIn("allow-same-origin", preview.CSP)
         self.assertIn("default-src 'none'", preview.CSP)
         self.assertNotIn("connect-src", preview.CSP)  # default-src 'none': sahifa hech qayerga so'rov yubora olmaydi
+        self.assertIn("img-src data: blob:", preview.CSP)
+        self.assertNotIn("img-src data: blob: https:", preview.CSP)
 
 
 if __name__ == "__main__":

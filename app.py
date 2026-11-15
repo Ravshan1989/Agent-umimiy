@@ -1,4 +1,10 @@
+import os
 import sys
+
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
 if sys.platform == "win32":
     try:  # buzilgan dastur ishga tushganda Windows xato oynasi chiqib, ilovani qotirib qo'ymasin

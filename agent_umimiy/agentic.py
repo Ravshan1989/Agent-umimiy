@@ -121,7 +121,8 @@ def openai(o: dict, key: str, prompt: str, history: list, tb: Toolbox, files=())
         _check(tb)
         msg = stream.openai(
             o.get("base_url", "https://api.openai.com/v1") + "/chat/completions",
-            {"model": att.openai_model_for(o, list(files)), "messages": messages, "tools": tools},
+            stream.openai_payload(
+                {"model": att.openai_model_for(o, list(files)), "messages": messages, "tools": tools}, o),
             {"Authorization": "Bearer " + key},
             _sink(tb),
         )

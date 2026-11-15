@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import threading
 import uuid
@@ -10,6 +11,7 @@ from pathlib import Path
 _lock = threading.RLock()
 MAX_ITEMS = 500
 MAX_FACT_LENGTH = 1000
+MAX_FILE_BYTES = 1024 * 1024
 _SECRET = re.compile(
     r"(?i)(?:api[_ -]?key|password|passwd|secret|token)\s*[:=]\s*\S+|"
     r"\bsk-(?:or-v1-|proj-|live-)?[A-Za-z0-9_-]{20,}\b|"
@@ -35,6 +37,8 @@ def _read(path: Path, strict: bool = False) -> list[dict]:
     if not path.exists():
         return []
     try:
+        if path.stat().st_size > MAX_FILE_BYTES:
+            raise ValueError("xotira fayli 1 MB dan katta")
         data = json.loads(path.read_text(encoding="utf-8-sig"))
         if not isinstance(data, list):
             raise ValueError("xotira ro'yxat emas")
@@ -66,7 +70,14 @@ def _limit(value, default: int = 5) -> int:
 def _write(path: Path, items: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(json.dumps(items[-MAX_ITEMS:], ensure_ascii=False, indent=2), encoding="utf-8")
+    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        if hasattr(os, "fchmod"):
+            os.fchmod(fd, 0o600)
+    except (AttributeError, OSError):
+        pass
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        json.dump(items[-MAX_ITEMS:], fh, ensure_ascii=False, indent=2)
     tmp.replace(path)
     try:
         path.chmod(0o600)
@@ -128,6 +139,13 @@ def search(query: str, limit: int = 5) -> str:
     if not selected:
         return "Xotirada mos ma'lumot yo'q."
     return "\n".join(f"[{item['id']}] {item['fact']}" for item in selected)
+
+
+def list_all() -> list[dict]:
+    """Barcha saqlangan xotira yozuvlarini qaytaradi."""
+    path = _path()
+    with _lock:
+        return list(_read(path))
 
 
 def forget(item_id: str) -> str:
