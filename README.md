@@ -11,7 +11,7 @@ agentlar fayllaringizni o'qiydi, tahrirlaydi, brauzerni boshqaradi va bir-biriga
 ![Versiya](https://img.shields.io/badge/versiya-0.4.2-orange)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Litsenziya](https://img.shields.io/badge/litsenziya-MIT-green)
-![Til](https://img.shields.io/badge/interfeys-UZ%20%7C%20RU%20%7C%20EN-1EB53A)
+![Til](https://img.shields.io/badge/interfeys-UZ%20(Lotin%2FKirill)%20%7C%20RU%20%7C%20EN-1EB53A)
 [![Testlar](https://github.com/Ravshan1989/RMS-AI/actions/workflows/tests.yml/badge.svg)](https://github.com/Ravshan1989/RMS-AI/actions/workflows/tests.yml)
 
 [📥 Yuklab olish](#-ornatish) · [✨ Imkoniyatlar](#-imkoniyatlar) · [⚙️ Sozlash](#️-sozlash) · [📖 Qo'llanma](#-batafsil-qollanma) · [👨‍💻 Dasturchilar](#-dasturchilar-uchun)
@@ -25,7 +25,7 @@ agentlar fayllaringizni o'qiydi, tahrirlaydi, brauzerni boshqaradi va bir-biriga
 ## 📌 Bu nima?
 
 **RMS AI** — bir nechta sun'iy intellekt agentlarini bitta joyga yig'adigan desktop ilova.
-Har bir xizmat uchun alohida sayt yoki dastur ochish shart emas: hammasi bitta qulay oynada. Desktop, telefon va veb interfeyslarida o'zbek, rus va ingliz tillarini tanlash mumkin. Ruscha va inglizcha tarjimalar qisman: ayrim dinamik xabarlar, agent javoblari va kam ishlatiladigan matnlar o'zbekcha qolishi mumkin.
+Har bir xizmat uchun alohida sayt yoki dastur ochish shart emas: hammasi bitta qulay oynada. Interfeysda **4 ta til** to‘liq qo‘llab-quvvatlanadi: **O‘zbekcha (Lotin)**, **Ўзбекча (Кирилл)**, **Русский** va **English**.
 
 Desktop interfeys tilini **Sozlamalar → Interfeys tili** orqali tanlang. Ilova kompyuteringizdagi mavjud agentlarni **o'zi topadi** — hech narsa yozib o'tirishingiz kerak emas.
 
@@ -62,12 +62,23 @@ Desktop interfeys tilini **Sozlamalar → Interfeys tili** orqali tanlang. Ilova
 
 ## 📥 O'rnatish
 
-**Windows 10/11 (64-bit)**
+**Windows 10/11 (64-bit) — Tayyor o'rnatuvchi (Oddiy foydalanuvchilar uchun)**
 
-1. **[Oxirgi nashr (Releases)](https://github.com/Ravshan1989/RMS-AI/releases/latest)** sahifasidan
-   **`AgentUmimiy-Setup.exe`** faylini yuklab oling.
-2. Faylni ikki marta bosing va o'rnating: ish stolida «Agent Umimiy» yorlig'i paydo bo'ladi.
+1. **[Oxirgi nashr (Releases)](https://github.com/Ravshan1989/RMS-AI/releases/latest)** sahifasidan:
+   - Asosiy kompyuter (server) uchun: **`RMSAI-Setup.exe`** ni yuklab oling.
+   - Ofisdagi xodimlar uchun (IP terishsiz avtomatik ulanuvchi mijoz): **`RMSAIClient-Setup.exe`** ni yuklab oling.
+2. Faylni ikki marta bosing va o'rnating: ish stolida «RMS AI» (yoki «RMS AI Client») yorlig'i paydo bo'ladi.
 3. Windows ogohlantirsa: **«Qo'shimcha ma'lumot»** → **«Baribir ishga tushirish»**.
+
+**GitHub'dan to'liq ishchi muhitni o'rnatish (`g4f`, `LiteLLM`, `MCP`, 150+ skillar):**
+
+```bat
+git clone https://github.com/Ravshan1989/RMS-AI.git
+cd RMS-AI
+setup_rms.bat
+```
+
+`setup_rms.bat` bir marta ishga tushirilganda `.venv` yaratadi, `requirements-extras.txt` (`g4f`, `litellm[proxy]`, `mcp-server-fetch`, `mcp-server-git`) ni o'rnatadi, tayyor `agents.json` va `skills/` papkasidagi 150 ta rolni joyiga ko'chirib, **RMS AI** ni ishga tushiradi.
 
 > [!NOTE]
 > Windows ogohlantirishi dastur raqamli imzo bilan imzolanmaganligi uchun chiqadi — bu yangi va
