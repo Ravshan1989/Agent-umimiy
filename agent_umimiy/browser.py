@@ -359,15 +359,26 @@ class Browser:
             self.proc = None
 
 
+MAX_BROWSERS = 8
+BROWSER_IDLE_SECONDS = 300
 _shared: dict[str, Browser] = {}
 _shared_lock = threading.Lock()
 
 
 def shared(profile_dir=None) -> Browser:
     key = str(Path(profile_dir).resolve()) if profile_dir else str((config.user_dir() / "browser-profile").resolve())
+    now = time.monotonic()
     with _shared_lock:
+        stale = [k for k, b in _shared.items() if k != key and now - getattr(b, "_last_used", now) > BROWSER_IDLE_SECONDS]
+        for k in stale:
+            _shared.pop(k).close()
         if key not in _shared:
-            _shared[key] = Browser(profile_dir=key)
+            while len(_shared) >= MAX_BROWSERS:
+                oldest = min(_shared, key=lambda k: getattr(_shared[k], "_last_used", 0.0))
+                _shared.pop(oldest).close()
+            is_remote_profile = bool(profile_dir and "browser-profiles" in str(profile_dir))
+            _shared[key] = Browser(profile_dir=key, headless=is_remote_profile)
+        _shared[key]._last_used = now
         return _shared[key]
 
 

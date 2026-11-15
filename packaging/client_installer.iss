@@ -1,7 +1,7 @@
 ; Inno Setup — ofis xodimlari uchun yengil RMS AI Client o'rnatuvchisi
 [Setup]
 AppName=RMS AI Client
-AppVersion=0.7.1
+AppVersion=0.7.2
 DefaultDirName={autopf}\RMSAIClient
 DefaultGroupName=RMS AI Client
 OutputDir=..\dist

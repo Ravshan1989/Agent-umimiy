@@ -8,7 +8,7 @@ Work with Claude, ChatGPT, Gemini, Ollama and other models in a single window:
 the agents read and edit your files, control the browser, and help each other.
 
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
-![Version](https://img.shields.io/badge/version-0.4.2-orange)
+![Version](https://img.shields.io/badge/version-0.7.2-orange)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![UI](https://img.shields.io/badge/interface-Uzbek-1EB53A)
@@ -65,8 +65,8 @@ The app **finds the agents already on your computer by itself** — you don't ha
 
 **Windows 10/11 (64-bit)**
 
-1. Download **`AgentUmimiy-Setup.exe`** from the
-   **[latest release](https://github.com/Ravshan1989/Agent-umimiy/releases/latest)**.
+1. Download **`RMSAI-Setup.exe`** from the
+   **[latest release](https://github.com/Ravshan1989/RMS-AI/releases/latest)**.
 2. Double-click it and install: an "Agent Umimiy" shortcut appears on the desktop.
 3. If Windows warns you: **"More info"** → **"Run anyway"**.
 
@@ -76,8 +76,8 @@ The app **finds the agents already on your computer by itself** — you don't ha
 
 **Linux (64-bit)**
 
-1. Download **`AgentUmimiy-Linux-x86_64.tar.gz`** from the **[latest release](https://github.com/Ravshan1989/Agent-umimiy/releases/latest)**.
-2. Unpack and run: `tar -xzf AgentUmimiy-Linux-x86_64.tar.gz && ./AgentUmimiy/AgentUmimiy`
+1. Download **`RMSAI-Linux-x86_64.tar.gz`** from the **[latest release](https://github.com/Ravshan1989/RMS-AI/releases/latest)**.
+2. Unpack and run: `tar -xzf RMSAI-Linux-x86_64.tar.gz && ./RMSAI/RMSAI`
 3. To paste screenshots with Ctrl+V, install `xclip` (X11) or `wl-clipboard` (Wayland).
 
 **Phone (iPhone, Android)**: there is no separate app. Start the [web server](#web-server-many-people-on-the-local-network) on a computer or server and use it on the phone like an app.
@@ -315,8 +315,8 @@ The key is stored only in the settings file on your computer. If a model doesn't
 Python 3.9+ required. Optional libraries: `pypdf` (reading PDFs), `qrcode` (QR code for phone) `pillow` (pasting screenshots with Ctrl+V), `python-docx` and `openpyxl` (creating Word and Excel files).
 
 ```bash
-git clone https://github.com/Ravshan1989/Agent-umimiy.git
-cd Agent-umimiy
+git clone https://github.com/Ravshan1989/RMS-AI.git
+cd RMS-AI
 pip install pypdf qrcode pillow python-docx openpyxl
 python app.py                              # window
 python app.py --cli -m broadcast "hello"   # terminal
@@ -345,7 +345,7 @@ New agent type: subclass `Agent` in `providers.py` and add it to `KINDS`.
 
 ### Building the .exe
 
-- **GitHub Actions:** Actions → "Dastur yig'ish / Build" → Run workflow. Result: `AgentUmimiy-Setup.exe` (Windows) and `AgentUmimiy-Linux-x86_64.tar.gz` (Linux).
+- **GitHub Actions:** Actions → "Dastur yig'ish / Build" → Run workflow. Result: `RMSAI-Setup.exe`, `RMSAIClient-Setup.exe` (Windows) and `RMSAI-Linux-x86_64.tar.gz` (Linux).
 - **Manually (Windows):** `packaging\build_windows.bat` (needs Python and, optionally, Inno Setup).
 
 ## ❓ Frequently asked questions

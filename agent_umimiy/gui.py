@@ -1329,6 +1329,7 @@ class App(tk.Tk):
         o.ctx.root = chat.project or None
         o.ctx.web = bool(self.cfg.get("web", True))
         o.ctx.browser = bool(self.cfg.get("browser", True))
+        o.ctx.browser_private = True
         o.ctx.mcp = self.mcp
         o.ctx.skills = bool(self.cfg.get("skills", True))
         o.ctx.files_dir = str(FILES_DIR)
@@ -1690,6 +1691,9 @@ class App(tk.Tk):
                 raise ValueError("Bu so'rov allaqachon yopilgan")
             if p.get("answer") not in ("yes", "always", "no"):
                 raise ValueError("Noto'g'ri javob")
+            kind = str(a.get("kind") or "")
+            if p.get("answer") == "always" and (kind == "run" or kind == "mcp" or kind.startswith("mcp:")):
+                raise ValueError("Buyruq va MCP uchun doimiy ruxsat faqat kompyuterdan beriladi.")
             a["dialog"]._done(p["answer"])
             return {"ok": True}
         chat = self._chat_by_id(p.get("chat"))

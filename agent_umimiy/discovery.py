@@ -162,11 +162,15 @@ def resolve_server(
 ) -> dict | None:
     """Discover the office server via UDP broadcast, falling back to cached host/URL."""
     found = discover_server(timeout=timeout, discovery_port=discovery_port)
+    cached = load_cached_server(cache_path=cache_path)
     if found:
+        if cached and cached.get("server_id") and found.get("server_id") and cached["server_id"] != found["server_id"]:
+            return {**found, "mismatch": True}
+        if cached and cached.get("client_key"):
+            found["client_key"] = cached["client_key"]
         save_cached_server(found, cache_path=cache_path)
         return found
 
-    cached = load_cached_server(cache_path=cache_path)
     if not cached:
         return None
 

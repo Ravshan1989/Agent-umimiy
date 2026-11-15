@@ -50,11 +50,13 @@ class AuditSecurityTests(unittest.TestCase):
             try:
                 owner_orch = app.orchestrator(local_desktop=True)
                 self.assertIs(owner_orch.ctx.mcp, app.mcp_manager)
-                self.assertTrue(owner_orch.ctx.allow_private)
+                self.assertFalse(owner_orch.ctx.allow_private)
+                self.assertTrue(owner_orch.ctx.browser_private)
 
                 emp_orch = app.orchestrator(local_desktop=False)
                 self.assertIsNone(emp_orch.ctx.mcp)
                 self.assertFalse(emp_orch.ctx.allow_private)
+                self.assertFalse(emp_orch.ctx.browser_private)
             finally:
                 app.shutdown()
                 st.close()
@@ -174,6 +176,11 @@ class AuditSecurityTests(unittest.TestCase):
                 self.assertIn("pinned", cols)
             finally:
                 st.close()
+
+    def test_r6_pii_mask_preserves_9_digit_numbers_and_masks_998_phones(self):
+        masked = App._mask_pii("STIR 150000000, tel +998 90 123 45 67")
+        self.assertIn("150000000", masked)
+        self.assertIn("[TELEFON_YASHIRILDI]", masked)
 
 
 if __name__ == "__main__":

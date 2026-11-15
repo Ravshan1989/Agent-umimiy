@@ -56,7 +56,8 @@ class Context:
     skills: bool = True  # ko'nikmalar (SKILL.md)
     memory: bool = True  # lokal xotira (kompyuter egasining xotirasi; veb-server rejimida o'chiriladi)
     files_dir: str | None = None  # agent yaratgan hujjatlar (Word, Excel...) saqlanadigan papka
-    allow_private: bool = False  # faqat testlar uchun
+    allow_private: bool = False  # web_fetch uchun ichki IP ruxsati (faqat testlar uchun)
+    browser_private: bool = False  # brauzer uchun ichki IP ruxsati (faqat kompyuter egasiga)
 
     @property
     def active(self) -> bool:
@@ -680,7 +681,17 @@ class Toolbox:
         if say:
             self._say("browser", say)
         try:
-            return _clip(fn(br.shared(self.ctx.browser_profile), *args), 14000)
+            inst = br.shared(self.ctx.browser_profile)
+            out = _clip(fn(inst, *args), 14000)
+            if not (self.ctx.browser_private or self.ctx.allow_private):
+                cur = inst.js("location.href")
+                if cur and not cur.startswith("about:"):
+                    try:
+                        _check_url(cur, False)
+                    except ToolError:
+                        inst.js("location.replace('about:blank')")
+                        raise
+            return out
         except br.BrowserError as exc:
             raise ToolError(str(exc))
 
@@ -694,14 +705,15 @@ class Toolbox:
         if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password:
             raise ToolError("Faqat login-parolsiz http/https manzillarni ochish mumkin.")
         target = parsed.geturl()
-        _check_url(target, self.ctx.allow_private)
+        allow_br = self.ctx.browser_private or self.ctx.allow_private
+        _check_url(target, allow_br)
         origin = _origin(target)
         self._approve("browser:" + origin, f"Brauzerda sayt ochiladi: {origin}",
                       f"{target}\n\nAgent bu sayt ichida bosishi va (alohida ruxsat bilan) yozishi mumkin. "
                       "Brauzer alohida profilda ochiladi: asosiy brauzeringizdagi parollar va sessiyalarga tegmaydi.")
         result = self._browser(lambda b, x: b.open(x), target, say=f"Brauzerda ochdi: {origin}")
         final_url = self._browser(lambda b: b.js("location.href"))
-        _check_url(final_url or target, self.ctx.allow_private)
+        _check_url(final_url or target, allow_br)
         final_parsed = urllib.parse.urlparse(final_url or target)
         if final_parsed.scheme not in ("http", "https") or not final_parsed.hostname:
             raise ToolError("Brauzer xavfsiz bo'lmagan sxemaga yo'naltirildi.")
@@ -714,9 +726,9 @@ class Toolbox:
         return self._browser(lambda b: b.snapshot(), say="Brauzer sahifasini o'qidi")
 
     def _check_browser_url(self) -> None:
-        if not self.ctx.allow_private:
+        if not (self.ctx.browser_private or self.ctx.allow_private):
             cur = self._browser(lambda b: b.js("location.href"))
-            if cur:
+            if cur and not cur.startswith("about:"):
                 _check_url(cur, False)
 
     def t_browser_click(self, id: int) -> str:

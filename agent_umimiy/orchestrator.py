@@ -28,8 +28,8 @@ def _matches(term: str, profile: set[str]) -> bool:
 def _is_local_agent(agent: Agent) -> bool:
     if agent.kind == "ollama":
         return True
-    base = str(getattr(agent, "base_url", "") or "").lower()
-    return base.startswith(("http://127.0.0.1", "http://localhost", "http://[::1]"))
+    opts = getattr(agent, "options", None) or {}
+    return bool(opts.get("local"))
 
 
 class Orchestrator:

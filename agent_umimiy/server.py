@@ -37,7 +37,7 @@ MAX_FILES = 6
 MAX_PROMPT = 100_000
 MAX_LIVE_TEXT = 200_000
 SSE_QUEUE_SIZE = 256
-MAX_CONNECTIONS = 64
+MAX_CONNECTIONS = 256
 MAX_DOWNLOAD = 50 * 1024 * 1024
 TITLE_LEN = 40
 DESKTOP_PORT = 47815  # desktop oynasi uchun doimiy port: brauzer xotirasi (vazifalar ro'yxati) saqlanib qoladi
@@ -129,7 +129,7 @@ class App:
                 ctx.confirm = lambda agent, kind, title, detail: self.request_approval(
                     chat_id, user_id, agent, kind, title, detail)
             ctx.browser = bool(cfg.get("browser", True))
-            ctx.allow_private = True
+            ctx.browser_private = True
             if self.mcp_manager:
                 self.mcp_manager.configure(cfg.get("mcp", []))
             ctx.mcp = self.mcp_manager
@@ -144,6 +144,7 @@ class App:
                                    if user_id is not None and chat_id is not None else None)
             ctx.remote_user = True
             ctx.allow_private = False
+            ctx.browser_private = False
             # Xotira, ko'nikmalar va admin MCP vositalari veb-foydalanuvchilarga berilmaydi
             ctx.memory = ctx.skills = False
             web_mcp = [m for m in cfg.get("mcp", []) if isinstance(m, dict) and m.get("web_users")]
@@ -172,7 +173,7 @@ class App:
             return {"enabled": False, "urls": [], "port": 0, "invite": "", "error": self.network_error}
         port = server.server_port
         return {"enabled": True, "urls": [f"http://{entry['ip']}:{port}/" for entry in remote.local_ips()],
-                "port": port, "invite": self.store.invite(), "error": ""}
+                "port": port, "invite": self.store.invite(), "client_key": self.client_key, "error": ""}
 
     def set_network(self, enabled: bool) -> dict:
         cfg = config.read(self.config_file)
@@ -339,7 +340,7 @@ class App:
         text = re.sub(r"\b(?:8600|9860|5614|4\d{3}|5\d{3})[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b", "[KARTA_RAQAMI_YASHIRILDI]", text)
         text = re.sub(r"\b\d{14}\b", "[JSHSHIR_YASHIRILDI]", text)
         text = re.sub(r"\b[A-Z]{2}\s?\d{7}\b", "[PASPORT_YASHIRILDI]", text)
-        text = re.sub(r"(?<!\d)(?:\+?998[\s-]?)?\(?\d{2}\)?[\s-]?\d{3}[\s-]?\d{2}[\s-]?\d{2}(?!\d)", "[TELEFON_YASHIRILDI]", text)
+        text = re.sub(r"(?<!\d)(?:\+?998[\s-]?)\(?\d{2}\)?[\s-]?\d{3}[\s-]?\d{2}[\s-]?\d{2}(?!\d)", "[TELEFON_YASHIRILDI]", text)
         return text
 
     def send(self, chat_id: int, text: str, agent: str, files: list[dict],
@@ -668,7 +669,21 @@ def _export_chat(store: Store, chat_id: int, fmt: str) -> tuple[bytes, str, str]
     if fmt == "pdf":
         import textwrap
 
-        from PIL import Image, ImageDraw
+        from PIL import Image, ImageDraw, ImageFont
+        pdf_font = None
+        for font_name in (
+            r"C:\Windows\Fonts\segoeui.ttf",
+            r"C:\Windows\Fonts\arial.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        ):
+            if Path(font_name).is_file():
+                try:
+                    pdf_font = ImageFont.truetype(font_name, 14)
+                    break
+                except OSError:
+                    pass
+        if pdf_font is None:
+            pdf_font = ImageFont.load_default()
         all_lines = [raw_title, "=" * min(60, len(raw_title)), ""]
         for r in recs:
             if r.get("k") == "user":
@@ -686,7 +701,7 @@ def _export_chat(store: Store, chat_id: int, fmt: str) -> tuple[bytes, str, str]
             draw = ImageDraw.Draw(img)
             y = 44
             for line in chunk:
-                draw.text((44, y), line, fill=(20, 24, 35))
+                draw.text((44, y), line, fill=(20, 24, 35), font=pdf_font)
                 y += 20
             pages.append(img)
         buf = io.BytesIO()
@@ -1313,7 +1328,15 @@ def make_handler(app: App):
                 elif action == "disable":
                     changed = store.set_employee_enabled(employee_id, False)
                 elif action == "delete":
+                    emp_chats = [c["id"] for c in store.chats(employee_id)]
                     changed = store.remove_employee(employee_id)
+                    if changed:
+                        for cid in emp_chats:
+                            shutil.rmtree(app.files_dir(cid), ignore_errors=True)
+                            shutil.rmtree(
+                                config.user_dir() / "browser-profiles" / f"user-{employee_id}-chat-{cid}",
+                                ignore_errors=True,
+                            )
                 else:
                     raise Refused("Noto'g'ri amal.")
                 if not changed:
@@ -1417,7 +1440,9 @@ def make_handler(app: App):
                 except Exception:
                     raise Refused("Fayl formati noto'g'ri.")
                 store.restore_bytes(raw_bytes)
-                return {"ok": True, "chats": store.chats(user_id)}, ""
+                new_uid = store.local_user(getpass.getuser())
+                cookie = self._cookie(store.new_session(new_uid), SESSION_DAYS * 86400)
+                return {"ok": True, "chats": store.chats(new_uid)}, cookie
             if path == "/api/desktop/telegram":
                 if not self._desktop():
                     raise Refused("Topilmadi.", 404)
@@ -1584,6 +1609,7 @@ def make_handler(app: App):
 
 class Server(ThreadingHTTPServer):
     daemon_threads = True
+    allow_reuse_address = sys.platform != "win32"
     store: Store
 
     def __init__(self, *args, **kwargs):
@@ -1611,6 +1637,8 @@ class Server(ThreadingHTTPServer):
             self._slots.release()
 
     def server_bind(self):  # standart usul socket.getfqdn() ni chaqiradi: Windows'da soniyalab qotib qolishi mumkin
+        if sys.platform == "win32" and hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         socketserver.TCPServer.server_bind(self)
         self.server_name, self.server_port = self.server_address[0], self.server_address[1]
 

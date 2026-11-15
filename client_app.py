@@ -75,6 +75,7 @@ LOADING_HTML = """<!doctype html>
       </div>
       <div class="row mt">
         <input id="manualUrl" placeholder="http://192.168.1.50:8080" />
+        <input id="clientKey" placeholder="Mijoz kaliti (ixtiyoriy)" />
         <button onclick="connectManual()">Ulanish</button>
       </div>
       <div id="err" class="err"></div>
@@ -98,9 +99,10 @@ LOADING_HTML = """<!doctype html>
     }
     async function connectManual() {
       const val = document.getElementById("manualUrl").value.trim();
+      const key = document.getElementById("clientKey").value.trim();
       if (!val) return;
       showSearching();
-      const res = await window.pywebview.api.connect_manual(val);
+      const res = await window.pywebview.api.connect_manual(val, key);
       if (!res.ok) showOffline(res.error || "Ulanib bo‘lmadi.");
     }
   </script>
@@ -113,13 +115,14 @@ class ClientApi:
         self._window = None
 
     def _connect_found(self, info: dict | None) -> bool:
-        if not info or not self._window:
+        if not info or not self._window or info.get("mismatch"):
             return False
         cached = discovery.load_cached_server()
-        if cached and cached.get("server_id") and info.get("server_id"):
-            if cached["server_id"] != info["server_id"]:
-                return False
-        self._window.load_url(info["url"])
+        url = info["url"]
+        key = str(info.get("client_key") or (cached or {}).get("client_key") or "").strip()
+        if key:
+            url = url.rstrip("/") + f"/client-enter?key={key}"
+        self._window.load_url(url)
         return True
 
     def auto_connect(self) -> None:
@@ -131,7 +134,7 @@ class ClientApi:
         info = discovery.resolve_server(timeout=2.0)
         return self._connect_found(info)
 
-    def connect_manual(self, raw_url: str) -> dict:
+    def connect_manual(self, raw_url: str, client_key: str = "") -> dict:
         url = raw_url.strip()
         if not url.startswith(("http://", "https://")):
             url = "http://" + url
@@ -139,6 +142,8 @@ class ClientApi:
             url += "/"
         if discovery.probe_url(url, timeout=1.5):
             info = {"url": url, "ip": "", "port": 8080, "host": ""}
+            if client_key.strip():
+                info["client_key"] = client_key.strip()
             discovery.save_cached_server(info)
             self._connect_found(info)
             return {"ok": True}

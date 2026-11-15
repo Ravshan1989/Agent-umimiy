@@ -6,6 +6,14 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 
 ## [Nashr qilinmagan] / [Unreleased]
 
+## [0.7.2] — 2026-11-15
+
+### Xavfsizlik va Tuzatishlar / Security & Fixed
+- **R1, R3:** `network_info()` endi `client_key` ni egasiga qaytaradi, `client_app.py` da `clientKey` maydoni qo'shildi; `discovery.resolve_server()` soxta serverni keshga yozishdan oldin tekshiradi.
+- **R2, R4:** `browser_private` va `allow_private` ajratildi (`web_fetch` egasi uchun ham ichki IP'lardan himoyalangan); xodim brauzeri har bir amaldan keyin tekshiriladi va buzilishda `about:blank` ga o'tadi.
+- **R5–R7:** `_is_local_agent` `options` ni tekshiradi, telefon PII qoidasi `+998`/`998` bilan cheklandi, `__init__.py` va `README.en.md` `0.7.2` ga yangilandi, `setup_rms.bat` `popd` tuzatildi, `netsh.exe` to'liq yo'l bilan chaqiriladi.
+- **D1–D10:** Ollama `num_ctx: 1024` qotirilishi olib tashlandi; Windows'da `SO_EXCLUSIVEADDRUSE` yoqildi; `users`/`chats` `AUTOINCREMENT` qilindi va xodim o'chirilganda fayl/brauzer profillari tozalanadi; xodim brauzerlari `headless` va limit/idle-timeout bilan ishlaydi; telefondan `run`/`mcp` ga doimiy ruxsat berilmaydi; PDF eksportida kirill shrifti qo'shildi; zaxiradan tiklashdan keyin egasi sessiyasi yangilanadi.
+
 ## [0.7.1] — 2026-11-15
 
 ### Xavfsizlik / Security

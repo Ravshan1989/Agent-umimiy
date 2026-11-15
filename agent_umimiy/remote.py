@@ -150,8 +150,10 @@ def open_firewall(port: int) -> tuple[bool, str]:
     if sys.platform != "win32":
         return False, "Bu tugma faqat Windows uchun."
     import ctypes
+    import os
     exe = sys.executable if getattr(sys, "frozen", False) else None
-    r = ctypes.windll.shell32.ShellExecuteW(None, "runas", "netsh.exe", firewall_args(port, exe), None, 0)
+    netsh = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "netsh.exe")
+    r = ctypes.windll.shell32.ShellExecuteW(None, "runas", netsh, firewall_args(port, exe), None, 0)
     if r <= 32:
         return False, "Administrator ruxsati berilmadi. Qoida qo'shilmadi."
     return True, "Administrator so'rovida «Ha» ni bosing, so'ng bir necha soniya kuting."
@@ -271,8 +273,11 @@ class RemoteServer:
                 except Exception as exc:
                     self._json(400, {"error": str(exc)})
 
+        import sys as _sys
+
         class Server(ThreadingHTTPServer):
             daemon_threads = True
+            allow_reuse_address = _sys.platform != "win32"
 
             def __init__(self, *args, **kwargs):
                 self._slots = threading.BoundedSemaphore(MAX_CONNECTIONS)
@@ -299,6 +304,9 @@ class RemoteServer:
                     self._slots.release()
 
             def server_bind(self):  # standart usul socket.getfqdn() ni chaqiradi: Windows'da soniyalab qotib qolishi mumkin
+                import socket
+                if _sys.platform == "win32" and hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+                    self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
                 socketserver.TCPServer.server_bind(self)
                 self.server_name, self.server_port = self.server_address[0], self.server_address[1]
 
