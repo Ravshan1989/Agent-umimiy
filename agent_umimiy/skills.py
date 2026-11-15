@@ -56,7 +56,7 @@ def _roots(project: str | None) -> list[tuple[Path, str]]:
     if project:
         out.append((Path(project) / ".claude" / "skills", "loyiha"))
     out += [
-        (config.user_dir() / "skills", "Agent Umimiy"),
+        (config.user_dir() / "skills", "RMS AI"),
         (Path.home() / ".agents" / "skills", "Agent skills"),
         (Path.home() / ".claude" / "skills", "Claude"),
     ]

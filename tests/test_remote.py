@@ -40,7 +40,7 @@ class RemoteServerTests(unittest.TestCase):
     def test_page_is_public_but_has_security_headers(self):
         code, h, body = req(self.srv, "/", token=None)
         self.assertEqual(code, 200)
-        self.assertIn(b"Agent Umimiy", body)
+        self.assertIn(b"RMS AI", body)
         self.assertEqual(h["X-Content-Type-Options"], "nosniff")
         self.assertIn("frame-ancestors 'none'", h["Content-Security-Policy"])
         self.assertEqual(h["Cache-Control"], "no-store")
@@ -139,7 +139,7 @@ class NetworkHelpersTests(unittest.TestCase):
 
     def test_firewall_command(self):
         a = remote.firewall_args(8765, r"C:\Apps\AgentUmimiy.exe")
-        self.assertIn('name="Agent Umimiy"', a)
+        self.assertIn('name="RMS AI"', a)
         self.assertIn("dir=in action=allow protocol=TCP localport=8765", a)
         self.assertIn("profile=private,domain", a)
         self.assertTrue(a.endswith('program="C:\\Apps\\AgentUmimiy.exe"'))
@@ -161,7 +161,7 @@ class FirewallScriptTests(unittest.TestCase):
         self.assertEqual(lines[-1], "exit /b 0")
         body = [line for line in lines if line.startswith("netsh")]
         self.assertEqual(len(body), 2)
-        self.assertIn('delete rule name="Agent Umimiy"', body[0])
+        self.assertIn('delete rule name="RMS AI"', body[0])
         self.assertTrue(body[1].startswith("netsh advfirewall firewall add rule"))
         self.assertIn(f'program="{self.EXE}"', body[1])
         self.assertNotIn("name=all", remote.firewall_script(8765, self.EXE))

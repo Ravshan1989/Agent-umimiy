@@ -4,7 +4,7 @@ PAGE = r"""<!doctype html>
 <html lang="uz"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d0f16">
-<title>Agent Umimiy</title>
+<title>RMS AI</title>
 <style>#lang{flex:none;width:auto;max-width:105px;padding:7px 8px;background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:9px;font:inherit}
 
 :root{--bg:#0d0f16;--side:#121521;--card:#1a1e2e;--hi:#232842;--line:#2a3047;--fg:#e8eaf4;--mut:#8b92ab;--acc:#7c6cff;--acc2:#9a8dff;--user:#5a49ee;--ok:#34d399;--err:#f87171;--warn:#fbbf24;--code:#080a10}

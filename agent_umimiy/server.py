@@ -25,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import attachments, automation, config, discovery, memory, preview, rag, remote, skills, telegram_bot, translit
+from . import attachments, automation, config, discovery, memory, preview, rag, remote, skills, telegram_bot, translit, updater
 from . import mcp as mcplib
 from .server_page import PAGE
 from .store import SESSION_DAYS, Store, StoreError
@@ -911,7 +911,7 @@ def make_handler(app: App):
                 self.connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             except OSError:
                 pass
-        server_version = "AgentUmimiy"
+        server_version = "RMSAI"
 
         def handle_one_request(self):
             self.body_read = False  # har bir so'rov uchun qaytadan: ulanish keyingi so'rovga ham ishlatiladi
@@ -1128,6 +1128,11 @@ def make_handler(app: App):
                     if not self._desktop():
                         raise Refused("Topilmadi.", 404)
                     return self._json(200, app.network_info())
+                if url.path == "/api/update/check":
+                    self._user()
+                    if not self._desktop():
+                        raise Refused("Topilmadi.", 404)
+                    return self._json(200, updater.check_update())
                 if url.path == "/api/network/users":
                     self._user()
                     if not self._desktop():
@@ -1297,6 +1302,19 @@ def make_handler(app: App):
                     app.classic_at = time.monotonic()
                 open_classic(app.config_file)
                 return {"ok": True}, ""
+            if path == "/api/update/install":
+                if not self._desktop():
+                    raise Refused("Topilmadi.", 404)
+                dl_url = str(body.get("download_url") or "").strip()
+                if not dl_url:
+                    info = updater.check_update()
+                    if not info.get("update_available") or not info.get("download_url"):
+                        raise Refused(info.get("error") or "Yangi versiya topilmadi.")
+                    dl_url = info["download_url"]
+                try:
+                    return updater.install_update(dl_url), ""
+                except Exception as exc:
+                    raise Refused(str(exc))
             if path == "/api/settings":
                 cfg = config.read(app.config_file)
                 prefs = cfg if self._desktop() else (cfg.get("user_settings") or {}).get(str(user_id), cfg)

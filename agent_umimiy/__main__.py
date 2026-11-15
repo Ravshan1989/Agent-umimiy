@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 from . import config
 from .orchestrator import MODES
@@ -21,7 +22,9 @@ def main():
 
     from . import autostart
 
-    autostart.start_local_services_async()
+    cfg_proj = str(config.read(args.config).get("project") or "").strip()
+    llm_root = cfg_proj if cfg_proj and (Path(cfg_proj) / "freellm").is_dir() else None
+    autostart.start_local_services_async(llm_root)
 
     if args.serve:
         from . import server

@@ -52,7 +52,7 @@ PROJECT_SUGGESTIONS = ["Bu loyiha nima haqida? Qisqa tushuntirib ber", "Kodda xa
 KIND_ICON = {"read": "◧", "write": "✎", "run": "▶", "info": "•", "agent": "⇄", "browser": "◎", "mcp": "⬡", "skill": "✧"}
 KIND_COLOR = {"read": P["muted"], "write": P["warn"], "run": P["accent_hi"], "info": P["err"], "agent": P["ok"],
               "browser": P["accent_hi"], "mcp": P["accent_hi"], "skill": P["ok"]}
-FILES_DIR = Path.home() / "Documents" / "Agent Umimiy"  # agent yaratgan Word/Excel fayllari
+FILES_DIR = Path.home() / "Documents" / "RMS AI"  # agent yaratgan Word/Excel fayllari
 SUGGESTIONS = ["Bu kodni tushuntirib ber", "Menga qisqa xat yozib ber", "Ingliz tiliga tarjima qil",
                "Internetdan bugungi yangiliklarni top"]
 

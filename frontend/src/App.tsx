@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
-  Activity, BarChart3, Bell, Bot, Boxes, CalendarClock, Camera, Check, CheckCircle2, ChevronDown, ChevronRight,
-  Clock3, Database, Download, FileSpreadsheet, FileText, Folder, FolderKanban, Globe2, Home, Layers,
-  LayoutGrid, Loader2, LogOut, Menu, MessageSquare, Mic, Moon, Paperclip, Plus, Puzzle, Search, Send,
+  Activity, BarChart3, Bell, Bookmark, Bot, Boxes, CalendarClock, Camera, Check, CheckCircle2, ChevronDown, ChevronRight,
+  Clock3, Copy, Database, Download, FileSpreadsheet, FileText, Folder, FolderKanban, Globe2, Home, Languages, Layers,
+  LayoutGrid, Loader2, LogOut, Menu, MessageSquare, Mic, Moon, Paperclip, Pencil, Plus, Puzzle, QrCode, RefreshCw, Search, Send,
   Settings, ShieldCheck, SlidersHorizontal, Sparkles, Square, Sun, Trash2, TriangleAlert, Volume2, X, Zap,
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
@@ -28,6 +28,7 @@ type MemoryItem = { id: string; fact: string };
 type BookmarkItem = { id: number; agent: string; text: string; when: string };
 type ProjectAudit = { root: string; total_files: number; total_mb: number; extensions: { ext: string; count: number }[]; largest_files: { path: string; kb: number }[] };
 type SystemHealth = { cpu_cores?: number; python?: string; disk_free_gb?: number; disk_total_gb?: number; ollama_online?: boolean; freellm_online?: boolean };
+type UpdateInfo = { current_version: string; latest_version: string; update_available: boolean; download_url: string; release_notes: string; html_url: string; error: string };
 type Workspace = { project: string; plugins: { name: string; transport: string; enabled: boolean }[]; skills: { name: string; description: string; source: string }[]; automation: { available: boolean; reason: string; jobs?: AutoJob[] }; rag?: { indexed: number }; telegram?: TelegramInfo; memory?: MemoryItem[]; wiki?: string; system?: SystemHealth; analytics?: AnalyticsInfo; database: { engine: string; status: string; users: number; chats: number } };
 type Task = { id: number; text: string; when: string; done: boolean };
 type Approval = { id: string; agent: string; kind: string; title: string; detail: string };
@@ -187,7 +188,7 @@ function Robot({ small = false }: { small?: boolean }) {
     <div className="robot-head"><span className="robot-ear left" /><span className="robot-ear right" />
       <div className="robot-face"><i className="eye eye-left" /><i className="eye eye-right" /><span className="robot-smile" /></div>
     </div>
-    <div className="robot-neck" /><div className="robot-body"><b>AU</b></div>
+    <div className="robot-neck" /><div className="robot-body"><b>RMS</b></div>
     <span className="robot-arm arm-left" /><span className="robot-arm arm-right" />
     <span className="robot-foot foot-left" /><span className="robot-foot foot-right" />
     <div className="robot-ring" />
@@ -219,6 +220,8 @@ function App() {
   const [networkBusy, setNetworkBusy] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [employeeBusy, setEmployeeBusy] = useState<number | null>(null);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [updateBusy, setUpdateBusy] = useState(false);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [workspaceError, setWorkspaceError] = useState("");
   const [activeView, setActiveView] = useState("Bosh sahifa");
@@ -452,6 +455,42 @@ function App() {
   useEffect(() => {
     if (desktop && activeView === "Sozlamalar") void refreshEmployees().catch(() => setEmployees([]));
   }, [desktop, activeView, refreshEmployees]);
+
+  const checkUpdate = useCallback(async (silent = false) => {
+    if (!silent) setUpdateBusy(true);
+    try {
+      const info = await api<UpdateInfo>("/api/update/check");
+      setUpdateInfo(info);
+      if (info.update_available) {
+        toast.info(`Yangi versiya mavjud: v${info.latest_version}`, {
+          action: { label: "Yangilash", onClick: () => setActiveView("Sozlamalar") },
+        });
+      } else if (!silent) {
+        if (info.error) toast.warning(info.error);
+        else toast.success(`Sizda eng so‘nggi versiya (v${info.current_version})`);
+      }
+    } catch (error) {
+      if (!silent) toast.error((error as Error).message);
+    } finally {
+      if (!silent) setUpdateBusy(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (desktop && user) void checkUpdate(true);
+  }, [desktop, user, checkUpdate]);
+
+  async function installUpdate() {
+    if (!updateInfo?.download_url) return;
+    setUpdateBusy(true);
+    try {
+      await api<{ ok: boolean }>("/api/update/install", { download_url: updateInfo.download_url });
+      toast.success("Yangilanish yuklandi! Dastur qayta ishga tushirilmoqda…");
+    } catch (error) {
+      toast.error((error as Error).message);
+      setUpdateBusy(false);
+    }
+  }
 
   async function manageEmployee(employee: Employee, action: "enable" | "disable" | "delete") {
     if (action === "delete" && !window.confirm(`${employee.name} hisobini va uning suhbatlarini butunlay o‘chirasizmi?`)) return;
@@ -920,7 +959,7 @@ function App() {
                   const shown = typeof file === "string" ? file : (file.name || file.file || "fayl");
                   const stored = typeof file === "string" ? "" : file.file;  // eski yozuvlarda diskdagi nom saqlanmagan
                   return <span key={i}>📎 {stored ? <a href={fileHref(stored)} download={shown}>{shown}</a> : shown}</span>;
-                })}</small> : null}</div><div className="message-meta-row">{record.meta && <small className="message-meta">{record.meta}</small>}{record.k === "user" && record.text && <button type="button" className="text-link" onClick={() => fillPrompt(record.text || "")} title="Savolni tahrirlab qayta yuborish">✏️ Tahrirlash</button>}{record.k === "agent" && !record.err && record.text && <><button type="button" className="text-link" onClick={() => speakText(record.text)} title="Ovoz chiqarib o‘qish"><Volume2 size={13} /> Eshitish</button><button type="button" className="text-link" onClick={() => void translitRecord(index)} title="Lotin ↔ Kirill o‘girish">🔤 Крилл/Lotin</button><button type="button" className="text-link" onClick={() => copyMessage(record.text)} title="Matnni nusxalash">📋 Nusxalash</button><button type="button" className="text-link" onClick={() => saveBookmark(record)} title="Xatcho‘pga saqlash">⭐ Saqlash</button><button type="button" className="text-link" onClick={() => setQrModal(record.text || "")} title="Telefonga QR-kod orqali olish">📱 QR</button><button type="button" className="text-link" onClick={() => void regenerateFrom(index)} title="Boshqattan javob olish">🔄 Qayta so‘rash</button></>}</div></div></div>)}
+                })}</small> : null}</div><div className="message-meta-row">{record.meta && <small className="message-meta">{record.meta}</small>}{record.k === "user" && record.text && <button type="button" className="msg-icon-btn" onClick={() => fillPrompt(record.text || "")} title="Savolni tahrirlab qayta yuborish" aria-label="Tahrirlash"><Pencil size={13} /></button>}{record.k === "agent" && !record.err && record.text && <><button type="button" className="msg-icon-btn" onClick={() => speakText(record.text)} title="Ovoz chiqarib o‘qish" aria-label="Eshitish"><Volume2 size={14} /></button><button type="button" className="msg-icon-btn" onClick={() => void translitRecord(index)} title="Lotin ↔ Kirill o‘girish" aria-label="Kirill/Lotin"><Languages size={14} /></button><button type="button" className="msg-icon-btn" onClick={() => copyMessage(record.text)} title="Matnni nusxalash" aria-label="Nusxalash"><Copy size={14} /></button><button type="button" className="msg-icon-btn" onClick={() => saveBookmark(record)} title="Xatcho‘pga saqlash" aria-label="Saqlash"><Bookmark size={14} /></button><button type="button" className="msg-icon-btn" onClick={() => setQrModal(record.text || "")} title="Telefonga QR-kod orqali olish" aria-label="QR"><QrCode size={14} /></button><button type="button" className="msg-icon-btn" onClick={() => void regenerateFrom(index)} title="Boshqattan javob olish" aria-label="Qayta so‘rash"><RefreshCw size={14} /></button></>}</div></div></div>)}
       {Object.entries(live).map(([name, text]) => <div className="message-row" key={name}><div className="message-avatar"><Bot size={17} /></div><div className="message-body"><b>{name} <span className="typing-label">yozmoqda…</span></b><div className="message-bubble live md-bubble"><Markdown text={text} /></div></div></div>)}
       {busy && !Object.keys(live).length && <div className="typing-indicator"><span /><span /><span /> Agent javob tayyorlamoqda…</div>}
       <div ref={messagesEnd} />
@@ -1115,6 +1154,24 @@ function App() {
               <input type="password" value={tgToken} onChange={(e) => setTgToken(e.target.value)} placeholder="Bot tokeni (123456:ABC-DEF...)" />
               <input value={tgUser} onChange={(e) => setTgUser(e.target.value)} placeholder="Ruxsat berilgan @username (ixtiyoriy)" />
               <button className="secondary-btn" onClick={() => void api<{ telegram: TelegramInfo }>("/api/desktop/telegram", { token: tgToken, allowed_username: tgUser }).then((res) => { if (res.telegram.status === "ulangan") toast.success(`Telegram ulandi: @${res.telegram.bot_username}`); else if (res.telegram.error) toast.error(res.telegram.error); else toast.info("Telegram bot o‘chirildi"); }).catch((e) => toast.error((e as Error).message))}>Telegram botni saqlash</button>
+            </div>
+          </div>}
+          {desktop && <div className="classic-box">
+            <div className="row-copy">
+              <b>🔄 Dasturni yangilash (Auto-Update)</b>
+              <span>
+                Joriy versiya: v{updateInfo?.current_version || "0.7.2"}
+                {updateInfo?.update_available ? ` · Yangi versiya tayyor: v${updateInfo.latest_version}` : updateInfo && !updateInfo.error ? " · Eng so‘nggi versiya" : ""}
+              </span>
+              {updateInfo?.error && <small className="settings-note">{updateInfo.error}</small>}
+            </div>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <button className="secondary-btn" disabled={updateBusy} onClick={() => void checkUpdate(false)}>
+                {updateBusy ? "Tekshirilmoqda…" : "Yangilanishni tekshirish"}
+              </button>
+              {updateInfo?.update_available && <button className="primary-btn" disabled={updateBusy} onClick={() => void installUpdate()}>
+                <Download size={15} /> {updateBusy ? "Yuklanmoqda…" : `v${updateInfo.latest_version} ni o‘rnatish`}
+              </button>}
             </div>
           </div>}
           {desktop && <div className="classic-box"><div className="row-copy"><b>Klassik oyna</b><span>Agent qo‘shish, API kalitlari, loyiha papkasi va plaginlarni sozlash.</span></div><button className="secondary-btn" onClick={() => void openClassic()}>Klassik oynani ochish</button></div>}

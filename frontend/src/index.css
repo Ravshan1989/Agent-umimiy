@@ -126,6 +126,13 @@ footer{display:flex;align-items:center;gap:15px;color:var(--muted);font-size:10p
 .light .stat-card,.light .stat-card.blue,.light .stat-card.pink,.light .stat-card.amber{background:#fff;border-color:#cfd6f5}.light .stat-copy span{color:#667493}.light .stat-card>small{color:#047857}
 .columns{grid-template-columns:1.15fr 1fr 1fr;gap:12px}.list-panel{padding:13px 15px;min-height:196px}.panel-heading{margin-bottom:6px}.panel-heading h2{font-size:15px;font-weight:700}.panel-heading h2 svg{width:18px;color:#a78bfa}
 button.text-link{cursor:pointer;font-size:11.5px;color:#5aa2ff}button.text-link:hover{color:#9cc6ff}.light button.text-link{color:#2563eb}
+.message-meta-row{display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;gap:4px;margin-top:4px}
+.user-message .message-meta-row{justify-content:flex-end}
+.message-meta-row .message-meta{margin-right:4px}
+.msg-icon-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;border:0;border-radius:7px;background:transparent;color:#8fa3d6;cursor:pointer;transition:background .15s,color .15s}
+.msg-icon-btn:hover{background:rgba(124,108,255,.16);color:#e2e8ff}
+.light .msg-icon-btn{color:#5e6c91}
+.light .msg-icon-btn:hover{background:rgba(37,99,235,.1);color:#1d4ed8}
 .agent-row,.file-row{padding:8px 0;gap:11px;border-top:0}.file-icon{width:34px;height:34px;border-radius:9px}.file-icon.folder{background:#0c3f7d55;color:#4cc3ff}.row-copy b,.file-row b{font-size:12.5px;font-weight:600}.row-copy span{font-size:10.5px}.online{font-size:10.5px;padding:4px 9px;border-radius:8px;background:#0a3b3155;border:1px solid #14805f66}.online i{box-shadow:0 0 6px #34d399}.light .online{color:#047857;background:#d1fae5}
 .row-btn{width:100%;border:0;background:transparent;color:inherit;text-align:left;border-radius:9px}.row-btn:hover{background:#151c48}.light .row-btn:hover{background:#eef1ff}
 .file-icon.word{background:#1d4ed8;color:#fff}.file-icon.excel{background:#0f9d58;color:#fff}.file-icon.pdf{background:#dc2626;color:#fff}

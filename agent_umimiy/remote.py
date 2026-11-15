@@ -109,7 +109,7 @@ def lan_ip() -> str:
     return ips[0]["ip"] if ips else "127.0.0.1"
 
 
-FIREWALL_RULE = "Agent Umimiy"
+FIREWALL_RULE = "RMS AI"
 
 
 def firewall_script(port: int, exe: str | None = None) -> str:
@@ -175,7 +175,7 @@ class RemoteServer:
 
         class H(BaseHTTPRequestHandler):
             protocol_version = "HTTP/1.1"
-            server_version = "AgentUmimiy"
+            server_version = "RMSAI"
 
             def setup(self):
                 super().setup()
