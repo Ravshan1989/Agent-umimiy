@@ -379,7 +379,10 @@ class App:
                 try:
                     # Suhbat papkasiga saqlanadi: shundagina foydalanuvchi uni qaytib yuklab ola oladi
                     # va suhbat o'chirilganda biriktirmalar ham o'chadi.
-                    atts.append(attachments.save_upload(self.uploads_dir(chat_id), f.get("name", "fayl"), f.get("data", "")))
+                    att = attachments.save_upload(self.uploads_dir(chat_id), f.get("name", "fayl"), f.get("data", ""))
+                    if pii_guard and att.text:
+                        att.text = self._mask_pii(att.text)
+                    atts.append(att)
                 except attachments.AttachError as exc:
                     raise Refused(str(exc))
             if not text and not atts:
@@ -509,6 +512,10 @@ class App:
                 raise Refused("Agent hali ishlayapti. Avval to'xtating.")
             self.store.delete_chat(chat_id)
         shutil.rmtree(self.files_dir(chat_id), ignore_errors=True)
+        bp_root = config.user_dir() / "browser-profiles"
+        if bp_root.is_dir():
+            for bp in bp_root.glob(f"user-*-chat-{int(chat_id)}"):
+                shutil.rmtree(bp, ignore_errors=True)
 
 
 class Throttle:

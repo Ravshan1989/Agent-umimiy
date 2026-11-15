@@ -27,8 +27,8 @@
       "base_url": "http://127.0.0.1:1337/v1",
       "api_key": "g4f-free",
       "model": "auto",
-      "description": "GPT4Free (g4f) — 250+ bepul modellar (lokal 1337 port)",
-      "enabled": true,
+      "description": "GPT4Free (g4f) — 250+ bepul modellar (lokal 1337 port, maxfiy hujjatlar uchun emas)",
+      "enabled": false,
       "tools": false
     },
     {
