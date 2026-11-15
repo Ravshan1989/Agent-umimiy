@@ -56,6 +56,7 @@ def add_job(title: str, prompt: str, agent: str = "auto", interval_minutes: int 
             "agent": str(agent or "auto")[:64],
             "interval_minutes": interval,
             "enabled": True,
+            "created_at": int(time.time()),
             "last_run": 0,
             "last_status": "kutilmoqda",
             "last_result": "",

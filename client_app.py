@@ -110,22 +110,22 @@ LOADING_HTML = """<!doctype html>
 
 class ClientApi:
     def __init__(self) -> None:
-        self.window = None
+        self._window = None
 
     def _connect_found(self, info: dict | None) -> bool:
-        if not info or not self.window:
+        if not info or not self._window:
             return False
-        url = info["url"]
-        key = str(info.get("client_key", "")).strip()
-        if key:
-            url = url.rstrip("/") + f"/client-enter?key={key}"
-        self.window.load_url(url)
+        cached = discovery.load_cached_server()
+        if cached and cached.get("server_id") and info.get("server_id"):
+            if cached["server_id"] != info["server_id"]:
+                return False
+        self._window.load_url(info["url"])
         return True
 
     def auto_connect(self) -> None:
         info = discovery.resolve_server(timeout=2.0)
-        if not self._connect_found(info) and self.window:
-            self.window.evaluate_js("showOffline('')")
+        if not self._connect_found(info) and self._window:
+            self._window.evaluate_js("showOffline('')")
 
     def retry(self) -> bool:
         info = discovery.resolve_server(timeout=2.0)
@@ -156,7 +156,7 @@ def main() -> None:
         height=820,
         js_api=api,
     )
-    api.window = window
+    api._window = window
 
     def on_loaded() -> None:
         threading.Thread(target=api.auto_connect, daemon=True).start()

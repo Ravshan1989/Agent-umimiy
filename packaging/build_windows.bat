@@ -10,6 +10,10 @@ xcopy "%LOCALAPPDATA%\Programs\Python\Python313\tcl\tk8.6" "build\tcl_probe\tk8.
 xcopy "%LOCALAPPDATA%\Programs\Python\Python313\tcl\tcl8" "build\tcl_probe\tcl8" /E /I /Y >nul
 set "TCL_LIBRARY=%CD:\=/%/build/tcl_probe/tcl8.6"
 set "TK_LIBRARY=%CD:\=/%/build/tcl_probe/tk8.6"
-python -m PyInstaller --noconfirm --clean --windowed --hidden-import tkinter --hidden-import _tkinter --hidden-import pypdf --hidden-import qrcode --hidden-import PIL.ImageGrab --hidden-import webview --runtime-hook packaging/rthook_tkinter.py --icon packaging/AgentUmimiy.ico --add-data "agent_umimiy/static;agent_umimiy/static" --add-data "packaging/AgentUmimiy.ico;." --name AgentUmimiy app.py || exit /b 1
-where iscc >nul 2>nul && iscc packaging\installer.iss
-echo Tayyor: dist\AgentUmimiy\AgentUmimiy.exe
+python -m PyInstaller --noconfirm --clean --windowed --hidden-import tkinter --hidden-import _tkinter --hidden-import pypdf --hidden-import qrcode --hidden-import PIL.ImageGrab --hidden-import webview --runtime-hook packaging/rthook_tkinter.py --icon packaging/AgentUmimiy.ico --add-data "agent_umimiy/static;agent_umimiy/static" --add-data "packaging/AgentUmimiy.ico;." --name RMSAI app.py || exit /b 1
+python -m PyInstaller --noconfirm --clean --windowed --hidden-import webview --icon packaging/AgentUmimiy.ico --name RMSAIClient client_app.py || exit /b 1
+where iscc >nul 2>nul && (
+    iscc packaging\installer.iss
+    iscc packaging\client_installer.iss
+)
+echo Tayyor: dist\RMSAI\RMSAI.exe va dist\RMSAIClient\RMSAIClient.exe

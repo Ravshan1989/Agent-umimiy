@@ -713,20 +713,30 @@ class Toolbox:
     def t_browser_read(self) -> str:
         return self._browser(lambda b: b.snapshot(), say="Brauzer sahifasini o'qidi")
 
+    def _check_browser_url(self) -> None:
+        if not self.ctx.allow_private:
+            cur = self._browser(lambda b: b.js("location.href"))
+            if cur:
+                _check_url(cur, False)
+
     def t_browser_click(self, id: int) -> str:
         url = self._browser(lambda b: (b.ensure(), b.js("location.href"))[1])
         origin = _origin(url or "")
         self._approve("browser_action:" + origin, f"Brauzerda element bosiladi: {origin}",
                       f"Sahifa: {url}\nElement raqami: {id}. Bosish sahifadagi amalni bajarishi yoki ma'lumot yuborishi mumkin.")
-        return self._browser(lambda b, i: b.click(i), id, say=f"Brauzerda {id}-elementni bosdi")
+        out = self._browser(lambda b, i: b.click(i), id, say=f"Brauzerda {id}-elementni bosdi")
+        self._check_browser_url()
+        return out
 
     def t_browser_type(self, id: int, text: str, submit: bool = False) -> str:
         url = self._browser(lambda b: (b.ensure(), b.js("location.href"))[1])
         origin = _origin(url or "")
         self._approve("browser-type:" + origin, f"Brauzerda {origin} saytining {id}-maydoniga matn yoziladi",
                       f"Sahifa: {url}\nMatn:\n{text}\n\n{'Keyin Enter bosiladi (yuboriladi).' if submit else ''}")
-        return self._browser(lambda b, i, t, s: b.type(i, t, s), id, text, bool(submit),
-                             say=f"Brauzerda {id}-maydonga yozdi{' va yubordi' if submit else ''}")
+        out = self._browser(lambda b, i, t, s: b.type(i, t, s), id, text, bool(submit),
+                            say=f"Brauzerda {id}-maydonga yozdi{' va yubordi' if submit else ''}")
+        self._check_browser_url()
+        return out
 
     def t_browser_press(self, key: str) -> str:
         if key == "Enter":
@@ -734,13 +744,17 @@ class Toolbox:
             origin = _origin(url or "")
             self._approve("browser_action:" + origin, f"Brauzerda Enter bosiladi: {origin}",
                           f"Sahifa: {url}\nEnter tugmasi formani yuborishi yoki amalni tasdiqlashi mumkin.")
-        return self._browser(lambda b, k: b.press(k), key, say=f"Brauzerda {key} bosdi")
+        out = self._browser(lambda b, k: b.press(k), key, say=f"Brauzerda {key} bosdi")
+        self._check_browser_url()
+        return out
 
     def t_browser_scroll(self, direction: str) -> str:
         return self._browser(lambda b, d: b.scroll(d), direction, say="Brauzer sahifasini aylantirdi")
 
     def t_browser_back(self) -> str:
-        return self._browser(lambda b: b.back(), say="Brauzerda orqaga qaytdi")
+        out = self._browser(lambda b: b.back(), say="Brauzerda orqaga qaytdi")
+        self._check_browser_url()
+        return out
 
     def t_list_agents(self) -> str:
         return "\n".join(describe_agent(a) for a in self.ctx.roster)
@@ -794,6 +808,17 @@ class Toolbox:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (AgentUmimiy)", "Accept-Language": "uz,en"})
         try:
             with urllib.request.build_opener(Guard).open(req, timeout=timeout) as r:
+                if not allow:
+                    sock = getattr(getattr(getattr(r, "fp", None), "raw", None), "_sock", None)
+                    if sock is not None:
+                        try:
+                            peer_ip = ipaddress.ip_address(sock.getpeername()[0])
+                            if not _is_public_ip(peer_ip):
+                                raise ToolError(
+                                    "Faqat ochiq internet manzillariga ruxsat bor; ichki yoki maxsus IP manzillar bloklangan."
+                                )
+                        except OSError:
+                            pass
                 body = r.read(limit)
                 ctype = r.headers.get("Content-Type", "")
                 m = re.search(r"charset=([\w-]+)", ctype)

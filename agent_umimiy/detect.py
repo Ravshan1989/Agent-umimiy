@@ -34,11 +34,13 @@ def freellmapi_key() -> str:
     for env in ("FREELLMAPI_API_KEY", "FREELLMAPI_KEY"):
         if os.environ.get(env):
             return os.environ[env].strip()
+    llm_dir = os.environ.get("AGENT_UMIMIY_LLM_DIR", "").strip()
     candidates = [
-        Path("D:/llm/freellm/server/data/freeapi.db"),
         Path.home() / "freellmapi" / "server" / "data" / "freeapi.db",
         Path.home() / "freellmapi" / "data" / "freeapi.db",
     ]
+    if llm_dir:
+        candidates.insert(0, Path(llm_dir) / "freellm" / "server" / "data" / "freeapi.db")
     for db_path in candidates:
         try:
             if db_path.is_file():

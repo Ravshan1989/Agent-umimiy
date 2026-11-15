@@ -6,6 +6,20 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 
 ## [Nashr qilinmagan] / [Unreleased]
 
+## [0.7.1] — 2026-11-15
+
+### Xavfsizlik / Security
+- Veb-foydalanuvchilar (xodimlar) uchun admin MCP plaginlari o'chirildi (`ctx.mcp = None`); faqat `"web_users": true` belgisi qo'yilgan plaginlargina alohida menejerda beriladi.
+- `_desktop()` endi tarmoq serverini (`is_desktop = False`) va boshqa foydalanuvchi sessiyalarini (`user_id != local_user`) qat'iy rad etadi.
+- Telegram bot `allowed_username` (yoki raqamli ID) bo'sh bo'lganda ishga tushmaydi va faqat shaxsiy chatlarni qabul qiladi.
+- `autostart.py` va `detect.py` dan qattiq yozilgan `D:\llm` yo'li olib tashlandi (faqat `AGENT_UMIMIY_LLM_DIR` orqali).
+- Brauzer (`tools.py`) va `web_fetch` da xodimlar uchun ichki/lokal IP manzillar, redirect va DNS rebinding bloklandi; lokal agentdan bulutga avtomatik o'tish to'xtatildi.
+- LAN discovery (`discovery.py`) ochiq UDP javobida `client_key` tarqatmaydi; xavfsizlik devori qoidasi `profile=private,domain` bilan to'g'ridan-to'g'ri `netsh.exe` orqali qo'shiladi.
+- Chatdagi Python kod blokini ishga tushirishdan oldin tasdiq oynasi (`window.confirm`) qo'shildi.
+
+### Tuzatishlar / Fixed
+- `automations.json` zaxira nomi, `automation.py` `created_at` va qolib ketgan holatlarni tozalash, `python-pptx` bog'liqligi, `\\n` qator ajratgichlari, `store.restore_bytes` dan keyingi migratsiya, `.exe` da Python kod ishga tushirish tekshiruvi, `RMSAI`/`RMSAIClient` CI va Windows o'rnatuvchi nomlari tuzatildi.
+
 ## [0.4.2] — 2026-11-14
 
 ### Xavfsizlik / Security

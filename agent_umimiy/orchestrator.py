@@ -25,6 +25,13 @@ def _matches(term: str, profile: set[str]) -> bool:
                for candidate in profile if min(len(term), len(candidate)) >= 4)
 
 
+def _is_local_agent(agent: Agent) -> bool:
+    if agent.kind == "ollama":
+        return True
+    base = str(getattr(agent, "base_url", "") or "").lower()
+    return base.startswith(("http://127.0.0.1", "http://localhost", "http://[::1]"))
+
+
 class Orchestrator:
     """Barcha agentlarni boshqaradi.
 
@@ -113,9 +120,12 @@ class Orchestrator:
         results = [first.ask(prompt, history, ctx, files)]
         if results[0].ok or self._cancelled(results[0]):
             return results
+        first_local = _is_local_agent(first)
         attempted = {first.name}
         for agent in fallback_pool:
             if agent.name in attempted or agent.kind in ("echo", "cli"):
+                continue
+            if first_local and not _is_local_agent(agent):
                 continue
             attempted.add(agent.name)
             result = agent.ask(prompt, history, ctx, files)

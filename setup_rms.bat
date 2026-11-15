@@ -11,6 +11,10 @@ echo [2/4] Kerakli agent va MCP kutubxonalari o'rnatilmoqda...
 ".venv\Scripts\python.exe" -m pip install --upgrade pip --quiet
 ".venv\Scripts\python.exe" -m pip install -e . --quiet
 ".venv\Scripts\python.exe" -m pip install -r requirements-extras.txt
+where npm >nul 2>nul && (
+    echo [2b/4] Zamonaviy veb-interfeys yig'ilmoqda...
+    pushd frontend && call npm ci --silent && call npm run build && popd
+)
 
 echo [3/4] Konfiguratsiya va 150+ skillar nusxalanmoqda...
 if not exist "%APPDATA%\AgentUmimiy" mkdir "%APPDATA%\AgentUmimiy"

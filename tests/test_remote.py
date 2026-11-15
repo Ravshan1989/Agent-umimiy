@@ -141,7 +141,7 @@ class NetworkHelpersTests(unittest.TestCase):
         a = remote.firewall_args(8765, r"C:\Apps\AgentUmimiy.exe")
         self.assertIn('name="Agent Umimiy"', a)
         self.assertIn("dir=in action=allow protocol=TCP localport=8765", a)
-        self.assertIn("profile=any", a)
+        self.assertIn("profile=private,domain", a)
         self.assertTrue(a.endswith('program="C:\\Apps\\AgentUmimiy.exe"'))
         self.assertNotIn("program=", remote.firewall_args(8765))
 

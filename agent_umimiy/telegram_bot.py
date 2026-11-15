@@ -90,9 +90,12 @@ class TelegramBridge:
                         continue
                     if chat.get("type") != "private":
                         continue
-                    if not self.allowed_username or (
-                        sender != self.allowed_username and sender_id != self.allowed_username
-                    ):
+                    allowed = (
+                        sender_id == self.allowed_username
+                        if self.allowed_username.isdigit()
+                        else sender == self.allowed_username
+                    )
+                    if not self.allowed_username or not allowed:
                         self._api("sendMessage", {"chat_id": chat_id, "text": "Ruxsat yo'q."})
                         continue
                     if text == "/start":

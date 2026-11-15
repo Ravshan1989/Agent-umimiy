@@ -1,7 +1,7 @@
 ; Inno Setup — oddiy "Keyingi > Keyingi > O'rnatish" o'rnatuvchisi
 [Setup]
 AppName=RMS AI
-AppVersion=0.7.0
+AppVersion=0.7.1
 DefaultDirName={autopf}\RMSAI
 DefaultGroupName=RMS AI
 OutputDir=..\dist

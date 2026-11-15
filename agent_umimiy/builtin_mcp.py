@@ -201,7 +201,7 @@ def main() -> None:
             res = {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": f"agent-umimiy-{mode}", "version": "0.4.2"},
+                "serverInfo": {"name": f"agent-umimiy-{mode}", "version": "0.7.1"},
             }
         elif method == "tools/list":
             res = {"tools": tools}

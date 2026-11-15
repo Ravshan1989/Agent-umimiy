@@ -59,6 +59,9 @@ class Store:
         self.db.execute("PRAGMA journal_mode = WAL")
         self.db.execute("PRAGMA synchronous = NORMAL")
         self.db.execute("PRAGMA temp_store = MEMORY")
+        self._migrate()
+
+    def _migrate(self) -> None:
         self.db.executescript(SCHEMA)
         # Existing installs created before account controls get the new column in place.
         columns = {row[1] for row in self.db.execute("PRAGMA table_info(users)").fetchall()}
@@ -111,8 +114,17 @@ class Store:
         if not isinstance(name, str) or not isinstance(password, str) or not 2 <= len(name.strip()) <= 32 or len(password) > 1024:
             return None
         rows = self._all("SELECT id, salt, hash, enabled FROM users WHERE name = ?", (name.strip(),))
-        if rows and rows[0][3] and hmac.compare_digest(_hash(password, rows[0][1]), rows[0][2]):
+        if not rows:
+            _hash(password, b"\x00" * 16)
+            return None
+        if rows[0][3] and hmac.compare_digest(_hash(password, rows[0][1]), rows[0][2]):
             return rows[0][0]
+        return None
+
+    def local_user_id(self) -> int | None:
+        rows = self._all("SELECT value FROM meta WHERE key = 'local_user'")
+        if rows and str(rows[0][0]).isdecimal():
+            return int(rows[0][0])
         return None
 
     def local_user(self, name: str) -> int:
@@ -345,9 +357,18 @@ class Store:
             with self.lock:
                 src = sqlite3.connect(str(tmp_path))
                 try:
+                    tables = {
+                        r[0]
+                        for r in src.execute(
+                            "SELECT name FROM sqlite_master WHERE type='table'"
+                        ).fetchall()
+                    }
+                    if not {"users", "chats", "records"}.issubset(tables):
+                        raise StoreError("Zaxira faylida kerakli jadvallar topilmadi.")
                     src.backup(self.db)
                 finally:
                     src.close()
+                self._migrate()
         finally:
             tmp_path.unlink(missing_ok=True)
 

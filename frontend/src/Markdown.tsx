@@ -49,6 +49,10 @@ function CodeBlock({ lang, code, onRunCode }: { lang: string; code: string; onRu
 
   async function run() {
     if (!onRunCode || running) return;
+    const previewCode = code.length > 400 ? `${code.slice(0, 400)}\n...` : code;
+    if (!window.confirm(`Ushbu Python kodini kompyuteringizda ishga tushirishga rozimisiz?\n\n${previewCode}`)) {
+      return;
+    }
     setRunning(true);
     try {
       setOutput(await onRunCode(code));

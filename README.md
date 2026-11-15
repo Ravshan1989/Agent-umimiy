@@ -8,7 +8,7 @@ Claude, ChatGPT, Gemini, Ollama va boshqa modellar bilan bitta oynada ishlang:
 agentlar fayllaringizni o'qiydi, tahrirlaydi, brauzerni boshqaradi va bir-biriga yordam beradi.
 
 ![Platforma](https://img.shields.io/badge/platforma-Windows-0078D6?logo=windows&logoColor=white)
-![Versiya](https://img.shields.io/badge/versiya-0.4.2-orange)
+![Versiya](https://img.shields.io/badge/versiya-0.7.1-orange)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Litsenziya](https://img.shields.io/badge/litsenziya-MIT-green)
 ![Til](https://img.shields.io/badge/interfeys-UZ%20(Lotin%2FKirill)%20%7C%20RU%20%7C%20EN-1EB53A)
@@ -86,8 +86,8 @@ setup_rms.bat
 
 **Linux (64-bit)**
 
-1. **[Oxirgi nashr](https://github.com/Ravshan1989/RMS-AI/releases/latest)** sahifasidan **`AgentUmimiy-Linux-x86_64.tar.gz`** ni yuklab oling.
-2. Oching va ishga tushiring: `tar -xzf AgentUmimiy-Linux-x86_64.tar.gz && ./AgentUmimiy/AgentUmimiy`
+1. **[Oxirgi nashr](https://github.com/Ravshan1989/RMS-AI/releases/latest)** sahifasidan **`RMSAI-Linux-x86_64.tar.gz`** ni yuklab oling.
+2. Oching va ishga tushiring: `tar -xzf RMSAI-Linux-x86_64.tar.gz && ./RMSAI/RMSAI`
 3. Skrinshotni Ctrl+V bilan qo'yish uchun `xclip` (X11) yoki `wl-clipboard` (Wayland) o'rnatilgan bo'lsin.
 
 **Telefon (iPhone, Android)**: alohida ilova yo'q. Kompyuter yoki serverda [veb-server](#veb-server-lokal-tarmoqda-kop-kishi-ishlatadi) ni yoqib, telefonda ilova kabi ishlatasiz.
@@ -209,7 +209,7 @@ python -m agent_umimiy --serve --port 9000 --host 192.168.1.10
 
 Dastur manzilni va **taklif kodini** chiqaradi. Odamlar manzilni brauzerda ochib, ism, parol va shu kod bilan ro'yxatdan o'tadi. Har kimning o'z suhbatlari bor, javoblar yozilishi bilan ko'rinadi, fayl va skrinshot (Ctrl+V) biriktirish mumkin.
 - Agentlar va API kalitlar kompyuterdagi `agents.json` dan olinadi: hamma **sizning kalitlaringiz va limitingizdan** foydalanadi.
-- Xavfsizlik uchun veb-rejimda agentlar serverdagi fayllarga, buyruqlarga, brauzerga va plaginlarga **tegmaydi**; CLI agentlar (`claude`, `codex`...) ro'yxatda ko'rinmaydi. Suhbat, fayl tahlili va veb-qidiruv ishlaydi.
+- Xavfsizlik uchun veb-rejimda agentlar serverdagi fayllarga, buyruqlarga, ichki tarmoq IP manzillariga va admin MCP plaginlariga **tegmaydi** (faqat `"web_users": true` ruxsatli plaginlar va alohida brauzer profili ishlatiladi); CLI agentlar (`claude`, `codex`...) ro'yxatda ko'rinmaydi. Suhbat, fayl tahlili va veb-qidiruv ishlaydi.
 - Ma'lumotlar `server.db` (SQLite) faylida, sozlamalar papkasida saqlanadi. Parollar xeshlangan holda turadi.
 - Ulanish **shifrlanmagan (HTTP)**: faqat ishonchli lokal tarmoqda ishlating. Internetga ochish uchun oldiga HTTPS beruvchi proksi (Caddy, nginx) qo'ying. Windows'da devor (firewall) portga ruxsat so'rasa, ruxsat bering.
 
@@ -312,7 +312,7 @@ Yangi agent turi: `providers.py` da `Agent` ni meros qilib, `KINDS` ga qo'shing.
 
 ### .exe ni yig'ish
 
-- **GitHub Actions:** Actions → "Dastur yig'ish / Build" → Run workflow. Natija: `AgentUmimiy-Setup.exe` (Windows) va `AgentUmimiy-Linux-x86_64.tar.gz` (Linux).
+- **GitHub Actions:** Actions → "Dastur yig'ish / Build" → Run workflow. Natija: `RMSAI-Setup.exe`, `RMSAIClient-Setup.exe` (Windows) va `RMSAI-Linux-x86_64.tar.gz` (Linux).
 - **Qo'lda (Windows):** `packaging\build_windows.bat` (Python va ixtiyoriy ravishda Inno Setup kerak).
 
 ## ❓ Ko'p beriladigan savollar

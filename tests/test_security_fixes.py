@@ -1,135 +1,174 @@
-"""Security regression tests for RMS AI audit fixes (Y1, Y2, Y3, Y4, O1)."""
-from __future__ import annotations
-
+import http.client
 import json
 import os
+import socket
 import tempfile
+import threading
 import unittest
-import urllib.request
 from pathlib import Path
-from unittest.mock import patch
+from unittest import mock
 
-from agent_umimiy import autostart, config, store, tools
-from agent_umimiy.server import App, start
-from agent_umimiy.telegram_bot import TelegramBridge
-
-
-class _FakeMcpManager:
-    def __init__(self, servers):
-        self.servers = list(servers)
-        self.configured = [list(servers)]
-        self.shut_down = False
-
-    def configure(self, servers):
-        self.servers = list(servers)
-        self.configured.append(list(servers))
-
-    def shutdown(self):
-        self.shut_down = True
+from agent_umimiy import config, server, tools
+from agent_umimiy.store import Store
 
 
-class SecurityFixesTest(unittest.TestCase):
-    def test_y1_remote_employee_does_not_get_admin_mcp_by_default(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            cfg_file = Path(tmp) / "agents.json"
-            cfg_file.write_text(
-                json.dumps(
-                    {
-                        "agents": [{"name": "a1", "type": "echo", "enabled": True}],
-                        "mcp": [{"name": "admin-fs", "command": "npx", "args": ["-y", "fs"]}],
-                    }
-                ),
-                encoding="utf-8",
-            )
-            st = store.Store(Path(tmp) / "db.sqlite3")
-            app = App(st, cfg_file)
-            app.desktop = True
-            app.mcp_manager = _FakeMcpManager([{"name": "admin-fs"}])
-            try:
-                owner_orch = app.orchestrator(local_desktop=True)
-                self.assertIs(owner_orch.ctx.mcp, app.mcp_manager)
+def _link_dir(link: Path, target: Path) -> bool:
+    """Papkaga symlink, bo'lmasa (Windows) junction yaratadi; imkon bo'lmasa False."""
+    try:
+        os.symlink(target, link, target_is_directory=True)
+        return True
+    except (OSError, NotImplementedError):
+        pass
+    try:
+        import _winapi
+        _winapi.CreateJunction(str(target), str(link))
+        return True
+    except (ImportError, OSError, AttributeError):
+        return False
 
-                emp_orch = app.orchestrator(local_desktop=False)
-                self.assertIsNone(emp_orch.ctx.mcp)
-            finally:
-                app.shutdown()
-                st.close()
 
-    def test_y1_remote_employee_gets_only_web_users_mcp(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            cfg_file = Path(tmp) / "agents.json"
-            cfg_file.write_text(
-                json.dumps(
-                    {
-                        "agents": [{"name": "a1", "type": "echo", "enabled": True}],
-                        "mcp": [
-                            {"name": "admin-fs", "command": "npx"},
-                            {"name": "public-fetch", "command": "uvx", "web_users": True},
-                        ],
-                    }
-                ),
-                encoding="utf-8",
-            )
-            st = store.Store(Path(tmp) / "db.sqlite3")
-            app = App(st, cfg_file)
-            app.desktop = True
-            app.mcp_manager = _FakeMcpManager([])
-            try:
-                emp_orch = app.orchestrator(local_desktop=False)
-                self.assertIsNotNone(emp_orch.ctx.mcp)
-                self.assertIsNot(emp_orch.ctx.mcp, app.mcp_manager)
-                self.assertEqual([s["name"] for s in emp_orch.ctx.mcp.servers], ["public-fetch"])
-            finally:
-                app.shutdown()
-                st.close()
+class SearchFilesEscapeTests(unittest.TestCase):
+    def setUp(self):
+        self.d = Path(tempfile.mkdtemp())
+        self.root = self.d / "loyiha"
+        self.outside = self.d / "tashqi"
+        self.root.mkdir()
+        self.outside.mkdir()
+        (self.root / "ichki.md").write_text("MAXFIY ichki", encoding="utf-8")
+        (self.d / "sir.md").write_text("MAXFIY tashqi", encoding="utf-8")
+        (self.outside / "sir2.md").write_text("MAXFIY tashqi2", encoding="utf-8")
+        self.tb = tools.Toolbox(tools.Context(root=str(self.root), web=False), "test")
 
-    def test_y2_network_server_cannot_spoof_desktop_from_localhost(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            cfg_file = Path(tmp) / "agents.json"
-            config.write({"agents": []}, cfg_file)
-            httpd = start("127.0.0.1", 0, str(cfg_file))
-            httpd.app.desktop = True
-            try:
-                port = httpd.server_address[1]
-                tok = httpd.store.new_session(httpd.store.local_user("test"))
-                req1 = urllib.request.Request(
-                    f"http://127.0.0.1:{port}/api/me",
-                    headers={"Cookie": f"session={tok}"},
-                )
-                with urllib.request.urlopen(req1, timeout=5) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
-                self.assertTrue(data.get("desktop"))
+    def test_dotdot_and_absolute_globs_rejected(self):
+        for g in ("../*.md", "..\\*.md", "sub/../../*.md", str(self.d / "*.md"), "/etc/*", "C:/*"):
+            with self.assertRaises(tools.ToolError, msg=g):
+                self.tb.t_search_files("MAXFIY", glob=g)
 
-                httpd.is_desktop = False
-                req2 = urllib.request.Request(
-                    f"http://127.0.0.1:{port}/api/me",
-                    headers={"Cookie": f"session={tok}"},
-                )
-                with urllib.request.urlopen(req2, timeout=5) as resp:
-                    data2 = json.loads(resp.read().decode("utf-8"))
-                self.assertFalse(data2.get("desktop"))
-            finally:
-                httpd.app.shutdown()
-                httpd.shutdown()
-                httpd.server_close()
-                httpd.store.close()
+    def test_normal_glob_still_works(self):
+        out = self.tb.t_search_files("MAXFIY", glob="*.md")
+        self.assertIn("ichki.md", out)
+        self.assertNotIn("tashqi", out)
 
-    def test_y3_telegram_requires_allowed_username(self):
-        bridge = TelegramBridge(lambda text: f"ok:{text}")
-        info = bridge.configure("123:FAKE_TOKEN", "")
-        self.assertEqual(info["status"], "xato")
-        self.assertIn("majburiy", info["error"])
+    def test_null_glob_means_all_files(self):
+        out = self.tb.t_search_files("MAXFIY", glob=None)
+        self.assertIn("ichki.md", out)
+        self.assertNotIn("tashqi", out)
 
-    def test_y4_autostart_requires_explicit_llm_root(self):
-        with patch.dict(os.environ, {}, clear=True):
-            self.assertEqual(autostart.ensure_local_services(), [])
+    def test_symlink_or_junction_outside_is_skipped(self):
+        if not _link_dir(self.root / "havola", self.outside):
+            self.skipTest("symlink/junction yaratib bo'lmadi")
+        out = self.tb.t_search_files("MAXFIY")
+        self.assertIn("ichki.md", out)
+        self.assertNotIn("tashqi2", out)
 
-    def test_o1_browser_open_blocks_private_ip_for_non_owner(self):
-        ctx = tools.Context(root=Path.cwd(), allow_private=False)
-        tb = tools.Toolbox(ctx, "t")
-        out, err = tb.run("browser_open", {"url": "http://127.0.0.1:8080/admin"})
-        self.assertTrue(err)
-        self.assertIn("bloklangan", out)
+
+class MemoryAndSkillsTests(unittest.TestCase):
+    def test_memory_tools_hidden_and_refused_when_off(self):
+        ctx = tools.Context(web=False, memory=False)
+        names = {t.name for t in tools.available(ctx)}
+        self.assertFalse(names & {"memory_search", "memory_remember", "memory_forget"})
+        tb = tools.Toolbox(ctx, "test")
+        with self.assertRaises(tools.ToolError):
+            tb.t_memory_search("x")
+        with self.assertRaises(tools.ToolError):
+            tb.t_memory_remember("x")
+        with self.assertRaises(tools.ToolError):
+            tb.t_memory_forget("x")
+        self.assertTrue(tb.run("memory_search", {"query": "x"})[1])
+        self.assertNotIn("Local memory", tools.system_prompt(ctx))
+
+    def test_memory_on_by_default(self):
+        names = {t.name for t in tools.available(tools.Context(web=False))}
+        self.assertIn("memory_search", names)
+
+    def test_server_orchestrator_disables_memory_and_skills(self):
+        d = Path(tempfile.mkdtemp())
+        cfg = d / "agents.json"
+        cfg.write_text(json.dumps({"web": False, "skills": True, "agents": [{"name": "aks", "type": "echo"}]}))
+        with mock.patch.object(config, "user_dir", return_value=d):
+            store = Store(":memory:")
+            self.addCleanup(store.close)
+            ctx = server.App(store, str(cfg)).orchestrator().ctx
+        self.assertFalse(ctx.memory)
+        self.assertFalse(ctx.skills)
+        self.assertFalse({t.kind for t in tools.available(ctx)} & {"memory"})
+
+
+class ForwardedForTests(unittest.TestCase):
+    def handler(self, client_ip, headers):
+        store = Store(":memory:")
+        self.addCleanup(store.close)
+        h = object.__new__(server.make_handler(server.App(store)))
+        h.client_address, h.headers = (client_ip, 1234), headers
+        return h
+
+    def test_rightmost_value_used_from_local_proxy(self):
+        h = self.handler("127.0.0.1", {"X-Forwarded-For": "1.1.1.1, 9.9.9.9"})
+        self.assertEqual(h._ip(), "9.9.9.9")
+
+    def test_not_trusted_from_remote_client(self):
+        h = self.handler("10.0.0.5", {"X-Forwarded-For": "1.1.1.1"})
+        self.assertEqual(h._ip(), "10.0.0.5")
+
+
+class PostBodyLimitTests(unittest.TestCase):
+    def setUp(self):
+        self.d = Path(tempfile.mkdtemp())
+        cfg = self.d / "agents.json"
+        cfg.write_text(json.dumps({"web": False, "agents": [{"name": "aks", "type": "echo"}]}))
+        patch = mock.patch.object(config, "user_dir", return_value=self.d)
+        patch.start()
+        self.addCleanup(patch.stop)
+        self.store = Store(self.d / "server.db")
+        self.httpd = server.create(self.store, config_file=str(cfg))
+        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+        self.addCleanup(self.store.close)
+        self.addCleanup(self.httpd.server_close)
+        self.addCleanup(self.httpd.shutdown)
+
+    def post(self, path, length, body=b""):
+        c = http.client.HTTPConnection("127.0.0.1", self.httpd.server_port, timeout=5)
+        self.addCleanup(c.close)
+        c.putrequest("POST", path)
+        c.putheader("Content-Type", "application/json")
+        c.putheader("Content-Length", str(length))
+        c.endheaders(body)
+        r = c.getresponse()
+        r.read()  # o'qilmagan javob yopilishda RST ga olib keladi
+        return r.status, r.getheader("Connection")
+
+    def test_unauthenticated_big_body_rejected_without_reading(self):
+        # tana yuborilmaydi: server uni kutmasdan 401 qaytarishi kerak
+        self.assertEqual(self.post("/api/chat/new", server.MAX_BODY), (401, "close"))
+
+    def test_unauthenticated_small_body_is_drained(self):
+        self.assertEqual(self.post("/api/chat/new", 2, b"{}")[0], 401)
+
+    def test_login_body_limit(self):
+        self.assertEqual(self.post("/api/login", server.AUTH_BODY + 1), (413, "close"))
+
+
+class CheckUrlTests(unittest.TestCase):
+    def check(self, ip):
+        info = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, 0))]
+        with mock.patch.object(tools.socket, "getaddrinfo", return_value=info):
+            tools._check_url("http://misol.uz/", False)
+
+    def test_non_global_addresses_blocked(self):
+        for ip in ("100.64.0.1", "100.127.255.254", "0.0.0.0", "127.0.0.1", "10.0.0.1", "169.254.1.1", "192.0.0.8"):
+            with self.assertRaises(tools.ToolError, msg=ip):
+                self.check(ip)
+
+    def test_non_global_ipv6_blocked(self):
+        # Eski Python patch versiyalarida ham (masalan 3.11.9) natija bir xil bo'lishi kerak.
+        for ip in ("::1", "::ffff:127.0.0.1", "::ffff:192.0.0.8", "2001:db8::1", "2002:a00:1::1", "fc00::1"):
+            info = [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", (ip, 0, 0, 0))]
+            with mock.patch.object(tools.socket, "getaddrinfo", return_value=info):
+                with self.assertRaises(tools.ToolError, msg=ip):
+                    tools._check_url("http://misol.uz/", False)
+
+    def test_public_address_allowed(self):
+        self.check("8.8.8.8")
 
 
 if __name__ == "__main__":

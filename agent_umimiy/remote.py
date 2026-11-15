@@ -128,7 +128,7 @@ def firewall_args(port: int, exe: str | None = None) -> str:
     """Windows xavfsizlik devori uchun kiruvchi ulanish qoidasi (netsh argumentlari)."""
     if not 1 <= port <= 65535:
         raise ValueError("Firewall porti 1 dan 65535 gacha bo'lishi kerak.")
-    args = f'advfirewall firewall add rule name="{FIREWALL_RULE}" dir=in action=allow protocol=TCP localport={port} profile=any enable=yes'
+    args = f'advfirewall firewall add rule name="{FIREWALL_RULE}" dir=in action=allow protocol=TCP localport={port} profile=private,domain enable=yes'
     return args + (f' program="{exe}"' if exe else "")
 
 
@@ -150,13 +150,8 @@ def open_firewall(port: int) -> tuple[bool, str]:
     if sys.platform != "win32":
         return False, "Bu tugma faqat Windows uchun."
     import ctypes
-    import os
-    import tempfile
     exe = sys.executable if getattr(sys, "frozen", False) else None
-    bat = os.path.join(tempfile.gettempdir(), "agent_umimiy_firewall.bat")
-    with open(bat, "w", encoding="utf-8", newline="") as fh:
-        fh.write(firewall_script(port, exe))
-    r = ctypes.windll.shell32.ShellExecuteW(None, "runas", bat, None, None, 0)
+    r = ctypes.windll.shell32.ShellExecuteW(None, "runas", "netsh.exe", firewall_args(port, exe), None, 0)
     if r <= 32:
         return False, "Administrator ruxsati berilmadi. Qoida qo'shilmadi."
     return True, "Administrator so'rovida «Ha» ni bosing, so'ng bir necha soniya kuting."

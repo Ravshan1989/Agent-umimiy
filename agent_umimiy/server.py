@@ -129,6 +129,7 @@ class App:
                 ctx.confirm = lambda agent, kind, title, detail: self.request_approval(
                     chat_id, user_id, agent, kind, title, detail)
             ctx.browser = bool(cfg.get("browser", True))
+            ctx.allow_private = True
             if self.mcp_manager:
                 self.mcp_manager.configure(cfg.get("mcp", []))
             ctx.mcp = self.mcp_manager
@@ -142,6 +143,7 @@ class App:
             ctx.browser_profile = (str(config.user_dir() / "browser-profiles" / f"user-{int(user_id)}-chat-{int(chat_id)}")
                                    if user_id is not None and chat_id is not None else None)
             ctx.remote_user = True
+            ctx.allow_private = False
             # Xotira, ko'nikmalar va admin MCP vositalari veb-foydalanuvchilarga berilmaydi
             ctx.memory = ctx.skills = False
             web_mcp = [m for m in cfg.get("mcp", []) if isinstance(m, dict) and m.get("web_users")]
@@ -333,9 +335,11 @@ class App:
 
     @staticmethod
     def _mask_pii(text: str) -> str:
-        # Uzcard/Humo/Visa/Mastercard (16 raqam) va JSHSHIR/PINFL (14 raqam) ni yashiradi
+        # Uzcard/Humo/Visa/Mastercard (16 raqam), JSHSHIR/PINFL (14 raqam), pasport va telefon raqamlarini yashiradi
         text = re.sub(r"\b(?:8600|9860|5614|4\d{3}|5\d{3})[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b", "[KARTA_RAQAMI_YASHIRILDI]", text)
         text = re.sub(r"\b\d{14}\b", "[JSHSHIR_YASHIRILDI]", text)
+        text = re.sub(r"\b[A-Z]{2}\s?\d{7}\b", "[PASPORT_YASHIRILDI]", text)
+        text = re.sub(r"(?<!\d)(?:\+?998[\s-]?)?\(?\d{2}\)?[\s-]?\d{3}[\s-]?\d{2}[\s-]?\d{2}(?!\d)", "[TELEFON_YASHIRILDI]", text)
         return text
 
     def send(self, chat_id: int, text: str, agent: str, files: list[dict],
@@ -952,10 +956,18 @@ def make_handler(app: App):
             return self._forwarded("X-Forwarded-For") or self.client_address[0]
 
         def _desktop(self) -> bool:
-            """So'rov dasturning o'z oynasidan kelganmi: desktop rejimi, tarmoq serveri emas, shu kompyuter, proksisiz."""
-            return (getattr(self.server, "is_desktop", True) and app.desktop
+            """So'rov dasturning o'z oynasidan kelganmi: desktop serveri, shu kompyuter, proksisiz va egasining hisobi."""
+            if not (getattr(self.server, "is_desktop", False) and app.desktop
                     and self.client_address[0] in ("127.0.0.1", "::1")
-                    and not self.headers.get("X-Forwarded-For"))
+                    and not self.headers.get("X-Forwarded-For")):
+                return False
+            tok = self._token()
+            if tok:
+                user = store.session_user(tok)
+                owner_id = store.local_user_id()
+                if not user or (owner_id is not None and user[0] != owner_id):
+                    return False
+            return True
 
         def _host_ok(self) -> bool:
             """DNS rebinding himoyasi: desktop rejimida brauzer sayti lokal serverni o'z domeni orqali ocholmaydi."""
@@ -1033,7 +1045,8 @@ def make_handler(app: App):
                         raise Refused("Kirish ruxsati yo'q.", 403)
                     self.send_response(302)
                     self.send_header("Location", "/")
-                    self.send_header("Set-Cookie", f"au_client={app.client_key}; HttpOnly; SameSite=Lax; Path=/")
+                    secure = "; Secure" if self._forwarded("X-Forwarded-Proto") == "https" else ""
+                    self.send_header("Set-Cookie", f"au_client={app.client_key}; HttpOnly; SameSite=Strict; Path=/{secure}")
                     self.end_headers()
                     return None
                 if not self._client_allowed():
@@ -1079,11 +1092,15 @@ def make_handler(app: App):
                     return self._json(200, {"user": name, "agents": app.agents(local_desktop), "chats": store.chats(user_id),
                                             "desktop": self._desktop()})
                 if url.path == "/api/settings":
-                    self._user()
+                    uid, _ = self._user()
                     cfg = config.read(app.config_file)
-                    return self._json(200, {"lang": cfg.get("lang", "uz") if cfg.get("lang") in ("uz", "uz_cyrl", "ru", "en") else "uz",
-                                            "theme": cfg.get("theme", "dark") if cfg.get("theme") in ("dark", "light") else "dark",
-                                            "accent": cfg.get("accent", "violet") if cfg.get("accent") in ("violet", "blue", "cyan", "emerald") else "violet"})
+                    prefs = cfg if self._desktop() else (cfg.get("user_settings") or {}).get(str(uid), cfg)
+                    lang = prefs.get("lang", cfg.get("lang", "uz"))
+                    theme = prefs.get("theme", cfg.get("theme", "dark"))
+                    accent = prefs.get("accent", cfg.get("accent", "violet"))
+                    return self._json(200, {"lang": lang if lang in ("uz", "uz_cyrl", "ru", "en") else "uz",
+                                            "theme": theme if theme in ("dark", "light") else "dark",
+                                            "accent": accent if accent in ("violet", "blue", "cyan", "emerald") else "violet"})
                 if url.path == "/api/network":
                     self._user()
                     if not self._desktop():
@@ -1118,7 +1135,8 @@ def make_handler(app: App):
                                             "system": _system_health() if local_desktop else {},
                                             "analytics": store.analytics(user_id),
                                             "database": {"engine": "SQLite", "status": "connected",
-                                                         "users": store.user_count(), "chats": store.chat_count()}})
+                                                         "users": store.user_count() if local_desktop else None,
+                                                         "chats": store.chat_count() if local_desktop else None}})
                 if url.path == "/api/chat/export":
                     user_id, _ = self._user()
                     query = parse_qs(url.query)
@@ -1228,7 +1246,8 @@ def make_handler(app: App):
                     raise Refused("Juda ko'p noto'g'ri urinish. 10 daqiqadan keyin qayta urining.", 429)
                 name, password = str(body.get("name", "")), str(body.get("password", ""))
                 if path == "/api/register":
-                    if str(body.get("invite", "")).strip().upper() != store.invite():
+                    invite = str(body.get("invite", "")).strip().upper()
+                    if not hmac.compare_digest(invite, store.invite()):
                         throttle.fail(ip)
                         raise Refused("Taklif kodi noto'g'ri. Kodni server egasidan so'rang.", 403)
                     user_id = store.add_user(name, password)
@@ -1258,10 +1277,16 @@ def make_handler(app: App):
                 return {"ok": True}, ""
             if path == "/api/settings":
                 cfg = config.read(app.config_file)
-                lang, theme, accent = body.get("lang", cfg.get("lang", "uz")), body.get("theme", cfg.get("theme", "dark")), body.get("accent", cfg.get("accent", "violet"))
+                prefs = cfg if self._desktop() else (cfg.get("user_settings") or {}).get(str(user_id), cfg)
+                lang = body.get("lang", prefs.get("lang", cfg.get("lang", "uz")))
+                theme = body.get("theme", prefs.get("theme", cfg.get("theme", "dark")))
+                accent = body.get("accent", prefs.get("accent", cfg.get("accent", "violet")))
                 if lang not in ("uz", "uz_cyrl", "ru", "en") or theme not in ("dark", "light") or accent not in ("violet", "blue", "cyan", "emerald"):
                     raise Refused("Sozlama qiymati noto'g'ri.")
-                cfg.update({"lang": lang, "theme": theme, "accent": accent})
+                if self._desktop():
+                    cfg.update({"lang": lang, "theme": theme, "accent": accent})
+                else:
+                    cfg.setdefault("user_settings", {})[str(user_id)] = {"lang": lang, "theme": theme, "accent": accent}
                 config.write(cfg, app.config_file)
                 return {"ok": True, "lang": lang, "theme": theme, "accent": accent}, ""
             if path == "/api/network":
@@ -1435,9 +1460,14 @@ def make_handler(app: App):
                 code = str(body.get("code", ""))
                 if not code.strip() or len(code) > 20000:
                     raise Refused("Kod bo'sh yoki juda uzun.")
+                py_bin = sys.executable
+                if getattr(sys, "frozen", False):
+                    py_bin = shutil.which("python") or shutil.which("python3") or shutil.which("py") or ""
+                    if not py_bin:
+                        raise Refused("Yig'ilgan dasturda kodni bajarish uchun tizim Python'i topilmadi.")
                 try:
                     proc = subprocess.run(
-                        [sys.executable, "-c", code],
+                        [py_bin, "-c", code],
                         capture_output=True, text=True, timeout=10, encoding="utf-8", errors="replace",
                     )
                     out = (proc.stdout or "") + (("\n" + proc.stderr) if proc.stderr else "")
@@ -1589,6 +1619,7 @@ def create(store: Store, host: str = "127.0.0.1", port: int = 0, config_file: st
     app = App(store, config_file)
     httpd = Server((host, port), make_handler(app))
     httpd.store, httpd.app = store, app
+    httpd.is_desktop = host in ("127.0.0.1", "::1")
     return httpd
 
 

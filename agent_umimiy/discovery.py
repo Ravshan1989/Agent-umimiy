@@ -76,12 +76,16 @@ class DiscoveryResponder:
         self._thread.start()
 
     def _loop(self) -> None:
+        import hashlib
+        server_id = hashlib.sha256(
+            f"{socket.gethostname()}:{self.http_port}".encode()
+        ).hexdigest()[:16]
         payload = json.dumps(
             {
                 "service": "agent-umimiy",
                 "port": self.http_port,
                 "host": socket.gethostname(),
-                "client_key": self.client_key,
+                "server_id": server_id,
             }
         ).encode("utf-8")
         while not self._stop.is_set() and self._sock:
@@ -141,7 +145,7 @@ def discover_server(timeout: float = 1.8, discovery_port: int = DISCOVERY_PORT) 
                     "port": port,
                     "host": str(info.get("host", "")),
                     "url": f"http://{ip}:{port}/",
-                    "client_key": str(info.get("client_key", "")),
+                    "server_id": str(info.get("server_id", "")),
                 }
     finally:
         try:

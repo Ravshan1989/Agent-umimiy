@@ -1,6 +1,6 @@
-g4f[api]
-flask
-litellm[proxy]
-mcp-server-fetch
-mcp-server-git
-pywebview
+# g4f[api]>=0.4.0  # OGOHLANTIRISH: so'rovlarni uchinchi tomon bepul provayderlariga yuboradi; maxfiy hujjatlar uchun tavsiya etilmaydi
+flask>=3.0,<4.0
+litellm[proxy]>=1.50,<2.0
+mcp-server-fetch>=0.6
+mcp-server-git>=0.6
+pywebview>=5.0,<6.0

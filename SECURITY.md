@@ -4,7 +4,7 @@
 
 | Versiya | Qo'llab-quvvatlanadi |
 |---|---|
-| 0.3.x | ✅ |
+| 0.7.x | ✅ |
 
 ## Zaiflik haqida xabar berish
 

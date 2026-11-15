@@ -8,7 +8,7 @@
 агенты читают и редактируют ваши файлы, управляют браузером и помогают друг другу.
 
 ![Платформа](https://img.shields.io/badge/платформа-Windows-0078D6?logo=windows&logoColor=white)
-![Версия](https://img.shields.io/badge/версия-0.4.2-orange)
+![Версия](https://img.shields.io/badge/версия-0.7.1-orange)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Лицензия](https://img.shields.io/badge/лицензия-MIT-green)
 ![Интерфейс](https://img.shields.io/badge/интерфейс-узбекский-1EB53A)
@@ -65,8 +65,8 @@
 
 **Windows 10/11 (64-бит)**
 
-1. Скачайте **`AgentUmimiy-Setup.exe`** со страницы
-   **[последнего выпуска](https://github.com/Ravshan1989/Agent-umimiy/releases/latest)**.
+1. Скачайте **`RMSAI-Setup.exe`** со страницы
+   **[последнего выпуска](https://github.com/Ravshan1989/RMS-AI/releases/latest)**.
 2. Дважды щёлкните файл и установите: на рабочем столе появится ярлык «Agent Umimiy».
 3. Если Windows предупредит: **«Подробнее»** → **«Выполнить в любом случае»**.
 
@@ -76,8 +76,8 @@
 
 **Linux (64-бит)**
 
-1. Скачайте **`AgentUmimiy-Linux-x86_64.tar.gz`** со страницы **[последнего выпуска](https://github.com/Ravshan1989/Agent-umimiy/releases/latest)**.
-2. Распакуйте и запустите: `tar -xzf AgentUmimiy-Linux-x86_64.tar.gz && ./AgentUmimiy/AgentUmimiy`
+1. Скачайте **`RMSAI-Linux-x86_64.tar.gz`** со страницы **[последнего выпуска](https://github.com/Ravshan1989/RMS-AI/releases/latest)**.
+2. Распакуйте и запустите: `tar -xzf RMSAI-Linux-x86_64.tar.gz && ./RMSAI/RMSAI`
 3. Чтобы вставлять скриншоты через Ctrl+V, установите `xclip` (X11) или `wl-clipboard` (Wayland).
 
 **Телефон (iPhone, Android)**: отдельного приложения нет. Запустите [веб-сервер](#веб-сервер-много-людей-в-локальной-сети) на компьютере или сервере и пользуйтесь на телефоне как приложением.
@@ -319,8 +319,8 @@ Claude и `.claude/skills` в проекте. Агент сам загружае
 телефона) `pillow` (вставка скриншотов через Ctrl+V), `python-docx` и `openpyxl` (создание файлов Word и Excel).
 
 ```bash
-git clone https://github.com/Ravshan1989/Agent-umimiy.git
-cd Agent-umimiy
+git clone https://github.com/Ravshan1989/RMS-AI.git
+cd RMS-AI
 pip install pypdf qrcode pillow python-docx openpyxl
 python app.py                              # окно
 python app.py --cli -m broadcast "привет"  # терминал
@@ -349,7 +349,7 @@ python -m unittest discover -s tests -t .  # тесты
 
 ### Сборка .exe
 
-- **GitHub Actions:** Actions → «Dastur yig'ish / Build» → Run workflow. Результат: `AgentUmimiy-Setup.exe` (Windows) и `AgentUmimiy-Linux-x86_64.tar.gz` (Linux).
+- **GitHub Actions:** Actions → «Dastur yig'ish / Build» → Run workflow. Результат: `RMSAI-Setup.exe`, `RMSAIClient-Setup.exe` (Windows) и `RMSAI-Linux-x86_64.tar.gz` (Linux).
 - **Вручную (Windows):** `packaging\build_windows.bat` (нужен Python и, по желанию, Inno Setup).
 
 ## ❓ Часто задаваемые вопросы
