@@ -101,7 +101,7 @@ class TelegramBridge:
                     if text == "/start":
                         self._api(
                             "sendMessage",
-                            {"chat_id": chat_id, "text": "Salom! Agent Umimiy tayyor. Savolingizni yozing."},
+                            {"chat_id": chat_id, "text": "Salom! RMS AI tayyor. Savolingizni yozing."},
                         )
                         continue
                     answer = self.ask_fn(text)

@@ -55,7 +55,7 @@ class Agent(ABC):
         history = list(history or [])
         plain = prompt
         if ctx and ctx.roster and self.kind != "echo" and (self.kind == "anthropic" or "agent" in prompt.lower()):
-            plain = (f"[Context: you are the agent '{self.name}' inside the desktop app Agent Umimiy, which combines these "
+            plain = (f"[Context: you are the agent '{self.name}' inside the desktop app RMS AI, which combines these "
                      "agents:\n" + "\n".join(describe_agent(a) for a in ctx.roster) +
                      "\nIf asked which agents exist, list all of them, not only yourself.]\n\n" + prompt)
         try:

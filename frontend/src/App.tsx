@@ -182,7 +182,7 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
 }
 
 function Robot({ small = false }: { small?: boolean }) {
-  return <div className={small ? "robot robot-small" : "robot"} aria-label="Agent Umimiy AI robot">
+  return <div className={small ? "robot robot-small" : "robot"} aria-label="RMS AI robot">
     <div className="robot-aura" /><div className="robot-antenna"><i /></div>
     <div className="robot-head"><span className="robot-ear left" /><span className="robot-ear right" />
       <div className="robot-face"><i className="eye eye-left" /><i className="eye eye-right" /><span className="robot-smile" /></div>
@@ -493,15 +493,50 @@ function App() {
 
   function speakText(text?: string) {
     if (!text || !("speechSynthesis" in window)) { toast.info("Ovoz chiqarish qo‘llanmaydi"); return; }
-    if (window.speechSynthesis.speaking) { window.speechSynthesis.cancel(); return; }
-    const clean = text.replace(/[#*`_~[\]()>-]/g, " ").slice(0, 1500);
-    const u = new SpeechSynthesisUtterance(clean);
-    const voices = window.speechSynthesis.getVoices();
-    const targetRe = settings.lang === "ru" ? /ru/i : settings.lang === "en" ? /en/i : /uz|tr|ru/i;
-    const preferred = voices.find((v) => targetRe.test(v.lang));
-    if (preferred) u.voice = preferred;
-    u.lang = preferred?.lang || (settings.lang === "ru" ? "ru-RU" : settings.lang === "en" ? "en-US" : "uz-UZ");
-    window.speechSynthesis.speak(u);
+    const synth = window.speechSynthesis;
+    if (synth.speaking) { synth.cancel(); return; }
+    const clean = text
+      .replace(/```[\s\S]*?```/g, " kod ")
+      .replace(/[#*`_~[\]()>]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 1500);
+    if (!clean) return;
+    const startSpeak = () => {
+      const u = new SpeechSynthesisUtterance(clean);
+      const voices = synth.getVoices();
+      const hasCyrillic = /[а-яА-ЯёЁўқғҳЎҚҒҲ]/.test(clean);
+      let preferred: SpeechSynthesisVoice | undefined;
+      if (hasCyrillic) {
+        preferred = voices.find((v) => /^ru/i.test(v.lang));
+      } else if (settings.lang === "en") {
+        preferred = voices.find((v) => /^en/i.test(v.lang));
+      } else {
+        preferred =
+          voices.find((v) => /^uz/i.test(v.lang)) ||
+          voices.find((v) => /^tr/i.test(v.lang)) ||
+          voices.find((v) => /^en/i.test(v.lang));
+      }
+      if (preferred) u.voice = preferred;
+      u.lang = preferred?.lang || (hasCyrillic ? "ru-RU" : settings.lang === "en" ? "en-US" : "uz-UZ");
+      u.rate = 0.96;
+      u.onerror = () => toast.error("Ovoz chiqarib o‘qishda xatolik yuz berdi");
+      synth.resume();
+      synth.speak(u);
+    };
+    if (synth.getVoices().length === 0) {
+      let done = false;
+      const runOnce = () => {
+        if (done) return;
+        done = true;
+        synth.onvoiceschanged = null;
+        startSpeak();
+      };
+      synth.onvoiceschanged = runOnce;
+      window.setTimeout(runOnce, 250);
+    } else {
+      startSpeak();
+    }
   }
 
   async function captureScreenshot() {
@@ -865,7 +900,7 @@ function App() {
   const agentTones = ["blue", "", "cyan", "amber"];
 
   const chatPanel = (full: boolean) => <section className={full ? "workspace panel chat-full" : "workspace panel"}>
-    <div className="workspace-title"><div className="spark-badge"><Sparkles /></div><h2>{t("Agent Umimiy bilan suhbat")}</h2><button type="button" className="new-chat-btn" onClick={() => setDocModal(true)} title="Rasmiy hujjat blankalari (.docx)">📝 Blankalar</button><button type="button" className="new-chat-btn" onClick={() => { const next = !arenaMode; setArenaMode(next); if (next) setSelectedAgent("broadcast"); toast.info(next ? "⚔️ Arena (2 ustunli solishtirish) rejimi yoqildi" : "Arena rejimi o‘chirildi"); }} title="Agent javoblarini yonma-yon 2 ustunda solishtirish">{arenaMode ? "⚔️ Arena: Yoqilgan" : "⚔️ Arena"}</button><button type="button" className="new-chat-btn" onClick={() => { const next = !piiGuard; setPiiGuard(next); toast.info(next ? "🛡️ Maxfiy raqamlar himoyasi (PII) yoqildi" : "PII himoyasi o‘chirildi"); }} title="Karta va JSHSHIR raqamlarini avtomatik yashirish">{piiGuard ? "🛡️ PII: Himoyalangan" : "🛡️ PII"}</button><button type="button" className="new-chat-btn" onClick={() => { const next = !autoSpeak; setAutoSpeak(next); autoSpeakRef.current = next; toast.info(next ? "🎧 Avto-ovoz rejimi yoqildi" : "Avto-ovoz o‘chirildi"); }} title="Javoblarni avtomatik ovoz chiqarib o‘qish">{autoSpeak ? "🎧 Avto-ovoz: Yoqilgan" : "🎧 Avto-ovoz"}</button>{chatId && records.length > 0 && <><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=pdf`} download title="PDF (.pdf) yuklab olish"><Download size={14} /> .pdf</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=docx`} download title="Word (.docx) yuklab olish"><Download size={14} /> .docx</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=pptx`} download title="PowerPoint (.pptx) yuklab olish"><Download size={14} /> .pptx</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=xlsx`} download title="Excel (.xlsx) yuklab olish"><Download size={14} /> .xlsx</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=md`} download title="Markdown (.md) yuklab olish"><Download size={14} /> .md</a><button type="button" className="new-chat-btn" onClick={() => void forkCurrentChat()} title="Shu suhbatdan nusxa olish (Fork)">🌿 Nusxa</button><button type="button" className="new-chat-btn" onClick={() => void clearCurrentChat()} title="Suhbat xabarlarini tozalash">🧹 Tozalash</button></>}<button className="new-chat-btn" onClick={createChat}><Plus size={15} /> {t("Yangi suhbat")}</button></div>
+    <div className="workspace-title"><div className="spark-badge"><Sparkles /></div><h2>{t("RMS AI bilan suhbat")}</h2><button type="button" className="new-chat-btn" onClick={() => setDocModal(true)} title="Rasmiy hujjat blankalari (.docx)">📝 Blankalar</button><button type="button" className="new-chat-btn" onClick={() => { const next = !arenaMode; setArenaMode(next); if (next) setSelectedAgent("broadcast"); toast.info(next ? "⚔️ Arena (2 ustunli solishtirish) rejimi yoqildi" : "Arena rejimi o‘chirildi"); }} title="Agent javoblarini yonma-yon 2 ustunda solishtirish">{arenaMode ? "⚔️ Arena: Yoqilgan" : "⚔️ Arena"}</button><button type="button" className="new-chat-btn" onClick={() => { const next = !piiGuard; setPiiGuard(next); toast.info(next ? "🛡️ Maxfiy raqamlar himoyasi (PII) yoqildi" : "PII himoyasi o‘chirildi"); }} title="Karta va JSHSHIR raqamlarini avtomatik yashirish">{piiGuard ? "🛡️ PII: Himoyalangan" : "🛡️ PII"}</button><button type="button" className="new-chat-btn" onClick={() => { const next = !autoSpeak; setAutoSpeak(next); autoSpeakRef.current = next; toast.info(next ? "🎧 Avto-ovoz rejimi yoqildi" : "Avto-ovoz o‘chirildi"); }} title="Javoblarni avtomatik ovoz chiqarib o‘qish">{autoSpeak ? "🎧 Avto-ovoz: Yoqilgan" : "🎧 Avto-ovoz"}</button>{chatId && records.length > 0 && <><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=pdf`} download title="PDF (.pdf) yuklab olish"><Download size={14} /> .pdf</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=docx`} download title="Word (.docx) yuklab olish"><Download size={14} /> .docx</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=pptx`} download title="PowerPoint (.pptx) yuklab olish"><Download size={14} /> .pptx</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=xlsx`} download title="Excel (.xlsx) yuklab olish"><Download size={14} /> .xlsx</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=md`} download title="Markdown (.md) yuklab olish"><Download size={14} /> .md</a><button type="button" className="new-chat-btn" onClick={() => void forkCurrentChat()} title="Shu suhbatdan nusxa olish (Fork)">🌿 Nusxa</button><button type="button" className="new-chat-btn" onClick={() => void clearCurrentChat()} title="Suhbat xabarlarini tozalash">🧹 Tozalash</button></>}<button className="new-chat-btn" onClick={createChat}><Plus size={15} /> {t("Yangi suhbat")}</button></div>
     {!records.length && !busy && !Object.keys(live).length ? <>
       <p className="workspace-sub">{t("Savolingizni yozing yoki quyidagi misollardan birini tanlang:")}</p>
       <div className="prompt-chips">
@@ -1075,7 +1110,7 @@ function App() {
             </div>)}
           </div>}
           {desktop && <div className="classic-box">
-            <div className="row-copy"><b>Telegram Bot ko‘prigi (Masofadan boshqarish)</b><span>@BotFather dan olingan tokenni kiriting — telefoningizdan Telegram orqali yozib Agent Umimiyni ishlating.</span></div>
+            <div className="row-copy"><b>Telegram Bot ko‘prigi (Masofadan boshqarish)</b><span>@BotFather dan olingan tokenni kiriting — telefoningizdan Telegram orqali yozib RMS AI ni ishlating.</span></div>
             <div className="settings-grid">
               <input type="password" value={tgToken} onChange={(e) => setTgToken(e.target.value)} placeholder="Bot tokeni (123456:ABC-DEF...)" />
               <input value={tgUser} onChange={(e) => setTgUser(e.target.value)} placeholder="Ruxsat berilgan @username (ixtiyoriy)" />

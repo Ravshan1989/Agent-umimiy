@@ -1084,7 +1084,7 @@ class App(tk.Tk):
         theme.apply_palette(self.cfg.get("theme", "dark"), self.cfg.get("accent", "violet"))
         theme.setup(self)
         first_run = not config.config_path(cfg_path).exists()
-        self.title("Agent Umimiy")
+        self.title("RMS AI")
         w, h = fit(self, 1180, 780)
         self.minsize(min(860, w), min(560, h))
         self.mode = tk.StringVar(value="auto")
@@ -1131,7 +1131,7 @@ class App(tk.Tk):
         c.pack(side="left")
         t = tk.Frame(logo, bg=P["side"])
         t.pack(side="left", padx=12)
-        label(t, "Agent Umimiy", size=14, weight="bold").pack(anchor="w")
+        label(t, "RMS AI", size=14, weight="bold").pack(anchor="w")
         label(t, i18n.t("Barcha AI bir joyda"), fg=P["muted"], size=9).pack(anchor="w")
 
         label(inner, i18n.t("REJIM"), fg=P["muted"], size=8, weight="bold").pack(anchor="w", pady=(2 if c else 4, 4 if c else 6))

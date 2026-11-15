@@ -17,6 +17,7 @@ Source: "..\dist\RMSAI\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 
 [Icons]
 Name: "{group}\RMS AI"; Filename: "{app}\RMSAI.exe"; IconFilename: "{app}\RMSAI.exe"; AppUserModelID: "RMSAI.Desktop"
+Name: "{group}\RMS AI ni o'chirish"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\RMS AI"; Filename: "{app}\RMSAI.exe"; IconFilename: "{app}\RMSAI.exe"; AppUserModelID: "RMSAI.Desktop"
 
 [Run]

@@ -644,7 +644,7 @@ def _export_chat(store: Store, chat_id: int, fmt: str) -> tuple[bytes, str, str]
         title_slide = prs.slides.add_slide(prs.slide_layouts[0])
         title_slide.shapes.title.text = raw_title
         if len(title_slide.placeholders) > 1:
-            title_slide.placeholders[1].text = "Agent Umimiy AI Platformasi hisoboti"
+            title_slide.placeholders[1].text = "RMS AI Platformasi hisoboti"
         pending_q = ""
         for r in recs:
             if r.get("k") == "user":
@@ -1173,7 +1173,7 @@ def make_handler(app: App):
                     import io
 
                     import qrcode
-                    text = parse_qs(url.query).get("text", [""])[0][:1500] or "Agent Umimiy"
+                    text = parse_qs(url.query).get("text", [""])[0][:1500] or "RMS AI"
                     img = qrcode.make(text)
                     buf = io.BytesIO()
                     img.save(buf, format="PNG")
@@ -1822,7 +1822,7 @@ def run_desktop(config_file: str | None = None) -> bool:
         if sys.platform == "win32":
             try:
                 import ctypes
-                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("AgentUmimiy.Desktop")
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("RMSAI.Desktop")
             except Exception:
                 pass
         webview.create_window(

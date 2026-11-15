@@ -17,6 +17,7 @@ Source: "..\dist\RMSAIClient\*"; DestDir: "{app}"; Flags: recursesubdirs ignorev
 
 [Icons]
 Name: "{group}\RMS AI Client"; Filename: "{app}\RMSAIClient.exe"; IconFilename: "{app}\RMSAIClient.exe"; AppUserModelID: "RMSAI.Client"
+Name: "{group}\RMS AI Client ni o'chirish"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\RMS AI Client"; Filename: "{app}\RMSAIClient.exe"; IconFilename: "{app}\RMSAIClient.exe"; AppUserModelID: "RMSAI.Client"
 
 [Run]
