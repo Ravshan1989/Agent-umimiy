@@ -1069,7 +1069,7 @@ def make_handler(app: App):
                 if url.path == "/api/settings":
                     self._user()
                     cfg = config.read(app.config_file)
-                    return self._json(200, {"lang": cfg.get("lang", "uz") if cfg.get("lang") in ("uz", "ru", "en") else "uz",
+                    return self._json(200, {"lang": cfg.get("lang", "uz") if cfg.get("lang") in ("uz", "uz_cyrl", "ru", "en") else "uz",
                                             "theme": cfg.get("theme", "dark") if cfg.get("theme") in ("dark", "light") else "dark",
                                             "accent": cfg.get("accent", "violet") if cfg.get("accent") in ("violet", "blue", "cyan", "emerald") else "violet"})
                 if url.path == "/api/network":
@@ -1247,7 +1247,7 @@ def make_handler(app: App):
             if path == "/api/settings":
                 cfg = config.read(app.config_file)
                 lang, theme, accent = body.get("lang", cfg.get("lang", "uz")), body.get("theme", cfg.get("theme", "dark")), body.get("accent", cfg.get("accent", "violet"))
-                if lang not in ("uz", "ru", "en") or theme not in ("dark", "light") or accent not in ("violet", "blue", "cyan", "emerald"):
+                if lang not in ("uz", "uz_cyrl", "ru", "en") or theme not in ("dark", "light") or accent not in ("violet", "blue", "cyan", "emerald"):
                     raise Refused("Sozlama qiymati noto'g'ri.")
                 cfg.update({"lang": lang, "theme": theme, "accent": accent})
                 config.write(cfg, app.config_file)

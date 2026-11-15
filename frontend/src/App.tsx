@@ -15,7 +15,7 @@ type CustomPrompt = { label: string; text: string };
 type Attached = string | { name?: string; file?: string };  // eski yozuvlar oddiy matn, yangilari diskdagi nom bilan
 type RecordItem = { k: string; text?: string; name?: string; agent?: string; meta?: string; err?: boolean; files?: Attached[]; kind?: string };
 type LiveState = Record<string, string>;
-type WebSettings = { lang: "uz" | "ru" | "en"; theme: "dark" | "light"; accent: "violet" | "blue" | "cyan" | "emerald" };
+type WebSettings = { lang: "uz" | "uz_cyrl" | "ru" | "en"; theme: "dark" | "light"; accent: "violet" | "blue" | "cyan" | "emerald" };
 type NetworkInfo = { enabled: boolean; urls: string[]; port: number; invite: string; error: string };
 type Employee = { id: number; name: string; enabled: boolean; chats: number };
 type ApiError = Error & { code?: number };
@@ -35,14 +35,66 @@ type SpeechRec = { lang: string; interimResults: boolean; start: () => void; sto
 const MAX_FILE = 15 * 1024 * 1024;
 const NAV: [string, typeof Home][] = [["Bosh sahifa", Home], ["Suhbat", MessageSquare], ["Agentlar", Bot], ["Fayllar", FileText], ["Loyihalar", FolderKanban], ["Plaginlar", Puzzle], ["Avtomatlashtirish", Boxes], ["Hisobotlar", BarChart3], ["Ma’lumotlar bazasi", Database], ["Sozlamalar", Settings]];
 const WORKSPACE_VIEWS = ["Bosh sahifa", "Loyihalar", "Plaginlar", "Avtomatlashtirish", "Hisobotlar", "Ma’lumotlar bazasi", "Sozlamalar"];
+function toUzbekCyrillic(text: string): string {
+  let s = text
+    .replace(/O[‘'ʻ`]/g, "Ў").replace(/o[‘'ʻ`]/g, "ў")
+    .replace(/G[‘'ʻ`]/g, "Ғ").replace(/g[‘'ʻ`]/g, "ғ")
+    .replace(/SH/g, "Ш").replace(/Sh/g, "Ш").replace(/sh/g, "ш")
+    .replace(/CH/g, "Ч").replace(/Ch/g, "Ч").replace(/ch/g, "ч")
+    .replace(/YO/g, "Ё").replace(/Yo/g, "Ё").replace(/yo/g, "ё")
+    .replace(/YU/g, "Ю").replace(/Yu/g, "Ю").replace(/yu/g, "ю")
+    .replace(/YA/g, "Я").replace(/Ya/g, "Я").replace(/ya/g, "я")
+    .replace(/YE/g, "Е").replace(/Ye/g, "Е").replace(/ye/g, "е")
+    .replace(/TS/g, "Ц").replace(/Ts/g, "Ц").replace(/ts/g, "ц")
+    .replace(/(^|[^A-Za-zЎўҒғШшЧчЁёЮюЯя])E/g, "$1Э")
+    .replace(/(^|[^A-Za-zЎўҒғШшЧчЁёЮюЯя])e/g, "$1э")
+    .replace(/[’']/g, "ъ");
+  const map: Record<string, string> = {
+    A: "А", a: "а", B: "Б", b: "б", D: "Д", d: "д", E: "Е", e: "е",
+    F: "Ф", f: "ф", G: "Г", g: "г", H: "Ҳ", h: "ҳ", I: "И", i: "и",
+    J: "Ж", j: "ж", K: "К", k: "к", L: "Л", l: "л", M: "М", m: "м",
+    N: "Н", n: "н", O: "О", o: "о", P: "П", p: "п", Q: "Қ", q: "қ",
+    R: "Р", r: "р", S: "С", s: "с", T: "Т", t: "т", U: "У", u: "у",
+    V: "В", v: "в", X: "Х", x: "х", Y: "Й", y: "й", Z: "З", z: "з",
+  };
+  return s.replace(/[A-Za-z]/g, (ch) => map[ch] || ch);
+}
+
 const I18N: Record<"ru" | "en", Record<string, string>> = {
   ru: {
     "Bosh sahifa": "Главная", "Suhbat": "Чат", "Agentlar": "Агенты", "Fayllar": "Файлы", "Loyihalar": "Проекты",
     "Plaginlar": "Плагины", "Avtomatlashtirish": "Автоматизация", "Hisobotlar": "Отчёты", "Ma’lumotlar bazasi": "База данных",
     "Sozlamalar": "Настройки", "Yangi suhbat": "Новый чат", "RMS AI bilan suhbat": "Чат с RMS AI",
     "Sizning ko‘p funksiyali AI yordamchingiz": "Ваш многофункциональный ИИ-помощник",
-    "Faol agentlar": "Активные агенты", "Vazifalar": "Задачи", "Server: Ulangan": "Сервер: Подключён",
+    "Faol agentlar": "Активные агенты", "Vazifalar": "Задачи", "Server: Ulangan": "Server: Подключён",
     "Avtomatik agent": "Авто-выбор агента", "Xabaringizni yozing...": "Введите сообщение...",
+    "Savolingizni yozing yoki quyidagi misollardan birini tanlang:": "Напишите вопрос или выберите один из примеров ниже:",
+    "RMS AI ishga tushmoqda…": "RMS AI запускается…", "Yagona AI ekotizimi": "Единая ИИ-экосистема",
+    "Yangi hisob yarating": "Создайте новый аккаунт", "Hisobingizga kiring": "Войдите в свой аккаунт",
+    "Foydalanuvchi nomi": "Имя пользователя", "Parol": "Пароль", "Taklif kodi": "Код приглашения",
+    "Ro‘yxatdan o‘tish": "Регистрация", "Kirish": "Войти",
+    "Hisobim bor — kirish": "Есть аккаунт — войти", "Hisobim yo‘q — ro‘yxatdan o‘tish": "Нет аккаунта — регистрация",
+    "Server egasidan taklif kodini oling.": "Получите код приглашения у администратора сервера.",
+    "AI platformasi": "ИИ-платформа", "SO‘NGGI SUHBATLAR": "НЕДАВНИЕ ЧАТЫ",
+    "Interfeys tili": "Язык интерфейса", "Ko‘rinish": "Тема", "Asosiy rang": "Основной цвет",
+    "Qorong‘i": "Тёмная", "Yorug‘": "Светлая", "Neon binafsha": "Неоновый фиолетовый",
+    "Ko‘k": "Синий", "Moviy": "Голубой", "Zumrad": "Изумрудный",
+    "Xavfsiz web sozlamalari": "Безопасные веб-настройки",
+    "API kalitlari va maxfiy ma’lumotlar internet orqali ko‘rsatilmaydi yoki o‘zgartirilmaydi.": "API-ключи и секретные данные не передаются и не изменяются через веб.",
+    "Xodimlar uchun web ulanish": "Сетевой доступ для сотрудников",
+    "Ulanish manzili": "Адрес подключения", "Ro‘yxatdan o‘tish taklif kodi": "Код приглашения",
+    "Windows devorida portga ruxsat": "Разрешить порт в брандмауэре Windows",
+    "Web ulanishni o‘chirish": "Отключить сетевой доступ", "Web ulanishni yoqish": "Включить сетевой доступ",
+    "Xodimlar": "Сотрудники", "Ro‘yxatni yangilash": "Обновить список",
+    "Doimiy AI Xotirasi (Memory)": "Постоянная память ИИ", "Xotiraga qo‘shish": "Добавить в память",
+    "Barchasi →": "Все →", "So‘nggi fayllar": "Недавние файлы", "So‘nggi loyihalar": "Недавние проекты",
+    "Tezkor amallar": "Быстрые действия", "Blankalar": "Бланки", "Excel jadval": "Таблица Excel",
+    "PDF tahlil": "Анализ PDF", "Veb-qidiruv": "Веб-поиск",
+    "Saqlangan javoblar": "Сохранённые ответы", "Rejalashtirilgan vazifalar": "Запланированные задачи",
+    "Bildirishnomalar": "Уведомления", "Amalga ruxsat kerak": "Требуется разрешение",
+    "Rad etish": "Отклонить", "Bu ish davomida doim": "Разрешить для задачи", "Ruxsat berish": "Разрешить",
+    "Bekor qilish": "Отмена", "Yopish": "Закрыть", "Qulfni ochish": "Разблокировать",
+    "Ekran qulflangan": "Экран заблокирован", "Davom etish uchun PIN-kodni kiriting": "Введите PIN-код для продолжения",
   },
   en: {
     "Bosh sahifa": "Dashboard", "Suhbat": "Chat", "Agentlar": "Agents", "Fayllar": "Files", "Loyihalar": "Projects",
@@ -51,6 +103,33 @@ const I18N: Record<"ru" | "en", Record<string, string>> = {
     "Sizning ko‘p funksiyali AI yordamchingiz": "Your multi-functional AI assistant",
     "Faol agentlar": "Active agents", "Vazifalar": "Tasks", "Server: Ulangan": "Server: Connected",
     "Avtomatik agent": "Auto-select agent", "Xabaringizni yozing...": "Type your message...",
+    "Savolingizni yozing yoki quyidagi misollardan birini tanlang:": "Type your question or choose an example below:",
+    "RMS AI ishga tushmoqda…": "Starting RMS AI…", "Yagona AI ekotizimi": "Unified AI Ecosystem",
+    "Yangi hisob yarating": "Create a new account", "Hisobingizga kiring": "Sign in to your account",
+    "Foydalanuvchi nomi": "Username", "Parol": "Password", "Taklif kodi": "Invite code",
+    "Ro‘yxatdan o‘tish": "Sign up", "Kirish": "Sign in",
+    "Hisobim bor — kirish": "Already have an account — Sign in", "Hisobim yo‘q — ro‘yxatdan o‘tish": "No account — Sign up",
+    "Server egasidan taklif kodini oling.": "Ask the server admin for an invite code.",
+    "AI platformasi": "AI Platform", "SO‘NGGI SUHBATLAR": "RECENT CHATS",
+    "Interfeys tili": "Interface language", "Ko‘rinish": "Theme", "Asosiy rang": "Accent color",
+    "Qorong‘i": "Dark", "Yorug‘": "Light", "Neon binafsha": "Neon Violet",
+    "Ko‘k": "Blue", "Moviy": "Cyan", "Zumrad": "Emerald",
+    "Xavfsiz web sozlamalari": "Secure web settings",
+    "API kalitlari va maxfiy ma’lumotlar internet orqali ko‘rsatilmaydi yoki o‘zgartirilmaydi.": "API keys and secrets are never exposed or modified over the web.",
+    "Xodimlar uchun web ulanish": "LAN access for team",
+    "Ulanish manzili": "Connection URL", "Ro‘yxatdan o‘tish taklif kodi": "Invite code",
+    "Windows devorida portga ruxsat": "Allow port in Windows Firewall",
+    "Web ulanishni o‘chirish": "Disable network access", "Web ulanishni yoqish": "Enable network access",
+    "Xodimlar": "Team members", "Ro‘yxatni yangilash": "Refresh list",
+    "Doimiy AI Xotirasi (Memory)": "Persistent AI Memory", "Xotiraga qo‘shish": "Add to memory",
+    "Barchasi →": "All →", "So‘nggi fayllar": "Recent files", "So‘nggi loyihalar": "Recent projects",
+    "Tezkor amallar": "Quick actions", "Blankalar": "Templates", "Excel jadval": "Excel sheet",
+    "PDF tahlil": "PDF analysis", "Veb-qidiruv": "Web search",
+    "Saqlangan javoblar": "Saved answers", "Rejalashtirilgan vazifalar": "Scheduled tasks",
+    "Bildirishnomalar": "Notifications", "Amalga ruxsat kerak": "Approval required",
+    "Rad etish": "Deny", "Bu ish davomida doim": "Always for this task", "Ruxsat berish": "Allow",
+    "Bekor qilish": "Cancel", "Yopish": "Close", "Qulfni ochish": "Unlock",
+    "Ekran qulflangan": "Screen locked", "Davom etish uchun PIN-kodni kiriting": "Enter PIN code to continue",
   },
 };
 const PROMPTS: [string, string, typeof Home, string][] = [
@@ -764,7 +843,11 @@ function App() {
     return () => { alive = false; };
   }, [activeView, desktop]);
 
-  const t = useCallback((key: string) => settings.lang === "uz" ? key : (I18N[settings.lang]?.[key] || key), [settings.lang]);
+  const t = useCallback((key: string) => {
+    if (settings.lang === "uz") return key;
+    if (settings.lang === "uz_cyrl") return toUzbekCyrillic(key);
+    return I18N[settings.lang]?.[key] || key;
+  }, [settings.lang]);
   const generatedFiles = useMemo(() => records.filter((r) => r.k === "act" && r.kind === "file"), [records]);
   const completed = records.filter((r) => r.k === "agent").length;
   const notices = useMemo(() => records.filter(isNotice), [records]);
@@ -784,7 +867,7 @@ function App() {
   const chatPanel = (full: boolean) => <section className={full ? "workspace panel chat-full" : "workspace panel"}>
     <div className="workspace-title"><div className="spark-badge"><Sparkles /></div><h2>{t("Agent Umimiy bilan suhbat")}</h2><button type="button" className="new-chat-btn" onClick={() => setDocModal(true)} title="Rasmiy hujjat blankalari (.docx)">📝 Blankalar</button><button type="button" className="new-chat-btn" onClick={() => { const next = !arenaMode; setArenaMode(next); if (next) setSelectedAgent("broadcast"); toast.info(next ? "⚔️ Arena (2 ustunli solishtirish) rejimi yoqildi" : "Arena rejimi o‘chirildi"); }} title="Agent javoblarini yonma-yon 2 ustunda solishtirish">{arenaMode ? "⚔️ Arena: Yoqilgan" : "⚔️ Arena"}</button><button type="button" className="new-chat-btn" onClick={() => { const next = !piiGuard; setPiiGuard(next); toast.info(next ? "🛡️ Maxfiy raqamlar himoyasi (PII) yoqildi" : "PII himoyasi o‘chirildi"); }} title="Karta va JSHSHIR raqamlarini avtomatik yashirish">{piiGuard ? "🛡️ PII: Himoyalangan" : "🛡️ PII"}</button><button type="button" className="new-chat-btn" onClick={() => { const next = !autoSpeak; setAutoSpeak(next); autoSpeakRef.current = next; toast.info(next ? "🎧 Avto-ovoz rejimi yoqildi" : "Avto-ovoz o‘chirildi"); }} title="Javoblarni avtomatik ovoz chiqarib o‘qish">{autoSpeak ? "🎧 Avto-ovoz: Yoqilgan" : "🎧 Avto-ovoz"}</button>{chatId && records.length > 0 && <><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=pdf`} download title="PDF (.pdf) yuklab olish"><Download size={14} /> .pdf</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=docx`} download title="Word (.docx) yuklab olish"><Download size={14} /> .docx</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=pptx`} download title="PowerPoint (.pptx) yuklab olish"><Download size={14} /> .pptx</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=xlsx`} download title="Excel (.xlsx) yuklab olish"><Download size={14} /> .xlsx</a><a className="new-chat-btn" href={`/api/chat/export?chat=${chatId}&format=md`} download title="Markdown (.md) yuklab olish"><Download size={14} /> .md</a><button type="button" className="new-chat-btn" onClick={() => void forkCurrentChat()} title="Shu suhbatdan nusxa olish (Fork)">🌿 Nusxa</button><button type="button" className="new-chat-btn" onClick={() => void clearCurrentChat()} title="Suhbat xabarlarini tozalash">🧹 Tozalash</button></>}<button className="new-chat-btn" onClick={createChat}><Plus size={15} /> {t("Yangi suhbat")}</button></div>
     {!records.length && !busy && !Object.keys(live).length ? <>
-      <p className="workspace-sub">Savolingizni yozing yoki quyidagi misollardan birini tanlang:</p>
+      <p className="workspace-sub">{t("Savolingizni yozing yoki quyidagi misollardan birini tanlang:")}</p>
       <div className="prompt-chips">
         {PROMPTS.map(([label, text, Icon, tone], i) => <button type="button" key={label} onClick={() => fillPrompt(text, i === 0)}><span className={`chip-icon ${tone}`}><Icon /></span>{label}</button>)}
         <button type="button" onClick={() => setDocModal(true)}><span className="chip-icon word"><FileText /></span>📝 Rasmiy hujjat blankasi</button>
@@ -827,17 +910,17 @@ function App() {
     return (chat.title || "Yangi suhbat").toLowerCase().includes(search.toLowerCase());
   });
 
-  if (!authChecked) return <div className="boot-screen"><Robot /><span>RMS AI ishga tushmoqda…</span><Loader2 className="spin" /></div>;
+  if (!authChecked) return <div className="boot-screen"><Robot /><span>{t("RMS AI ishga tushmoqda…")}</span><Loader2 className="spin" /></div>;
 
-  if (!user) return <div className={`auth-screen ${theme}`}><Toaster richColors position="top-right" /><div className="auth-card panel"><Robot /><div className="eyebrow"><Sparkles size={14} /> Yagona AI ekotizimi</div><h1>RMS AI</h1><p>{register ? "Yangi hisob yarating" : "Hisobingizga kiring"}</p><form onSubmit={submitAuth}><label>Foydalanuvchi nomi<input required minLength={2} value={authName} onChange={(e) => setAuthName(e.target.value)} autoComplete="username" /></label><label>Parol<input required minLength={8} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={register ? "new-password" : "current-password"} /></label>{register && <label>Taklif kodi<input required value={invite} onChange={(e) => setInvite(e.target.value)} /></label>}<button className="primary-btn" disabled={authBusy}>{authBusy ? <Loader2 className="spin" /> : <ShieldCheck size={17} />}{register ? "Ro‘yxatdan o‘tish" : "Kirish"}</button></form><button className="switch-auth" onClick={() => setRegister(!register)}>{register ? "Hisobim bor — kirish" : "Hisobim yo‘q — ro‘yxatdan o‘tish"}</button><small>Server egasidan taklif kodini oling.</small></div></div>;
+  if (!user) return <div className={`auth-screen ${theme}`}><Toaster richColors position="top-right" /><div className="auth-card panel"><Robot /><div className="eyebrow"><Sparkles size={14} /> {t("Yagona AI ekotizimi")}</div><h1>RMS AI</h1><p>{t(register ? "Yangi hisob yarating" : "Hisobingizga kiring")}</p><form onSubmit={submitAuth}><label>{t("Foydalanuvchi nomi")}<input required minLength={2} value={authName} onChange={(e) => setAuthName(e.target.value)} autoComplete="username" /></label><label>{t("Parol")}<input required minLength={8} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={register ? "new-password" : "current-password"} /></label>{register && <label>{t("Taklif kodi")}<input required value={invite} onChange={(e) => setInvite(e.target.value)} /></label>}<button className="primary-btn" disabled={authBusy}>{authBusy ? <Loader2 className="spin" /> : <ShieldCheck size={17} />}{t(register ? "Ro‘yxatdan o‘tish" : "Kirish")}</button></form><button className="switch-auth" onClick={() => setRegister(!register)}>{t(register ? "Hisobim bor — kirish" : "Hisobim yo‘q — ro‘yxatdan o‘tish")}</button><small>{t("Server egasidan taklif kodini oling.")}</small></div></div>;
 
   return <div className={`app-shell ${theme} accent-${settings.accent}`}><Toaster richColors position="top-right" />
     <aside className={`sidebar${mobileNav ? " open" : ""}${navHidden ? " hidden" : ""}`}>
-      <div className="brand"><div className="brand-mark">RMS</div><div><b>RMS AI</b><span>AI platformasi</span></div><button className="icon-btn mobile-close" onClick={() => setMobileNav(false)}><X /></button></div>
+      <div className="brand"><div className="brand-mark">RMS</div><div><b>RMS AI</b><span>{t("AI platformasi")}</span></div><button className="icon-btn mobile-close" onClick={() => setMobileNav(false)}><X /></button></div>
       <nav>
         {NAV.map(([label, Icon]) => <button key={label} title={t(label)} className={activeView === label ? "nav-item selected" : "nav-item"} onClick={() => { setActiveView(label); setMobileNav(false); }}><Icon size={18} /><span>{t(label)}</span>{activeView === label && <ChevronRight size={15} />}</button>)}
       </nav>
-      <div className="sidebar-section"><div className="sidebar-section-title">SO‘NGGI SUHBATLAR <button onClick={createChat} title={t("Yangi suhbat")}><Plus size={14} /></button></div>
+      <div className="sidebar-section"><div className="sidebar-section-title">{t("SO‘NGGI SUHBATLAR")} <button onClick={createChat} title={t("Yangi suhbat")}><Plus size={14} /></button></div>
         <div className="chat-list">{filteredChats.slice(0, 8).map((chat) => <div className={chat.id === chatId ? "chat-link active" : "chat-link"} key={chat.id}><button onClick={() => openChat(chat.id)}><MessageSquare size={13} /><span>{chat.pinned ? `📌 ${chat.title || t("Yangi suhbat")}` : (chat.title || t("Yangi suhbat"))}</span></button><button className="delete-chat" onClick={() => void renameChat(chat)} title="Nomini o‘zgartirish">✏️</button><button className="delete-chat" onClick={() => void togglePinChat(chat.id)} title={chat.pinned ? "Qadashni olish" : "Yuqoriga qadash"}>📌</button><button className="delete-chat" onClick={() => void deleteChat(chat.id)} title="O‘chirish"><Trash2 size={13} /></button></div>)}</div>
       </div>
       <div className="sidebar-bottom"><div className="side-bot"><Robot /></div></div>
@@ -953,13 +1036,13 @@ function App() {
           </>}
         </section>}
         {activeView === "Sozlamalar" && <section className="panel settings-page">
-          <div className="panel-heading"><h2><Settings /> {t("Sozlamalar")}</h2><span className="text-link">Xavfsiz web sozlamalari</span></div>
+          <div className="panel-heading"><h2><Settings /> {t("Sozlamalar")}</h2><span className="text-link">{t("Xavfsiz web sozlamalari")}</span></div>
           <div className="settings-grid">
-            <label>Interfeys tili<select value={settings.lang} disabled={settingsSaving} onChange={(e) => void saveSettings({ ...settings, lang: e.target.value as WebSettings["lang"] })}><option value="uz">O‘zbekcha</option><option value="ru">Русский</option><option value="en">English</option></select></label>
-            <label>Ko‘rinish<select value={settings.theme} disabled={settingsSaving} onChange={(e) => void saveSettings({ ...settings, theme: e.target.value as WebSettings["theme"] })}><option value="dark">Qorong‘i</option><option value="light">Yorug‘</option></select></label>
-            <label>Asosiy rang<select value={settings.accent} disabled={settingsSaving} onChange={(e) => void saveSettings({ ...settings, accent: e.target.value as WebSettings["accent"] })}><option value="violet">Neon binafsha</option><option value="blue">Ko‘k</option><option value="cyan">Moviy</option><option value="emerald">Zumrad</option></select></label>
+            <label>{t("Interfeys tili")}<select value={settings.lang} disabled={settingsSaving} onChange={(e) => void saveSettings({ ...settings, lang: e.target.value as WebSettings["lang"] })}><option value="uz">O‘zbekcha (Lotin)</option><option value="uz_cyrl">Ўзбекча (Кирилл)</option><option value="ru">Русский</option><option value="en">English</option></select></label>
+            <label>{t("Ko‘rinish")}<select value={settings.theme} disabled={settingsSaving} onChange={(e) => void saveSettings({ ...settings, theme: e.target.value as WebSettings["theme"] })}><option value="dark">{t("Qorong‘i")}</option><option value="light">{t("Yorug‘")}</option></select></label>
+            <label>{t("Asosiy rang")}<select value={settings.accent} disabled={settingsSaving} onChange={(e) => void saveSettings({ ...settings, accent: e.target.value as WebSettings["accent"] })}><option value="violet">{t("Neon binafsha")}</option><option value="blue">{t("Ko‘k")}</option><option value="cyan">{t("Moviy")}</option><option value="emerald">{t("Zumrad")}</option></select></label>
           </div>
-          <p className="settings-note"><ShieldCheck size={15} /> API kalitlari va maxfiy ma’lumotlar internet orqali ko‘rsatilmaydi yoki o‘zgartirilmaydi.</p>
+          <p className="settings-note"><ShieldCheck size={15} /> {t("API kalitlari va maxfiy ma’lumotlar internet orqali ko‘rsatilmaydi yoki o‘zgartirilmaydi.")}</p>
           {desktop && <div className="classic-box network-settings">
             <div className="row-copy"><b>Xodimlar uchun web ulanish</b><span>{network?.enabled ? "Yoqilgan — xodimlar quyidagi manzillardan ulanadi." : "O‘chiq — yoqsangiz, manzil va ro‘yxatdan o‘tish kodi shu yerda chiqadi."}</span></div>
             {network?.error && <p className="settings-note">Server xatosi: {network.error}</p>}
@@ -1053,36 +1136,36 @@ function App() {
             <section className="hero panel">
               <svg className="hero-waves" viewBox="0 0 900 180" preserveAspectRatio="none" aria-hidden="true"><path d="M0 150 C150 90 260 170 420 120 S700 60 900 110" /><path d="M0 165 C180 120 300 185 470 140 S730 90 900 135" /><path d="M0 135 C120 70 300 150 450 95 S720 40 900 85" /></svg>
               <div className="hero-mascot"><Robot /></div>
-              <div className="hero-copy"><h1>RMS AI</h1><p>Sizning ko‘p funksiyali AI yordamchingiz</p></div>
+              <div className="hero-copy"><h1>RMS AI</h1><p>{t("Sizning ko‘p funksiyali AI yordamchingiz")}</p></div>
               <div className="hero-badge" aria-hidden="true"><b>RMS</b></div>
               <ul className="hero-tags"><li><Check /> Hujjatlar bilan ishlash (Word, Excel, PDF)</li><li><Check /> Ma’lumotlarni tahlil va hisobot</li><li><Check /> Veb-ma’lumotlarni olish (Web scraping)</li><li><Check /> Vazifalarni avtomatlashtirish</li></ul>
             </section>
             <section className="stats-grid">{metrics.map(({ label, value, icon: Icon, color, hint }) => <article className={`stat-card ${color}`} key={label}><div className="stat-icon"><Icon /></div><div className="stat-copy"><span>{label}</span><b>{value}</b></div><small>{hint}</small></article>)}</section>
             <section className="columns">
-              <article className="panel list-panel"><div className="panel-heading"><h2><Layers /> Agentlar</h2><button className="text-link" onClick={() => setActiveView("Agentlar")}>Barchasi →</button></div>{agents.slice(0, 4).map((agent, i) => { const Icon = agentIcons[i % 4]; return <div className="agent-row" key={agent.name}><div className={`file-icon ${agentTones[i % 4]}`}><Icon /></div><div className="row-copy"><b>{agent.name === "auto" ? "Avtomatik tanlash" : agent.name}</b><span>{agent.model || "Konfiguratsiyadagi AI agent"}</span></div><span className="online"><i /> Onlayn</span></div>; })}{!agents.length && <div className="empty-state"><Bot /><span>Serverda agent sozlanmagan</span></div>}</article>
-              <article className="panel list-panel"><div className="panel-heading"><h2>So‘nggi fayllar</h2><button className="text-link" onClick={() => setActiveView("Fayllar")}>Barchasi →</button></div>{generatedFiles.length ? generatedFiles.slice(-4).reverse().map((file, i) => <div className="file-row" key={i}><div className={`file-icon ${fileTone(file.text)}`}>{fileTone(file.text) === "excel" ? <FileSpreadsheet /> : <FileText />}</div><b>{file.text}</b><a href={fileHref(file.text)} download title="Yuklab olish"><Download size={14} /></a></div>) : <div className="empty-state"><FileText /><span>Agent yaratgan fayllar shu yerda ko‘rinadi</span></div>}</article>
-              <article className="panel list-panel"><div className="panel-heading"><h2>So‘nggi loyihalar</h2><button className="text-link" onClick={() => setActiveView("Loyihalar")}>Barchasi →</button></div>{workspace?.project && <div className="file-row"><div className="file-icon folder"><Folder /></div><div className="row-copy"><b>{workspace.project}</b><span>Faol loyiha</span></div></div>}{chats.slice(0, workspace?.project ? 2 : 3).map((chat) => <button className="file-row row-btn" key={chat.id} onClick={() => openChat(chat.id)}><div className="file-icon folder"><Folder /></div><div className="row-copy"><b>{chat.title || "Yangi suhbat"}</b><span>Suhbat</span></div></button>)}{!workspace?.project && !chats.length && <div className="empty-state"><Folder /><span>Hozircha loyiha yoki suhbat yo‘q</span></div>}</article>
+              <article className="panel list-panel"><div className="panel-heading"><h2><Layers /> {t("Agentlar")}</h2><button className="text-link" onClick={() => setActiveView("Agentlar")}>{t("Barchasi →")}</button></div>{agents.slice(0, 4).map((agent, i) => { const Icon = agentIcons[i % 4]; return <div className="agent-row" key={agent.name}><div className={`file-icon ${agentTones[i % 4]}`}><Icon /></div><div className="row-copy"><b>{agent.name === "auto" ? t("Avtomatik agent") : agent.name}</b><span>{agent.model || "AI agent"}</span></div><span className="online"><i /> Onlayn</span></div>; })}{!agents.length && <div className="empty-state"><Bot /><span>Serverda agent sozlanmagan</span></div>}</article>
+              <article className="panel list-panel"><div className="panel-heading"><h2>{t("So‘nggi fayllar")}</h2><button className="text-link" onClick={() => setActiveView("Fayllar")}>{t("Barchasi →")}</button></div>{generatedFiles.length ? generatedFiles.slice(-4).reverse().map((file, i) => <div className="file-row" key={i}><div className={`file-icon ${fileTone(file.text)}`}>{fileTone(file.text) === "excel" ? <FileSpreadsheet /> : <FileText />}</div><b>{file.text}</b><a href={fileHref(file.text)} download title="Yuklab olish"><Download size={14} /></a></div>) : <div className="empty-state"><FileText /><span>Agent yaratgan fayllar shu yerda ko‘rinadi</span></div>}</article>
+              <article className="panel list-panel"><div className="panel-heading"><h2>{t("So‘nggi loyihalar")}</h2><button className="text-link" onClick={() => setActiveView("Loyihalar")}>{t("Barchasi →")}</button></div>{workspace?.project && <div className="file-row"><div className="file-icon folder"><Folder /></div><div className="row-copy"><b>{workspace.project}</b><span>Faol loyiha</span></div></div>}{chats.slice(0, workspace?.project ? 2 : 3).map((chat) => <button className="file-row row-btn" key={chat.id} onClick={() => openChat(chat.id)}><div className="file-icon folder"><Folder /></div><div className="row-copy"><b>{chat.title || t("Yangi suhbat")}</b><span>{t("Suhbat")}</span></div></button>)}{!workspace?.project && !chats.length && <div className="empty-state"><Folder /><span>Hozircha loyiha yoki suhbat yo‘q</span></div>}</article>
             </section>
             {chatPanel(false)}
           </div>
           <aside className="dash-rail">
-            <article className="panel rail-panel"><div className="panel-heading"><h2><Zap /> Tezkor amallar</h2></div><div className="quick-grid">
-              <button onClick={() => setDocModal(true)}><span className="chip-icon word"><FileText /></span>📝 Blankalar</button>
-              <button onClick={() => fillPrompt("Excel jadval tayyorlab ber: ")}><span className="chip-icon excel"><FileSpreadsheet /></span>Excel jadval</button>
-              <button onClick={() => fillPrompt("Biriktirilgan PDF faylni tahlil qilib ber", true)}><span className="chip-icon pdf"><FileText /></span>PDF tahlil</button>
-              <button onClick={() => fillPrompt("Internetdan shu mavzu bo‘yicha ma’lumot top: ")}><span className="chip-icon cyan"><Globe2 /></span>Veb-qidiruv</button>
+            <article className="panel rail-panel"><div className="panel-heading"><h2><Zap /> {t("Tezkor amallar")}</h2></div><div className="quick-grid">
+              <button onClick={() => setDocModal(true)}><span className="chip-icon word"><FileText /></span>📝 {t("Blankalar")}</button>
+              <button onClick={() => fillPrompt("Excel jadval tayyorlab ber: ")}><span className="chip-icon excel"><FileSpreadsheet /></span>{t("Excel jadval")}</button>
+              <button onClick={() => fillPrompt("Biriktirilgan PDF faylni tahlil qilib ber", true)}><span className="chip-icon pdf"><FileText /></span>{t("PDF tahlil")}</button>
+              <button onClick={() => fillPrompt("Internetdan shu mavzu bo‘yicha ma’lumot top: ")}><span className="chip-icon cyan"><Globe2 /></span>{t("Veb-qidiruv")}</button>
             </div></article>
-            <article className="panel rail-panel"><div className="panel-heading"><h2>⭐ Saqlangan javoblar</h2>{bookmarks.length > 0 && <em className="count-badge">{bookmarks.length}</em>}</div>
+            <article className="panel rail-panel"><div className="panel-heading"><h2>⭐ {t("Saqlangan javoblar")}</h2>{bookmarks.length > 0 && <em className="count-badge">{bookmarks.length}</em>}</div>
               {bookmarks.slice(0, 4).map((bm) => <div className="task-row" key={bm.id}><span className="row-copy" style={{ cursor: "pointer" }} onClick={() => copyMessage(bm.text)}><b>{bm.agent} · {bm.when}</b><span>{bm.text.slice(0, 95)}{bm.text.length > 95 ? "…" : ""}</span></span><button onClick={() => removeBookmark(bm.id)} title="O‘chirish"><X size={13} /></button></div>)}
               {!bookmarks.length && <p className="rail-note">Muhim AI javoblari ostidagi «⭐ Saqlash» tugmasini bosing — shu yerda saqlanadi.</p>}
             </article>
-            <article className="panel rail-panel"><div className="panel-heading"><h2><CalendarClock /> Rejalashtirilgan vazifalar</h2></div>
+            <article className="panel rail-panel"><div className="panel-heading"><h2><CalendarClock /> {t("Rejalashtirilgan vazifalar")}</h2></div>
               {tasks.map((task) => <div className={task.done ? "task-row done" : "task-row"} key={task.id}><label><input type="checkbox" checked={task.done} onChange={() => saveTasks(tasks.map((t) => t.id === task.id ? { ...t, done: !t.done } : t))} /><span className="task-box"><Check /></span><span className="row-copy"><b>{task.text}</b><span>{formatWhen(task.when)}</span></span></label><button onClick={() => saveTasks(tasks.filter((t) => t.id !== task.id))} title="O‘chirish"><X size={13} /></button></div>)}
               {!tasks.length && <p className="rail-note">Hozircha vazifa yo‘q. Quyida birinchisini qo‘shing.</p>}
               <form className="task-form" onSubmit={addTask}><input value={taskText} onChange={(e) => setTaskText(e.target.value)} maxLength={120} placeholder="Yangi vazifa..." aria-label="Yangi vazifa" /><input type="datetime-local" value={taskWhen} onChange={(e) => setTaskWhen(e.target.value)} aria-label="Vaqti" /><button disabled={!taskText.trim()} title="Qo‘shish"><Plus size={15} /></button></form>
               <p className="rail-note">Eslatma ro‘yxati shu brauzerda saqlanadi; vazifalar avtomatik ishga tushmaydi.</p>
             </article>
-            <article className="panel rail-panel" ref={noticePanel}><div className="panel-heading"><h2><Bell /> Bildirishnomalar</h2>{unread > 0 && <em className="count-badge">{unread}</em>}</div>
+            <article className="panel rail-panel" ref={noticePanel}><div className="panel-heading"><h2><Bell /> {t("Bildirishnomalar")}</h2>{unread > 0 && <em className="count-badge">{unread}</em>}</div>
               {notices.slice(-3).reverse().map((item, i) => { const file = item.k === "act"; return <div className="notice-row" key={i}><div className={`notice-icon ${item.err ? "err" : file ? "info" : "ok"}`}>{item.err ? <TriangleAlert /> : file ? <FileText /> : <CheckCircle2 />}</div><div className="row-copy"><b>{item.err ? "Xato yuz berdi" : file ? "Yangi fayl yaratildi" : "Javob tayyorlandi"}</b><span>{file ? item.text : [item.name || item.agent, item.meta].filter(Boolean).join(" · ")}</span></div></div>; })}
               {!notices.length && <p className="rail-note">Joriy suhbatda hali yangilik yo‘q.</p>}
             </article>
@@ -1140,10 +1223,10 @@ function App() {
     </div>}
     {locked && <div className="approval-backdrop">
       <section className="approval-dialog panel" role="dialog" aria-modal="true" style={{ maxWidth: "360px", textAlign: "center" }}>
-        <div className="approval-heading"><ShieldCheck /><div><h2>🔒 Ekran qulflangan</h2><span>Davom etish uchun PIN-kodni kiriting</span></div></div>
+        <div className="approval-heading"><ShieldCheck /><div><h2>🔒 {t("Ekran qulflangan")}</h2><span>{t("Davom etish uchun PIN-kodni kiriting")}</span></div></div>
         <form onSubmit={unlockScreen} style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "12px" }}>
           <input autoFocus type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN-kod..." style={{ padding: "10px", borderRadius: "8px", textAlign: "center", fontSize: "18px", letterSpacing: "4px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.16)", color: "inherit" }} />
-          <button type="submit" className="primary-btn" style={{ justifyContent: "center" }}>Qulfni ochish</button>
+          <button type="submit" className="primary-btn" style={{ justifyContent: "center" }}>{t("Qulfni ochish")}</button>
         </form>
       </section>
     </div>}
@@ -1152,18 +1235,18 @@ function App() {
         <div className="approval-heading"><Sparkles /><div><h2>📱 QR-kod orqali olish</h2><span>Telefon kamerasini yo‘naltiring</span></div></div>
         <img src={`/api/qr?text=${encodeURIComponent(qrModal.slice(0, 1200))}`} alt="QR Code" style={{ width: "220px", height: "220px", margin: "12px auto", borderRadius: "10px", background: "#fff", padding: "8px" }} />
         <div className="approval-actions" style={{ justifyContent: "center" }}>
-          <button className="primary-btn" onClick={() => setQrModal(null)}>Yopish</button>
+          <button className="primary-btn" onClick={() => setQrModal(null)}>{t("Yopish")}</button>
         </div>
       </section>
     </div>}
     {approval && <div className="approval-backdrop">
       <section className="approval-dialog panel" role="dialog" aria-modal="true" aria-labelledby="approval-title">
-        <div className="approval-heading"><ShieldCheck /><div><h2 id="approval-title">Amalga ruxsat kerak</h2><span>{approval.agent} · {approval.title}</span></div></div>
+        <div className="approval-heading"><ShieldCheck /><div><h2 id="approval-title">{t("Amalga ruxsat kerak")}</h2><span>{approval.agent} · {approval.title}</span></div></div>
         <pre>{approval.detail}</pre>
         <div className="approval-actions">
-          <button className="secondary-btn" disabled={approvalBusy} onClick={() => void decideApproval("no")}>Rad etish</button>
-          <button className="secondary-btn" disabled={approvalBusy} onClick={() => void decideApproval("always")}>Bu ish davomida doim</button>
-          <button className="primary-btn" disabled={approvalBusy} onClick={() => void decideApproval("yes")}>Ruxsat berish</button>
+          <button className="secondary-btn" disabled={approvalBusy} onClick={() => void decideApproval("no")}>{t("Rad etish")}</button>
+          <button className="secondary-btn" disabled={approvalBusy} onClick={() => void decideApproval("always")}>{t("Bu ish davomida doim")}</button>
+          <button className="primary-btn" disabled={approvalBusy} onClick={() => void decideApproval("yes")}>{t("Ruxsat berish")}</button>
         </div>
       </section>
     </div>}
