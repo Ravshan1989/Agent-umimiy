@@ -10,6 +10,7 @@ import getpass
 import hmac
 import json
 import mimetypes
+import os
 import queue
 import re
 import secrets
@@ -189,6 +190,7 @@ class App:
             server = Server(("0.0.0.0", port), make_handler(self))
             server.app, server.store = self, self.store
             server.is_desktop = False
+            server.trust_proxy = bool(cfg.get("trust_proxy", False) or os.environ.get("RMS_TRUST_PROXY") == "1")
             self.network_server = server
             self.network_error = ""
             cfg["server"] = True
@@ -526,6 +528,7 @@ class Throttle:
     def __init__(self):
         self.fails: dict[str, list[float]] = {}
         self.sends: dict[int, list[float]] = {}
+        self.daily_sends: dict[int, list[float]] = {}
         self.lock = threading.Lock()
 
     def _prune(self, now: float) -> None:
@@ -551,24 +554,31 @@ class Throttle:
             self._prune(now)
             return len([t for t in self.fails.get(ip, []) if now - t < self.WINDOW]) >= self.LIMIT
 
-    def allow_send(self, user_id: int) -> bool:
-        """Bir foydalanuvchining LLM xarajatini cheklash: 60 soniyada 20 ta yuborish."""
+    def _allow_window(self, bucket: dict[int, list[float]], user_id: int, window: int, limit: int) -> bool:
         with self.lock:
             now = time.time()
-            for uid, attempts in list(self.sends.items()):
-                active = [stamp for stamp in attempts if now - stamp < 60]
+            for uid, attempts in list(bucket.items()):
+                active = [stamp for stamp in attempts if now - stamp < window]
                 if active:
-                    self.sends[uid] = active
+                    bucket[uid] = active
                 else:
-                    self.sends.pop(uid, None)
-            if len(self.sends) >= 4096 and user_id not in self.sends:
-                for uid in list(self.sends)[:256]:
-                    self.sends.pop(uid, None)
-            attempts = self.sends.get(user_id, [])
-            if len(attempts) >= 20:
+                    bucket.pop(uid, None)
+            if len(bucket) >= 4096 and user_id not in bucket:
+                for uid in list(bucket)[:256]:
+                    bucket.pop(uid, None)
+            attempts = bucket.get(user_id, [])
+            if len(attempts) >= limit:
                 return False
-            self.sends[user_id] = attempts + [now]
+            bucket[user_id] = attempts + [now]
             return True
+
+    def allow_send(self, user_id: int) -> bool:
+        """Bir foydalanuvchining LLM xarajatini cheklash: 60 soniyada 20 ta yuborish."""
+        return self._allow_window(self.sends, user_id, 60, 20)
+
+    def allow_daily_send(self, user_id: int, limit: int = 500) -> bool:
+        """Tarmoq foydalanuvchisi uchun kunlik xabar kvotasi (24 soatda limit ta)."""
+        return self._allow_window(self.daily_sends, user_id, 86400, limit)
 
 
 
@@ -968,8 +978,8 @@ def make_handler(app: App):
 
         # ---- proksi ortida ----
         def _forwarded(self, header: str) -> str:
-            """Proksi qo'shgan sarlavha; faqat so'rov shu kompyuterdagi proksidan kelganda ishoniladi."""
-            if self.client_address[0] in ("127.0.0.1", "::1"):
+            """Proksi qo'shgan sarlavha; faqat trust_proxy yoqilgan va so'rov loopback'dan kelganda ishoniladi."""
+            if getattr(getattr(self, "server", None), "trust_proxy", False) and self.client_address[0] in ("127.0.0.1", "::1"):
                 # eng o'ngdagi qiymatni proksining o'zi qo'shadi; chapdagilarni mijoz soxtalashtira oladi
                 return self.headers.get(header, "").split(",")[-1].strip()
             return ""
@@ -1573,6 +1583,10 @@ def make_handler(app: App):
             elif path == "/api/send":
                 if not throttle.allow_send(user_id):
                     raise Refused("Yuborish limiti: 60 soniyada 20 ta xabar. Biroz kuting.", 429)
+                if not self._desktop():
+                    daily_limit = int(config.read(app.config_file).get("daily_message_limit", 500) or 0)
+                    if daily_limit > 0 and not throttle.allow_daily_send(user_id, daily_limit):
+                        raise Refused(f"Kunlik limit: 24 soatda {daily_limit} ta xabar.", 429)
                 files = body.get("files") or []
                 if not isinstance(files, list) or not all(isinstance(f, dict) for f in files):
                     raise Refused("Noto'g'ri so'rov.")
@@ -1673,6 +1687,8 @@ def create(store: Store, host: str = "127.0.0.1", port: int = 0, config_file: st
     httpd = Server((host, port), make_handler(app))
     httpd.store, httpd.app = store, app
     httpd.is_desktop = host in ("127.0.0.1", "::1")
+    cfg = config.read(app.config_file)
+    httpd.trust_proxy = bool(cfg.get("trust_proxy", False) or os.environ.get("RMS_TRUST_PROXY") == "1")
     return httpd
 
 

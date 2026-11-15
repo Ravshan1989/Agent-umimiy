@@ -104,6 +104,8 @@ class ForwardedForTests(unittest.TestCase):
 
     def test_rightmost_value_used_from_local_proxy(self):
         h = self.handler("127.0.0.1", {"X-Forwarded-For": "1.1.1.1, 9.9.9.9"})
+        self.assertEqual(h._ip(), "127.0.0.1")
+        h.server = type("S", (), {"trust_proxy": True})()
         self.assertEqual(h._ip(), "9.9.9.9")
 
     def test_not_trusted_from_remote_client(self):

@@ -155,14 +155,26 @@ class ServerTests(unittest.TestCase):
             with urllib.request.urlopen(self.base + icon) as r:
                 self.assertEqual((r.headers["Content-Type"], r.read()[:4]), ("image/png", b"\x89PNG"))
 
-    def test_https_proxy_on_same_machine_is_trusted(self):
+    def test_https_proxy_on_same_machine_is_trusted_only_when_enabled(self):
         def register(name, headers):
             req = urllib.request.Request(self.base + "/api/register", headers={"Content-Type": "application/json", **headers},
                                          data=json.dumps({"name": name, "password": PASSWORD, "invite": self.store.invite()}).encode())
             with urllib.request.urlopen(req) as r:
                 return r.headers["Set-Cookie"]
         self.assertNotIn("Secure", register("Ali", {}))
-        self.assertIn("; Secure", register("Vali", {"X-Forwarded-Proto": "https"}))
+        self.assertNotIn("Secure", register("Vali", {"X-Forwarded-Proto": "https"}))
+        self.httpd.trust_proxy = True
+        try:
+            self.assertIn("; Secure", register("Gani", {"X-Forwarded-Proto": "https"}))
+        finally:
+            self.httpd.trust_proxy = False
+
+    def test_daily_send_quota(self):
+        t = server.Throttle()
+        self.assertTrue(t.allow_daily_send(1, limit=2))
+        self.assertTrue(t.allow_daily_send(1, limit=2))
+        self.assertFalse(t.allow_daily_send(1, limit=2))
+        self.assertTrue(t.allow_daily_send(2, limit=2))
 
     def test_register_needs_invite_and_login_checks_password(self):
         c = Client(self.base)
