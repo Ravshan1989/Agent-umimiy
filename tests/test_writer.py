@@ -87,6 +87,14 @@ class CreateToolTests(unittest.TestCase):
         out, err = tb.run("create_spreadsheet", {"name": "j", "sheets": "xato"})
         self.assertTrue(err)
 
+    def test_create_pdf_unicode(self):
+        tb = Toolbox(self.ctx, "a")
+        out, err = tb.run("create_document", {"name": "javob.pdf", "content": "# Ответ\n\nУважаемый заявитель, ваш запрос рассмотрен."})
+        self.assertFalse(err, out)
+        p = self.d / "javob.pdf"
+        self.assertTrue(p.is_file())
+        self.assertEqual(p.read_bytes()[:4], b"%PDF")
+
     def test_agent_loop_creates_excel(self):
         sheets = [{"name": "Hisobot", "rows": [["Oy", "Soni"], ["Yanvar", 5]]}]
         srv, seen = serve([

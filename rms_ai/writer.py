@@ -145,3 +145,76 @@ def xlsx(folder: Path | str, name: str, sheets: list[dict]) -> Path:
     path = target(folder, name, ".xlsx")
     book.save(str(path))
     return path
+
+
+def _load_pdf_font(size: int, bold: bool = False):
+    from PIL import ImageFont
+    names = (["arialbd.ttf", "segoeuib.ttf", "DejaVuSans-Bold.ttf"] if bold
+             else ["arial.ttf", "segoeui.ttf", "DejaVuSans.ttf"])
+    dirs = [Path("C:/Windows/Fonts"), Path("/usr/share/fonts/truetype/dejavu"), Path("/usr/share/fonts")]
+    for d in dirs:
+        for n in names:
+            p = d / n
+            if p.is_file():
+                try:
+                    return ImageFont.truetype(str(p), size)
+                except OSError:
+                    pass
+    return ImageFont.load_default()
+
+
+def _wrap_text(draw, text: str, font, max_w: int) -> list[str]:
+    out: list[str] = []
+    for raw in str(text or "").splitlines() or [""]:
+        if not raw.strip():
+            out.append("")
+            continue
+        cur = ""
+        for word in raw.split(" "):
+            cand = f"{cur} {word}".strip() if cur else word
+            if draw.textlength(cand, font=font) <= max_w:
+                cur = cand
+            else:
+                if cur:
+                    out.append(cur)
+                cur = word
+        if cur:
+            out.append(cur)
+    return out
+
+
+def pdf(folder: Path | str, name: str, text: str) -> Path:
+    """Matndan ko'p sahifali A4 PDF fayl yaratadi (kirill va lotin harflarini to'liq qo'llab-quvvatlaydi)."""
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError:
+        raise WriteError("PDF yaratish uchun pillow kutubxonasi kerak.")
+    w, h, margin = 1240, 1754, 100
+    body_font = _load_pdf_font(26, bold=False)
+    head_font = _load_pdf_font(32, bold=True)
+    pages: list[Image.Image] = []
+    img = Image.new("RGB", (w, h), "white")
+    draw = ImageDraw.Draw(img)
+    y = margin
+    for line in (text or "").splitlines():
+        m = HEADING.match(line)
+        is_head = bool(m)
+        clean = re.sub(r"\*\*(.+?)\*\*", r"\1", m.group(2) if m else line)
+        font = head_font if is_head else body_font
+        step = 44 if is_head else 36
+        wrapped = _wrap_text(draw, clean, font, w - 2 * margin) or [""]
+        for seg in wrapped:
+            if y + step > h - margin:
+                pages.append(img)
+                img = Image.new("RGB", (w, h), "white")
+                draw = ImageDraw.Draw(img)
+                y = margin
+            if seg:
+                draw.text((margin, y), seg, fill="#111827", font=font)
+            y += step
+        if is_head:
+            y += 8
+    pages.append(img)
+    path = target(folder, name, ".pdf")
+    pages[0].save(str(path), "PDF", resolution=150.0, save_all=True, append_images=pages[1:])
+    return path
