@@ -1,5 +1,5 @@
 [project]
-name = "agent-umimiy"
+name = "rms-ai"
 version = "0.7.2"
 description = "Barcha AI agentlarni birlashtiruvchi desktop ilova"
 requires-python = ">=3.11"
@@ -8,13 +8,13 @@ readme = "README.md"
 dependencies = ["pypdf", "qrcode", "pillow", "python-docx", "openpyxl", "python-pptx", "pywebview; sys_platform == 'win32'"]
 
 [project.scripts]
-agent-umimiy = "agent_umimiy.__main__:main"
+rms-ai = "rms_ai.__main__:main"
 
 [tool.setuptools]
-packages = ["agent_umimiy"]
+packages = ["rms_ai"]
 
 [tool.setuptools.package-data]
-agent_umimiy = ["static/*.png", "static/web/index.html", "static/web/assets/*"]
+rms_ai = ["static/*.png", "static/web/index.html", "static/web/assets/*"]
 
 [tool.ruff]
 target-version = "py311"

@@ -34,7 +34,7 @@ def freellmapi_key() -> str:
     for env in ("FREELLMAPI_API_KEY", "FREELLMAPI_KEY"):
         if os.environ.get(env):
             return os.environ[env].strip()
-    llm_dir = os.environ.get("AGENT_UMIMIY_LLM_DIR", "").strip()
+    llm_dir = os.environ.get("RMS_AI_LLM_DIR", "").strip()
     candidates = [
         Path.home() / "freellmapi" / "server" / "data" / "freeapi.db",
         Path.home() / "freellmapi" / "data" / "freeapi.db",

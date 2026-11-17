@@ -20,7 +20,7 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 - Veb-foydalanuvchilar (xodimlar) uchun admin MCP plaginlari o'chirildi (`ctx.mcp = None`); faqat `"web_users": true` belgisi qo'yilgan plaginlargina alohida menejerda beriladi.
 - `_desktop()` endi tarmoq serverini (`is_desktop = False`) va boshqa foydalanuvchi sessiyalarini (`user_id != local_user`) qat'iy rad etadi.
 - Telegram bot `allowed_username` (yoki raqamli ID) bo'sh bo'lganda ishga tushmaydi va faqat shaxsiy chatlarni qabul qiladi.
-- `autostart.py` va `detect.py` dan qattiq yozilgan `D:\llm` yo'li olib tashlandi (faqat `AGENT_UMIMIY_LLM_DIR` orqali).
+- `autostart.py` va `detect.py` dan qattiq yozilgan `D:\llm` yo'li olib tashlandi (faqat `RMS_AI_LLM_DIR` orqali).
 - Brauzer (`tools.py`) va `web_fetch` da xodimlar uchun ichki/lokal IP manzillar, redirect va DNS rebinding bloklandi; lokal agentdan bulutga avtomatik o'tish to'xtatildi.
 - LAN discovery (`discovery.py`) ochiq UDP javobida `client_key` tarqatmaydi; xavfsizlik devori qoidasi `profile=private,domain` bilan to'g'ridan-to'g'ri `netsh.exe` orqali qo'shiladi.
 - Chatdagi Python kod blokini ishga tushirishdan oldin tasdiq oynasi (`window.confirm`) qo'shildi.
@@ -75,7 +75,7 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
   Sozlamalardagi tugma bilan ochiladi.
 - **Bosh sahifa paneli**: statistik kartalar, agentlar/fayllar/loyihalar ustunlari, tezkor amallar,
   rejalashtirilgan vazifalar va bildirishnomalar; pastda suhbat maydoni va mikrofon tugmasi.
-- **Dastur ikonkasi**: `packaging/AgentUmimiy.ico` (AU belgisi) exe, o'rnatuvchi va oyna uchun.
+- **Dastur ikonkasi**: `packaging/RMSAI.ico` (AU belgisi) exe, o'rnatuvchi va oyna uchun.
 - **Xotira asboblari**: agent muhim ma'lumotlarni eslab qoladi va keyin qidiradi (`memory_search`,
   `memory_remember`, `memory_forget`).
 - **Avtomatik agent tanlash**: «auto» tanlansa, savolga mos agentni dastur o'zi tanlaydi.
@@ -122,7 +122,7 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 - **Veb-server dastur bilan birga**: Sozlamalar → «Veb-server» da yoqiladi (manzillar, taklif kodi, yangi kod);
   yoqilgach dastur har ochilganda o'zi ishga tushadi.
 - Oyna uchun haqiqiy Tk bilan tutun sinovlari (CI'da virtual ekran ostida).
-- **Linux paketi**: `AgentUmimiy-Linux-x86_64.tar.gz` har nashrda Windows o'rnatuvchisi bilan birga yig'iladi.
+- **Linux paketi**: `RMSAI-Linux-x86_64.tar.gz` har nashrda Windows o'rnatuvchisi bilan birga yig'iladi.
 - Yig'ilgan dastur har build'da veb-server rejimida ishga tushirib sinaladi.
 
 ### Xavfsizlik / Security
@@ -146,7 +146,7 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 - Loyiha hujjatlari: `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md` va issue shablonlari.
 
 ### O'zgardi / Changed
-- Windows dasturi endi repodagi zip o'rnida **Releases** sahifasidan (`AgentUmimiy-Setup.exe`) tarqatiladi.
+- Windows dasturi endi repodagi zip o'rnida **Releases** sahifasidan (`RMSAI-Setup.exe`) tarqatiladi.
 
 ### Tuzatildi / Fixed
 - Windows'da yiqiladigan ikki test tuzatildi: shu sabab `v0.1.0` uchun o'rnatuvchi yig'ilmagan edi.
@@ -170,12 +170,12 @@ Birinchi ochiq nashr. / First public release.
 - **MCP plaginlari** va **Ko'nikmalar (Skills)** qo'llab-quvvatlanadi.
 - **Telefondan boshqarish**: QR orqali ulanish, ruxsat so'rovlariga telefondan javob.
 - **Suhbatlarni saqlash**, **Git yordamchisi**, qorong'i mavzu, to'liq o'zbekcha interfeys.
-- **Windows build**: `AgentUmimiy-Windows.zip` va GitHub Actions orqali `AgentUmimiy-Setup.exe`.
+- **Windows build**: `RMSAI-Windows.zip` va GitHub Actions orqali `RMSAI-Setup.exe`.
 
-[Nashr qilinmagan]: https://github.com/Ravshan1989/Agent-umimiy/compare/v0.4.2...HEAD
-[0.4.2]: https://github.com/Ravshan1989/Agent-umimiy/compare/v0.4.1...v0.4.2
-[0.4.1]: https://github.com/Ravshan1989/Agent-umimiy/compare/v0.4.0...v0.4.1
-[0.4.0]: https://github.com/Ravshan1989/Agent-umimiy/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/Ravshan1989/Agent-umimiy/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/Ravshan1989/Agent-umimiy/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/Ravshan1989/Agent-umimiy/releases/tag/v0.1.0
+[Nashr qilinmagan]: https://github.com/Ravshan1989/RMS-AI/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/Ravshan1989/RMS-AI/compare/v0.4.1...v0.4.2
+[0.4.1]: https://github.com/Ravshan1989/RMS-AI/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/Ravshan1989/RMS-AI/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/Ravshan1989/RMS-AI/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/Ravshan1989/RMS-AI/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/Ravshan1989/RMS-AI/releases/tag/v0.1.0

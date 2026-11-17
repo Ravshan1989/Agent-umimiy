@@ -19,7 +19,7 @@ Iloji boricha quyidagilarni qo'shing: zaiflik tavsifi, takrorlash qadamlari, ta'
 
 ## Foydalanuvchi uchun xavfsizlik eslatmalari
 
-**Agent Umimiy** lokal desktop ilova, lekin uning ayrim integratsiyalari joriy Windows/Linux foydalanuvchisi huquqlari bilan ishlaydi.
+**RMS AI** lokal desktop ilova, lekin uning ayrim integratsiyalari joriy Windows/Linux foydalanuvchisi huquqlari bilan ishlaydi.
 
 - **API kalitlari, suhbatlar va xotira** diskda shifrlanmagan saqlanadi. Ilova papkasi POSIX tizimlarda egasiga cheklanadi; Windows'da foydalanuvchi AppData ACL'lariga tayanadi. Disk shifrlashni (BitLocker/FileVault/LUKS) yoqish tavsiya etiladi.
 - **Shell va CLI agentlar** tanlangan loyiha papkasidan boshlanishi mumkin, ammo OS darajasida sandbox qilinmagan: joriy foydalanuvchi huquqlari bilan boshqa fayllar va tizim resurslariga ham kira oladi. Buyruqni tasdiqlashdan oldin tekshiring.

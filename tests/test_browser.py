@@ -5,8 +5,8 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
-from agent_umimiy import browser as br
-from agent_umimiy.tools import Context, Toolbox
+from rms_ai import browser as br
+from rms_ai.tools import Context, Toolbox
 
 PAGES = {
     "/": """<html><head><title>Sinov sahifa</title></head><body>

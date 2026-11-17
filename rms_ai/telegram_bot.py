@@ -1,5 +1,5 @@
 """Telegram Bot ko'prigi: qo'shimcha kutubxonasiz (faqat urllib.request) Telegram orqali
-kelgan xabarlarni Agent Umimiy orqali bajaradi va javob qaytaradi."""
+kelgan xabarlarni RMS AI orqali bajaradi va javob qaytaradi."""
 from __future__ import annotations
 
 import json

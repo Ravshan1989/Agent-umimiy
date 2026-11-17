@@ -17,7 +17,7 @@ if sys.platform == "win32":
 
 import webview
 
-from agent_umimiy import config, discovery
+from rms_ai import config, discovery
 
 LOADING_HTML = """<!doctype html>
 <html lang="uz">

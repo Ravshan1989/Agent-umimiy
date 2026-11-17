@@ -116,7 +116,7 @@ Kirish maxfiy kalit (token) bilan himoyalangan.
 ### Sozlamalar qayerda saqlanadi?
 
 ```
-%APPDATA%\AgentUmimiy\agents.json
+%APPDATA%\RMSAI\agents.json
 ```
 
 ### Loyiha ko'rsatmalari
@@ -168,7 +168,7 @@ Yozish maydonidagi **＋** tugmasi bilan **rasm** (PNG, JPG, GIF, WebP), **PDF**
 ### Fayl yaratish (Word, Excel)
 
 Agentdan hujjat yoki jadval so'rang: «Shu ma'lumotdan Excel jadval qilib ber», «Word'da xat yozib ber». Agent tayyor **.docx** yoki **.xlsx** fayl yaratadi (matn fayllari ham: .txt, .md, .csv, .html) va chatda ko'rsatadi.
-- **Dastur oynasida:** fayl `Hujjatlar\Agent Umimiy` papkasiga saqlanadi; chatdagi qatorni bossangiz ochiladi.
+- **Dastur oynasida:** fayl `Hujjatlar\RMS AI` papkasiga saqlanadi; chatdagi qatorni bossangiz ochiladi.
 - **Veb-serverda:** chatda «Yuklab olish» havolasi chiqadi; faylni faqat shu suhbat egasi ola oladi.
 - Mavjud fayl hech qachon almashtirilmaydi: nom band bo'lsa, raqam qo'shiladi.
 - **Jonli ko'rinish (veb-serverda):** agent yaratgan sahifa, diagramma (`.html`) va jadval (`.xlsx`, `.csv`) chat yonidagi oynada darhol ochiladi; fayl qatoridagi «Ko'rish» tugmasi bilan qayta ochasiz. Diagramma so'rash uchun: «Shu sonlardan diagramma chiz». Sahifa qum qutisida ishlaydi: suhbatlaringizga va hisobingizga kira olmaydi. Dastur oynasida fayl bosilganda brauzer yoki Excel'da ochiladi.
@@ -181,7 +181,7 @@ Saytlarda tugma bosish va forma to'ldirish uchun pastdagi «Agent brauzerda ishl
 
 ### Suhbatlarni saqlash, ko'rsatmalar, reja
 
-- **Saqlash:** suhbatlar (tablar, tarix, loyiha) `%APPDATA%\AgentUmimiy\chats.json` da saqlanadi va dastur qayta ochilganda tiklanadi (oxirgi 15 ta suhbat). Sozlamalarda o'chirib qo'yish yoki tarixni tozalash mumkin. Fayl shifrlanmagan: maxfiy ma'lumot yozmang yoki saqlashni o'chiring.
+- **Saqlash:** suhbatlar (tablar, tarix, loyiha) `%APPDATA%\RMSAI\chats.json` da saqlanadi va dastur qayta ochilganda tiklanadi (oxirgi 15 ta suhbat). Sozlamalarda o'chirib qo'yish yoki tarixni tozalash mumkin. Fayl shifrlanmagan: maxfiy ma'lumot yozmang yoki saqlashni o'chiring.
 - **Loyiha ko'rsatmalari:** loyiha papkasida `CLAUDE.md`, `AGENTS.md` yoki `AGENT.md` bo'lsa, agent uni avtomatik o'qiydi va qoidalarga amal qiladi.
 - **Reja kartasi:** ko'p bosqichli ishda agent «Reja» ro'yxatini ko'rsatadi va bosqichlarni belgilab boradi.
 - **Markdown:** javoblarda sarlavha, ro'yxat, jadval, `kod`, havola va kod bloklari chiroyli ko'rinadi.
@@ -203,8 +203,8 @@ Dasturni bitta kompyuter yoki serverda ishga tushirasiz, tarmoqdagi odamlar brau
 **Oynasiz (server kompyuterda):**
 
 ```bash
-python -m agent_umimiy --serve            # standart: barcha tarmoqlar, 8080-port
-python -m agent_umimiy --serve --port 9000 --host 192.168.1.10
+python -m rms_ai --serve            # standart: barcha tarmoqlar, 8080-port
+python -m rms_ai --serve --port 9000 --host 192.168.1.10
 ```
 
 Dastur manzilni va **taklif kodini** chiqaradi. Odamlar manzilni brauzerda ochib, ism, parol va shu kod bilan ro'yxatdan o'tadi. Har kimning o'z suhbatlari bor, javoblar yozilishi bilan ko'rinadi, fayl va skrinshot (Ctrl+V) biriktirish mumkin.
@@ -217,7 +217,7 @@ Dastur manzilni va **taklif kodini** chiqaradi. Odamlar manzilni brauzerda ochib
 - **iPhone (Safari):** «Ulashish» tugmasi → **«Bosh ekranga qo'shish»**.
 - **Android (Chrome):** menyu (⋮) → **«Ilovani o'rnatish»** yoki **«Bosh ekranga qo'shish»**.
 
-Ekranda Agent Umimiy belgisi paydo bo'ladi va u to'liq ekranda ochiladi. Android'da to'liq ekran rejimi faqat **HTTPS** manzilda ishlaydi; oddiy `http://192.168...` manzilda belgi brauzer oynasini ochadi.
+Ekranda RMS AI belgisi paydo bo'ladi va u to'liq ekranda ochiladi. Android'da to'liq ekran rejimi faqat **HTTPS** manzilda ishlaydi; oddiy `http://192.168...` manzilda belgi brauzer oynasini ochadi.
 
 **HTTPS va uydan tashqarida ishlatish.** Eng oson yo'l: [Tailscale](https://tailscale.com) (bepul). Server va telefonlarga o'rnating, so'ng serverda `tailscale serve --bg 8080` buyrug'ini bering: `https://...ts.net` ko'rinishidagi xavfsiz manzil paydo bo'ladi va u faqat sizning qurilmalaringizga ochiq bo'ladi.
 
@@ -229,12 +229,12 @@ Ekranda Agent Umimiy belgisi paydo bo'ladi va u to'liq ekranda ochiladi. Android
 - Kalitlar (`NOTION_TOKEN`, GitHub tokeni...) faqat shu kompyuterdagi sozlama faylida saqlanadi.
 - **Cheklov:** claude.ai'dagi tayyor ulanishlar (Gmail, Google Drive, Calendar...) sizning claude.ai hisobingizga bog'liq, ularni bu dasturga ko'chirib bo'lmaydi. Ularning o'rniga shu xizmatlarning o'z MCP serverlarini (o'z kalitingiz bilan) ulaysiz. OAuth (brauzerda «Kirish» tugmasi) talab qiladigan masofaviy serverlar hozircha qo'llanmaydi.
 
-**Ko'nikmalar.** `SKILL.md` fayli bor papka (Claude formatida: `name`, `description`, matn). Quyidagi joylardan avtomatik topiladi: `%APPDATA%\AgentUmimiy\skills\<nom>\SKILL.md`, `~/.agents/skills`, `~/.claude/skills`, Claude plaginlaridagi ko'nikmalar va loyihadagi `.claude/skills`. Agent tavsifga qarab kerakli ko'nikmani o'zi yuklaydi, haqiqiy papka manzilini oladi va ko'nikmadagi skriptlarni shu yerdan ishga tushiradi. Loyihani rivojlantirishda kerak bo'lsa GitHub repolarini va bog'liqliklarni yuklab o'rnatishi mumkin; buyruqlar ilovadagi ruxsat oynasi orqali tasdiqlanadi.
+**Ko'nikmalar.** `SKILL.md` fayli bor papka (Claude formatida: `name`, `description`, matn). Quyidagi joylardan avtomatik topiladi: `%APPDATA%\RMSAI\skills\<nom>\SKILL.md`, `~/.agents/skills`, `~/.claude/skills`, Claude plaginlaridagi ko'nikmalar va loyihadagi `.claude/skills`. Agent tavsifga qarab kerakli ko'nikmani o'zi yuklaydi, haqiqiy papka manzilini oladi va ko'nikmadagi skriptlarni shu yerdan ishga tushiradi. Loyihani rivojlantirishda kerak bo'lsa GitHub repolarini va bog'liqliklarni yuklab o'rnatishi mumkin; buyruqlar ilovadagi ruxsat oynasi orqali tasdiqlanadi.
 
 ### Agent brauzerda ishlaydi
 
 Agent **haqiqiy brauzer oynasida** sayt ochadi, o'qiydi, tugmalarni bosadi va formalarni to'ldiradi (siz oynada nima bo'layotganini ko'rib turasiz). Windows'da **Edge** (yoki Chrome) ishlatiladi, hech narsa o'rnatish shart emas.
-- Brauzer **alohida profilda** ochiladi (`%APPDATA%\AgentUmimiy\browser-profile`): asosiy brauzeringizdagi parollar va sessiyalarga tegmaydi. Biror saytga bir marta o'zingiz kirsangiz, keyingi safar ham kirgan holda qoladi.
+- Brauzer **alohida profilda** ochiladi (`%APPDATA%\RMSAI\browser-profile`): asosiy brauzeringizdagi parollar va sessiyalarga tegmaydi. Biror saytga bir marta o'zingiz kirsangiz, keyingi safar ham kirgan holda qoladi.
 - **Har bir yangi sayt** va **har bir yozish** ruxsat so'raydi. **Parol maydoniga yozmaydi**: parolni o'zingiz oynada kiriting.
 - «Hammasi birga» va «Kengash» rejimlarida brauzer o'chiq. Sozlamalarda umuman o'chirib qo'yish mumkin.
 - Sahifa matni agent uchun faqat ma'lumot: u yerdagi «buyruqlarga» amal qilinmaydi.
@@ -347,7 +347,7 @@ Windows va Linux uchun tayyor paket bor (yuqoridagi «O'rnatish» bo'limi). macO
 
 ## 💜 Claude for Open Source
 
-Agent Umimiy — ochiq kodli loyiha va u Claude bilan ishlashni to'liq qo'llab-quvvatlaydi.
+RMS AI — ochiq kodli loyiha va u Claude bilan ishlashni to'liq qo'llab-quvvatlaydi.
 Anthropic ochiq kod hamjamiyati uchun **Claude for Open Source** dasturini taklif qiladi: mos
 keladigan OSS maintainer va hissa qo'shuvchilar **Claude Ultra** rejasidan **6 oy davomida bepul**
 foydalanishlari mumkin.
@@ -378,7 +378,7 @@ Taklif yoki xato topsangiz — [Issue](../../issues) oching. Pull request'lar ha
 
 <div align="center">
 
-**Agent Umimiy** — o'zbek tilida AI bilan ishlashni osonlashtirish uchun yaratilgan ❤️
+**RMS AI** — o'zbek tilida AI bilan ishlashni osonlashtirish uchun yaratilgan ❤️
 
 ⭐ Loyiha yoqqan bo'lsa, yulduzcha bosishni unutmang!
 

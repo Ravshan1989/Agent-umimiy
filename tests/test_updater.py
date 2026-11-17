@@ -3,7 +3,7 @@ import json
 import unittest
 from unittest import mock
 
-from agent_umimiy import updater
+from rms_ai import updater
 
 
 class UpdaterTests(unittest.TestCase):

@@ -42,7 +42,7 @@ def _spawn_background(cmd: list[str], cwd: str | None = None) -> bool:
 
 def ensure_local_services(llm_root: str | Path | None = None) -> list[str]:
     """Start local AI gateways (Ollama, FreeLLMAPI, g4f, LiteLLM) if installed and not running."""
-    raw_root = llm_root or os.environ.get("AGENT_UMIMIY_LLM_DIR", "").strip()
+    raw_root = llm_root or os.environ.get("RMS_AI_LLM_DIR", "").strip()
     if not raw_root:
         return []
     root = Path(raw_root)

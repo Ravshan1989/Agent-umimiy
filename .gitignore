@@ -5,6 +5,6 @@ dist/
 build/
 *.spec
 release/
-agent_umimiy/static/web/
+rms_ai/static/web/
 *.egg-info/
-AgentUmimiy-Setup.exe
+RMSAI-Setup.exe

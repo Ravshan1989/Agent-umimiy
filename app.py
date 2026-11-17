@@ -13,7 +13,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-from agent_umimiy.__main__ import main
+from rms_ai.__main__ import main
 
 if __name__ == "__main__":
     main()

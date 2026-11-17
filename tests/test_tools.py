@@ -8,11 +8,11 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from unittest import mock
 
-from agent_umimiy import gitutil
-from agent_umimiy import tools as tools_mod
-from agent_umimiy.orchestrator import Orchestrator
-from agent_umimiy.providers import build_agent
-from agent_umimiy.tools import Context, Toolbox, project_notes
+from rms_ai import gitutil
+from rms_ai import tools as tools_mod
+from rms_ai.orchestrator import Orchestrator
+from rms_ai.providers import build_agent
+from rms_ai.tools import Context, Toolbox, project_notes
 
 
 def _sse(events) -> bytes:
@@ -324,7 +324,7 @@ class CliHealthTests(unittest.TestCase):
         return d
 
     def test_stub_exe_is_detected(self):
-        from agent_umimiy.detect import cli_health
+        from rms_ai.detect import cli_health
         d = self._npm(b"#!/usr/bin/env node\nconsole.log('stub')\n")
         ok, msg = cli_health(str(d / "claude.cmd"))
         self.assertFalse(ok)
@@ -333,7 +333,7 @@ class CliHealthTests(unittest.TestCase):
         self.assertIn("claude.exe", msg)
 
     def test_real_exe_and_unknown_cases_pass(self):
-        from agent_umimiy.detect import cli_health
+        from rms_ai.detect import cli_health
         d = self._npm(b"MZ" + b"\x00" * 100)
         self.assertEqual(cli_health(str(d / "claude.cmd")), (True, ""))
         self.assertEqual(cli_health(str(d / "node_modules" / "@anthropic-ai" / "claude-code" / "bin" / "claude.exe")), (True, ""))

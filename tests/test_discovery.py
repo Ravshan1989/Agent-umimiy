@@ -8,7 +8,7 @@ import urllib.request
 from pathlib import Path
 from unittest import mock
 
-from agent_umimiy import discovery, server
+from rms_ai import discovery, server
 
 
 class TestDiscovery(unittest.TestCase):

@@ -4,10 +4,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from agent_umimiy import chatstore, config, markdown
-from agent_umimiy.orchestrator import Orchestrator
-from agent_umimiy.providers import build_agent
-from agent_umimiy.tools import Context, Toolbox, system_prompt
+from rms_ai import chatstore, config, markdown
+from rms_ai.orchestrator import Orchestrator
+from rms_ai.providers import build_agent
+from rms_ai.tools import Context, Toolbox, system_prompt
 
 
 class MarkdownTests(unittest.TestCase):
@@ -202,7 +202,7 @@ class MemoryApprovalTests(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o700)
 
     def test_memory_mutations_require_one_time_confirmation(self):
-        from agent_umimiy import config, memory
+        from rms_ai import config, memory
         home = Path(tempfile.mkdtemp())
         with mock.patch.object(config, "user_dir", return_value=home):
             calls = []
@@ -237,7 +237,7 @@ class MemoryApprovalTests(unittest.TestCase):
         self.assertTrue(tb.run("memory_forget", {"id": "x"})[1])
 
     def test_v070_features(self):
-        from agent_umimiy import server, store, translit
+        from rms_ai import server, store, translit
         cyr = translit.to_cyrillic("O'zbekiston Respublikasi shartnomasi")
         self.assertIn("Ўзбекистон", cyr)
         lat = translit.to_latin(cyr)

@@ -879,6 +879,11 @@ function App() {
     catch (error) { toast.error((error as Error).message); }
   }
 
+  async function openMonitor() {
+    try { await api("/api/desktop/monitor/open", {}); }
+    catch (error) { toast.error((error as Error).message); }
+  }
+
   async function saveSettings(next: WebSettings) {
     setSettingsSaving(true);
     try {
@@ -1175,6 +1180,7 @@ function App() {
             </div>
           </div>}
           {desktop && <div className="classic-box"><div className="row-copy"><b>Klassik oyna</b><span>Agent qo‘shish, API kalitlari, loyiha papkasi va plaginlarni sozlash.</span></div><button className="secondary-btn" onClick={() => void openClassic()}>Klassik oynani ochish</button></div>}
+          {desktop && <div className="classic-box"><div className="row-copy"><b>Monitoring</b><span>Kim ulangan, so‘rovlar soni va server javob vaqti — alohida kichik oynada.</span></div><button className="secondary-btn" onClick={() => void openMonitor()}>Monitoringni ochish</button></div>}
           {settingsSaving && <span className="online"><i /> Saqlanmoqda…</span>}
         </section>}
         {activeView === "Agentlar" && <section className="panel settings-page">

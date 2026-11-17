@@ -3,10 +3,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from agent_umimiy import docs, writer
-from agent_umimiy.orchestrator import Orchestrator
-from agent_umimiy.providers import build_agent
-from agent_umimiy.tools import Context, Toolbox, available
+from rms_ai import docs, writer
+from rms_ai.orchestrator import Orchestrator
+from rms_ai.providers import build_agent
+from rms_ai.tools import Context, Toolbox, available
 from tests.test_tools import serve
 
 MARKDOWN = """# Сайёр қабуллар ҳисоботи

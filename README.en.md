@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🤖 Agent Umimiy
+# 🤖 RMS AI
 
 **A desktop app that brings every AI agent together in one window**
 
@@ -24,7 +24,7 @@ the agents read and edit your files, control the browser, and help each other.
 
 ## 📌 What is this?
 
-**Agent Umimiy** is a desktop app that gathers several AI agents in one place.
+**RMS AI** is a desktop app that gathers several AI agents in one place.
 You don't need a separate site or app for each service: everything lives in one convenient,
 dark-themed window. The interface is currently **in Uzbek**.
 
@@ -67,7 +67,7 @@ The app **finds the agents already on your computer by itself** — you don't ha
 
 1. Download **`RMSAI-Setup.exe`** from the
    **[latest release](https://github.com/Ravshan1989/RMS-AI/releases/latest)**.
-2. Double-click it and install: an "Agent Umimiy" shortcut appears on the desktop.
+2. Double-click it and install: an "RMS AI" shortcut appears on the desktop.
 3. If Windows warns you: **"More info"** → **"Run anyway"**.
 
 > [!NOTE]
@@ -108,7 +108,7 @@ Access is protected with a secret key (token).
 ### Where are the settings stored?
 
 ```
-%APPDATA%\AgentUmimiy\agents.json
+%APPDATA%\RMSAI\agents.json
 ```
 
 ### Project instructions
@@ -169,7 +169,7 @@ models too. Limit: image ≤ 5 MB, PDF ≤ 20 MB.
 ### Creating files (Word, Excel)
 
 Ask the agent for a document or a table: "Make an Excel table from this data", "Write a letter in Word". The agent creates a finished **.docx** or **.xlsx** file (text files too: .txt, .md, .csv, .html) and shows it in the chat.
-- **In the app window:** the file is saved to `Documents\Agent Umimiy`; click the row in the chat to open it.
+- **In the app window:** the file is saved to `Documents\RMS AI`; click the row in the chat to open it.
 - **On the web server:** a "Download" link appears in the chat; only the owner of that conversation can get the file.
 - An existing file is never overwritten: a taken name gets a number.
 - **Live preview (web server):** a page or chart (`.html`) and a table (`.xlsx`, `.csv`) created by the agent opens at once in a panel next to the chat; the "Ko'rish" (View) button on the file row opens it again. To get a chart, ask: "Draw a chart from these numbers". The page runs in a sandbox: it cannot reach your conversations or account. In the app window, clicking the file opens it in the browser or Excel.
@@ -185,7 +185,7 @@ For clicking buttons and filling forms on sites, see the "The agent works in the
 
 ### Saving conversations, instructions, plan
 
-- **Saving:** conversations (tabs, history, project) are stored in `%APPDATA%\AgentUmimiy\chats.json`
+- **Saving:** conversations (tabs, history, project) are stored in `%APPDATA%\RMSAI\chats.json`
   and restored when the app reopens (the last 15 conversations). You can turn this off or clear the
   history in settings. The file is unencrypted: don't write secrets or turn saving off.
 - **Project instructions:** if the project folder has `CLAUDE.md`, `AGENTS.md` or `AGENT.md`, the
@@ -216,8 +216,8 @@ Run the app on one computer or server and people on the network use it from a br
 **Without a window (on a server):**
 
 ```bash
-python -m agent_umimiy --serve            # default: all interfaces, port 8080
-python -m agent_umimiy --serve --port 9000 --host 192.168.1.10
+python -m rms_ai --serve            # default: all interfaces, port 8080
+python -m rms_ai --serve --port 9000 --host 192.168.1.10
 ```
 
 The app prints the address and an **invite code**. People open the address and register with a name, a password and that code. Everyone has their own conversations, answers appear as they are written, and files and screenshots (Ctrl+V) can be attached.
@@ -230,7 +230,7 @@ The app prints the address and an **invite code**. People open the address and r
 - **iPhone (Safari):** Share button → **"Add to Home Screen"**.
 - **Android (Chrome):** menu (⋮) → **"Install app"** or **"Add to Home screen"**.
 
-An Agent Umimiy icon appears and opens full screen. On Android, full-screen mode works only on an **HTTPS** address; on a plain `http://192.168...` address the icon opens a browser tab.
+An RMS AI icon appears and opens full screen. On Android, full-screen mode works only on an **HTTPS** address; on a plain `http://192.168...` address the icon opens a browser tab.
 
 **HTTPS and use away from home.** The easiest way is [Tailscale](https://tailscale.com) (free). Install it on the server and the phones, then run `tailscale serve --bg 8080` on the server: you get a secure `https://...ts.net` address that is open only to your own devices.
 
@@ -250,7 +250,7 @@ key if needed). The app starts the server and gives its tools to all agents.
   aren't supported yet.
 
 **Skills.** A folder with a `SKILL.md` file (Claude format: `name`, `description`, text). They're
-found automatically in: `%APPDATA%\AgentUmimiy\skills\<name>\SKILL.md`, `~/.claude/skills`, skills in
+found automatically in: `%APPDATA%\RMSAI\skills\<name>\SKILL.md`, `~/.claude/skills`, skills in
 Claude plugins, and the project's `.claude/skills`. The agent loads the right skill based on the
 description and follows it.
 
@@ -258,7 +258,7 @@ description and follows it.
 
 The agent opens a site in a **real browser window**, reads it, clicks buttons and fills forms (you see
 what's happening in the window). On Windows it uses **Edge** (or Chrome), nothing to install.
-- The browser opens in a **separate profile** (`%APPDATA%\AgentUmimiy\browser-profile`): it doesn't
+- The browser opens in a **separate profile** (`%APPDATA%\RMSAI\browser-profile`): it doesn't
   touch the passwords and sessions in your main browser. If you sign in to a site once yourself, you
   stay signed in next time.
 - **Every new site** and **every keystroke** asks for permission. It **won't type in a password
@@ -372,7 +372,7 @@ from source (`python app.py`), but it hasn't been tested there.
 
 ## 💜 Claude for Open Source
 
-Agent Umimiy is an open-source project and fully supports working with Claude. Anthropic offers the
+RMS AI is an open-source project and fully supports working with Claude. Anthropic offers the
 **Claude for Open Source** program for the open-source community: eligible OSS maintainers and
 contributors can use the **Claude Ultra** plan **free for 6 months**.
 
@@ -411,7 +411,7 @@ Found a bug or have a suggestion? Open an [Issue](../../issues). Pull requests a
 
 <div align="center">
 
-**Agent Umimiy** — built to make working with AI in Uzbek easier ❤️
+**RMS AI** — built to make working with AI in Uzbek easier ❤️
 
 ⭐ If you like the project, don't forget to give it a star!
 

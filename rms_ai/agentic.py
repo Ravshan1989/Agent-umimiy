@@ -14,7 +14,7 @@ from . import stream
 from .base import AgentError
 from .tools import Cancelled, Toolbox, system_prompt
 
-MAX_STEPS = 30
+MAX_STEPS = 60
 
 
 def _check(tb: Toolbox):

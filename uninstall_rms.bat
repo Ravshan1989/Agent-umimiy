@@ -9,11 +9,11 @@ taskkill /F /IM RMSAIClient.exe >NUL 2>NUL
 echo [2/3] Virtual muhit (.venv) o'chirilmoqda...
 if exist ".venv" rmdir /S /Q ".venv"
 
-echo [3/3] Foydalanuvchi ma'lumotlari (%APPDATA%\AgentUmimiy) haqida...
-set /p DELDATA="Suhbatlar, sozlamalar va skillarni (%APPDATA%\AgentUmimiy) ham o'chiraymi? [y/N]: "
+echo [3/3] Foydalanuvchi ma'lumotlari (%APPDATA%\RMSAI) haqida...
+set /p DELDATA="Suhbatlar, sozlamalar va skillarni (%APPDATA%\RMSAI) ham o'chiraymi? [y/N]: "
 if /I "%DELDATA%"=="y" (
-    if exist "%APPDATA%\AgentUmimiy" rmdir /S /Q "%APPDATA%\AgentUmimiy"
-    if exist "%APPDATA%\AgentUmimiyClient" rmdir /S /Q "%APPDATA%\AgentUmimiyClient"
+    if exist "%APPDATA%\RMSAI" rmdir /S /Q "%APPDATA%\RMSAI"
+    if exist "%APPDATA%\RMSAIClient" rmdir /S /Q "%APPDATA%\RMSAIClient"
     echo Foydalanuvchi ma'lumotlari o'chirildi.
 ) else (
     echo Foydalanuvchi ma'lumotlari saqlab qolindi.

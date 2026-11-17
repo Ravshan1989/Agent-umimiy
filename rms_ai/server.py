@@ -9,6 +9,8 @@ from __future__ import annotations
 import getpass
 import hmac
 import json
+import logging
+import logging.handlers
 import mimetypes
 import os
 import queue
@@ -21,6 +23,7 @@ import subprocess
 import sys
 import threading
 import time
+from collections import deque
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -28,6 +31,7 @@ from urllib.parse import parse_qs, quote, urlparse
 
 from . import attachments, automation, config, discovery, memory, preview, rag, remote, skills, telegram_bot, translit, updater
 from . import mcp as mcplib
+from .monitor_page import MONITOR_PAGE
 from .server_page import PAGE
 from .store import SESSION_DAYS, Store, StoreError
 
@@ -39,6 +43,7 @@ MAX_PROMPT = 100_000
 MAX_LIVE_TEXT = 200_000
 SSE_QUEUE_SIZE = 256
 MAX_CONNECTIONS = 256
+METRICS_KEEP = 5000  # monitoring dashboardi xotirada saqlaydigan oxirgi so'rovlar soni (to'liq tarix: requests.log)
 MAX_DOWNLOAD = 50 * 1024 * 1024
 TITLE_LEN = 40
 DESKTOP_PORT = 47815  # desktop oynasi uchun doimiy port: brauzer xotirasi (vazifalar ro'yxati) saqlanib qoladi
@@ -101,10 +106,64 @@ class App:
         self.discovery: discovery.DiscoveryResponder | None = None
         self.desktop = False  # dastur o'z oynasida ishlayaptimi (run_desktop)
         self.desktop_token = ""  # oynani avtomatik kiritadigan bir martalik kalit
-        self.client_key = secrets.token_urlsafe(24)  # AgentUmimiyClient ilovasi uchun kirish kaliti
+        self.client_key = secrets.token_urlsafe(24)  # RMSAIClient ilovasi uchun kirish kaliti
         self.classic_at = 0.0  # klassik oyna oxirgi marta qachon ochilgani
         self.scheduler = automation.Scheduler(self.run_prompt_once)
         self.telegram = telegram_bot.TelegramBridge(lambda text: self.run_prompt_once(text, "auto"))
+        # ---- monitoring: so'rovlar vaqti ----
+        self.started = time.time()
+        self.metrics_lock = threading.Lock()  # app.lock emas: javob yuborilayotganda u band bo'lishi mumkin
+        self.metrics: deque = deque(maxlen=METRICS_KEEP)  # (vaqt, ip, foydalanuvchi, usul, yo'l, kod, ms)
+        self.requests_total = 0
+        self.request_log: logging.Logger | None = None
+        self.monitor_window = None  # ochiq monitoring oynasi (pywebview)
+
+    def record_request(self, ip: str, user: str, method: str, path: str, code: int, ms: float) -> None:
+        """Bitta so'rovni xotiraga (dashboard uchun) va requests.log fayliga (keyingi tahlil uchun) yozadi."""
+        now = time.time()
+        with self.metrics_lock:
+            self.metrics.append((now, ip, user, method, path, code, ms))
+            self.requests_total += 1
+            if self.request_log is None:
+                handler = logging.handlers.RotatingFileHandler(
+                    config.user_dir() / "requests.log", maxBytes=2_000_000, backupCount=3, encoding="utf-8", delay=True)
+                handler.setFormatter(logging.Formatter("%(message)s"))
+                self.request_log = logging.Logger("rms-requests")
+                self.request_log.addHandler(handler)
+            log = self.request_log
+        stamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now))
+        log.info("%s\t%s\t%s\t%s\t%s\t%d\t%.1f", stamp, ip, user, method, path, code, ms)
+
+    def monitor(self) -> dict:
+        """Dashboard uchun xulosa: kim ulangan, so'rovlar soni va javob vaqti (oxirgi METRICS_KEEP ta so'rov bo'yicha)."""
+        now = time.time()
+        with self.metrics_lock:
+            rows, total = list(self.metrics), self.requests_total
+        users: dict[tuple[str, str], dict] = {}
+        paths: dict[str, list[float]] = {}
+        for ts, ip, user, method, path, _code, ms in rows:
+            if now - ts <= 300:
+                entry = users.setdefault((user, ip), {"user": user, "ip": ip, "requests": 0, "last": ts})
+                entry["requests"] += 1
+                entry["last"] = max(entry["last"], ts)
+            paths.setdefault(f"{method} {path}", []).append(ms)
+
+        def pick(values: list[float], q: float) -> float:
+            ordered = sorted(values)
+            return round(ordered[min(len(ordered) - 1, int(len(ordered) * q))], 1)
+
+        return {
+            "uptime": int(now - self.started),
+            "total": total,
+            "last_minute": sum(1 for r in rows if now - r[0] <= 60),
+            "users": [{"user": u["user"], "ip": u["ip"], "requests": u["requests"], "idle": int(now - u["last"])}
+                      for u in sorted(users.values(), key=lambda x: -x["last"])],
+            "paths": [{"path": p, "count": len(v), "median": pick(v, 0.5), "p95": pick(v, 0.95), "max": round(max(v), 1)}
+                      for p, v in sorted(paths.items(), key=lambda kv: -len(kv[1]))[:30]],
+            "recent": [{"at": int(now - ts), "user": user, "ip": ip, "path": f"{method} {path}", "code": code,
+                        "ms": round(ms, 1)} for ts, ip, user, method, path, code, ms in rows[-25:][::-1]],
+            "log": str(config.user_dir() / "requests.log"),
+        }
 
     def run_prompt_once(self, prompt: str, agent: str = "auto") -> str:
         orch = self.orchestrator(local_desktop=True)
@@ -479,6 +538,10 @@ class App:
     def shutdown(self, timeout: float = 6.0) -> None:
         """Dastur yopilayotganda: ishlayotgan agentlarni to'xtatadi va javoblar bazaga yozilishini kutadi."""
         self._cancel_approvals()
+        with self.metrics_lock:
+            if self.request_log is not None:
+                for handler in self.request_log.handlers:
+                    handler.close()  # RotatingFileHandler keyingi yozuvda faylni o'zi qayta ochadi
         with self.lock:
             for channel in self.channels.values():
                 if channel.cancel:
@@ -822,7 +885,7 @@ def _export_zip(store: Store, user_id: int) -> bytes:
     import zipfile
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("database/agent-umimiy.sqlite3", store.backup_bytes())
+        zf.writestr("database/rms-ai.sqlite3", store.backup_bytes())
         for fname in ("memory.json", "wiki.md", "automations.json"):
             fpath = config.user_dir() / fname
             if fpath.is_file():
@@ -951,6 +1014,25 @@ def make_handler(app: App):
 
         def log_message(self, *a):
             pass
+
+        def parse_request(self):
+            self._t0 = time.perf_counter()  # so'rov satri o'qilgach: keep-alive kutish vaqti hisobga kirmaydi
+            return super().parse_request()
+
+        def log_request(self, code="-", size="-"):
+            """send_response har bir javobda chaqiradi: javob vaqtini monitoring uchun qayd etamiz."""
+            try:
+                # Faqat yo'l: so'rov satridagi ?token= / ?key= logga tushmasin
+                path = urlparse(getattr(self, "path", "")).path[:80]
+                if path.startswith("/api/desktop/monitor"):
+                    return  # dashboardning o'z so'rovlari statistikani buzmasin
+                if path.startswith("/assets/"):
+                    path = "/assets/*"
+                user = store.session_user(self._token()) if getattr(self, "headers", None) else None
+                app.record_request(self.client_address[0], user[1] if user else "-", str(self.command or "-"), path,
+                                   int(code), (time.perf_counter() - getattr(self, "_t0", time.perf_counter())) * 1000)
+            except Exception:  # monitoring hech qachon javobni buzmasligi kerak
+                pass
 
         # ---- javob ----
         def _send(self, code: int, body: bytes, ctype: str = "application/json; charset=utf-8", cookie: str = "",
@@ -1203,14 +1285,21 @@ def make_handler(app: App):
                         raise Refused("Topilmadi.", 404)
                     stamp = time.strftime("%Y%m%d-%H%M%S")
                     return self._send(200, store.backup_bytes(), "application/octet-stream",
-                                      download=f"agent-umimiy-backup-{stamp}.sqlite3")
+                                      download=f"rms-ai-backup-{stamp}.sqlite3")
+                if url.path in ("/monitor", "/api/desktop/monitor"):
+                    self._user()
+                    if not self._desktop():
+                        raise Refused("Topilmadi.", 404)
+                    if url.path == "/monitor":
+                        return self._send(200, MONITOR_PAGE.encode(), "text/html; charset=utf-8")
+                    return self._json(200, app.monitor())
                 if url.path == "/api/desktop/export-zip":
                     user_id, _ = self._user()
                     if not self._desktop():
                         raise Refused("Topilmadi.", 404)
                     stamp = time.strftime("%Y%m%d-%H%M%S")
                     return self._send(200, _export_zip(store, user_id), "application/zip",
-                                      download=f"agent-umimiy-full-archive-{stamp}.zip")
+                                      download=f"rms-ai-full-archive-{stamp}.zip")
                 if url.path == "/api/stream":
                     user_id, _ = self._user()
                     return self._stream(self._chat(user_id, parse_qs(url.query).get("chat", [""])[0]), self._desktop())
@@ -1325,19 +1414,25 @@ def make_handler(app: App):
                     return updater.install_update(dl_url), ""
                 except Exception as exc:
                     raise Refused(str(exc))
+            if path == "/api/desktop/monitor/open":
+                if not self._desktop():
+                    raise Refused("Topilmadi.", 404)
+                open_monitor(app, self.server.server_port)
+                return {"ok": True}, ""
             if path == "/api/settings":
-                cfg = config.read(app.config_file)
-                prefs = cfg if self._desktop() else (cfg.get("user_settings") or {}).get(str(user_id), cfg)
-                lang = body.get("lang", prefs.get("lang", cfg.get("lang", "uz")))
-                theme = body.get("theme", prefs.get("theme", cfg.get("theme", "dark")))
-                accent = body.get("accent", prefs.get("accent", cfg.get("accent", "violet")))
-                if lang not in ("uz", "uz_cyrl", "ru", "en") or theme not in ("dark", "light") or accent not in ("violet", "blue", "cyan", "emerald"):
-                    raise Refused("Sozlama qiymati noto'g'ri.")
-                if self._desktop():
-                    cfg.update({"lang": lang, "theme": theme, "accent": accent})
-                else:
-                    cfg.setdefault("user_settings", {})[str(user_id)] = {"lang": lang, "theme": theme, "accent": accent}
-                config.write(cfg, app.config_file)
+                with app.lock:  # o'qib-o'zgartirib-yozishni atomik qilamiz: bir vaqtdagi ikki saqlash bir-birini bosmasin
+                    cfg = config.read(app.config_file)
+                    prefs = cfg if self._desktop() else (cfg.get("user_settings") or {}).get(str(user_id), cfg)
+                    lang = body.get("lang", prefs.get("lang", cfg.get("lang", "uz")))
+                    theme = body.get("theme", prefs.get("theme", cfg.get("theme", "dark")))
+                    accent = body.get("accent", prefs.get("accent", cfg.get("accent", "violet")))
+                    if lang not in ("uz", "uz_cyrl", "ru", "en") or theme not in ("dark", "light") or accent not in ("violet", "blue", "cyan", "emerald"):
+                        raise Refused("Sozlama qiymati noto'g'ri.")
+                    if self._desktop():
+                        cfg.update({"lang": lang, "theme": theme, "accent": accent})
+                    else:
+                        cfg.setdefault("user_settings", {})[str(user_id)] = {"lang": lang, "theme": theme, "accent": accent}
+                    config.write(cfg, app.config_file)
                 return {"ok": True, "lang": lang, "theme": theme, "accent": accent}, ""
             if path == "/api/network":
                 if not self._desktop():
@@ -1410,34 +1505,35 @@ def make_handler(app: App):
                 if not self._desktop():
                     raise Refused("Topilmadi.", 404)
                 act = str(body.get("action", ""))
-                cfg = config.read(app.config_file)
-                items = [a for a in cfg.get("agents", []) if isinstance(a, dict)]
-                if act == "add":
-                    name = re.sub(r"[^A-Za-z0-9_.:-]", "-", str(body.get("name", "")).strip())[:48]
-                    kind = str(body.get("type", "openai")).strip()
-                    if not name or kind not in ("openai", "ollama", "anthropic", "gemini"):
-                        raise Refused("Agent nomi va turi to'g'ri kiritilishi kerak.")
-                    entry = {
-                        "name": name,
-                        "type": kind,
-                        "model": str(body.get("model", "")).strip() or "auto",
-                        "description": str(body.get("description", "")).strip()[:160],
-                        "enabled": True,
-                        "tools": False,
-                    }
-                    if body.get("base_url"):
-                        entry["base_url"] = str(body["base_url"]).strip()
-                    if body.get("api_key"):
-                        entry["api_key"] = str(body["api_key"]).strip()
-                    items = [a for a in items if a.get("name") != name] + [entry]
-                    cfg["agents"] = items[:16]
-                    config.write(cfg, app.config_file)
-                elif act == "delete":
-                    name = str(body.get("name", "")).strip()
-                    cfg["agents"] = [a for a in items if a.get("name") != name]
-                    config.write(cfg, app.config_file)
-                else:
-                    raise Refused("Noto'g'ri amal.")
+                with app.lock:  # o'qib-o'zgartirib-yozishni atomik qilamiz: agent/API-kalit yozuvi yo'qolmasin
+                    cfg = config.read(app.config_file)
+                    items = [a for a in cfg.get("agents", []) if isinstance(a, dict)]
+                    if act == "add":
+                        name = re.sub(r"[^A-Za-z0-9_.:-]", "-", str(body.get("name", "")).strip())[:48]
+                        kind = str(body.get("type", "openai")).strip()
+                        if not name or kind not in ("openai", "ollama", "anthropic", "gemini"):
+                            raise Refused("Agent nomi va turi to'g'ri kiritilishi kerak.")
+                        entry = {
+                            "name": name,
+                            "type": kind,
+                            "model": str(body.get("model", "")).strip() or "auto",
+                            "description": str(body.get("description", "")).strip()[:160],
+                            "enabled": True,
+                            "tools": False,
+                        }
+                        if body.get("base_url"):
+                            entry["base_url"] = str(body["base_url"]).strip()
+                        if body.get("api_key"):
+                            entry["api_key"] = str(body["api_key"]).strip()
+                        items = [a for a in items if a.get("name") != name] + [entry]
+                        cfg["agents"] = items[:16]
+                        config.write(cfg, app.config_file)
+                    elif act == "delete":
+                        name = str(body.get("name", "")).strip()
+                        cfg["agents"] = [a for a in items if a.get("name") != name]
+                        config.write(cfg, app.config_file)
+                    else:
+                        raise Refused("Noto'g'ri amal.")
                 return {"ok": True, "agents": app.agents(True)}, ""
             if path == "/api/desktop/rag":
                 if not self._desktop():
@@ -1481,12 +1577,13 @@ def make_handler(app: App):
             if path == "/api/desktop/telegram":
                 if not self._desktop():
                     raise Refused("Topilmadi.", 404)
-                cfg = config.read(app.config_file)
                 token = str(body.get("token", "")).strip()
                 allowed = str(body.get("allowed_username", "")).strip().lstrip("@")
-                cfg["telegram_token"] = token
-                cfg["telegram_user"] = allowed
-                config.write(cfg, app.config_file)
+                with app.lock:  # o'qib-o'zgartirib-yozishni atomik qilamiz
+                    cfg = config.read(app.config_file)
+                    cfg["telegram_token"] = token
+                    cfg["telegram_user"] = allowed
+                    config.write(cfg, app.config_file)
                 return {"ok": True, "telegram": app.telegram.configure(token, allowed)}, ""
             if path == "/api/desktop/screenshot":
                 if not self._desktop():
@@ -1697,12 +1794,30 @@ _children: list = []  # ochilgan klassik oynalar: tugaganlari yig'ib turiladi
 
 def open_classic(config_file: str | None = None) -> None:
     """Klassik (Tk) oynani alohida jarayonda ochadi: agentlar, API kalitlari va loyiha papkasi shu yerda sozlanadi."""
-    cmd = [sys.executable] if getattr(sys, "frozen", False) else [sys.executable, "-m", "agent_umimiy"]
+    cmd = [sys.executable] if getattr(sys, "frozen", False) else [sys.executable, "-m", "rms_ai"]
     cmd.append("--legacy-gui")
     if config_file:
         cmd += ["--config", str(config_file)]
     _children[:] = [child for child in _children if child.poll() is None]
     _children.append(subprocess.Popen(cmd, close_fds=True))
+
+
+def open_monitor(app: App, port: int) -> None:
+    """Monitoring dashboardini kichik alohida oynada ochadi (ochiq bo'lsa, o'shani oldinga chiqaradi)."""
+    try:
+        import webview
+    except Exception:
+        raise Refused("Monitoring oynasi faqat desktop ilovada ochiladi.")
+    if app.monitor_window is not None:
+        try:
+            app.monitor_window.show()
+            return
+        except Exception:
+            app.monitor_window = None
+    window = webview.create_window("RMS AI — Monitoring", f"http://127.0.0.1:{port}/monitor",
+                                   width=520, height=720, min_size=(380, 420), background_color="#04061a")
+    window.events.closed += lambda *_: setattr(app, "monitor_window", None)
+    app.monitor_window = window
 
 
 def open_default(host: str, port: int, config_file: str | None = None) -> Server:
@@ -1811,7 +1926,7 @@ def run_desktop(config_file: str | None = None) -> bool:
     shown = threading.Event()
     icon_root = (Path(sys._MEIPASS) if getattr(sys, "frozen", False)
                  else Path(__file__).resolve().parent.parent / "packaging")
-    icon_path = icon_root / "AgentUmimiy.ico"
+    icon_path = icon_root / "RMSAI.ico"
 
     def on_shown(*_):
         shown.set()

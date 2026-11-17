@@ -10,7 +10,7 @@ Compression=lzma2
 SolidCompression=yes
 PrivilegesRequired=lowest
 UninstallDisplayIcon={app}\RMSAIClient.exe
-SetupIconFile=AgentUmimiy.ico
+SetupIconFile=RMSAI.ico
 
 [Files]
 Source: "..\dist\RMSAIClient\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion

@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from agent_umimiy import preview, writer
+from rms_ai import preview, writer
 
 
 class PreviewTests(unittest.TestCase):

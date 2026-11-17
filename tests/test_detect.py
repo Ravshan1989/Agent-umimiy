@@ -3,9 +3,9 @@ import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from agent_umimiy import detect
-from agent_umimiy.orchestrator import Orchestrator
-from agent_umimiy.providers import build_agent
+from rms_ai import detect
+from rms_ai.orchestrator import Orchestrator
+from rms_ai.providers import build_agent
 from tests.test_tools import as_stream
 
 

@@ -113,7 +113,7 @@ FIREWALL_RULE = "RMS AI"
 
 
 def firewall_script(port: int, exe: str | None = None) -> str:
-    """Administrator .bat: faqat Agent Umimiy nomli avvalgi qoidani yangilaydi va yangi ruxsat qo'shadi.
+    """Administrator .bat: faqat RMS AI nomli avvalgi qoidani yangilaydi va yangi ruxsat qo'shadi.
     Boshqa dastur yoki foydalanuvchi yaratgan firewall qoidalariga tegmaydi."""
     if not 1 <= port <= 65535:
         raise ValueError("Firewall porti 1 dan 65535 gacha bo'lishi kerak.")

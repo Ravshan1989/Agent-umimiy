@@ -10,12 +10,12 @@ import urllib.request
 from pathlib import Path
 
 DISCOVERY_PORT = 48080
-DISCOVERY_MAGIC = b"AGENT_UMIMIY_DISCOVER_V1"
+DISCOVERY_MAGIC = b"RMS_AI_DISCOVER_V1"
 
 
 def _client_cache_path() -> Path:
     base = os.environ.get("APPDATA") or str(Path.home())
-    return Path(base) / "AgentUmimiyClient" / "server.json"
+    return Path(base) / "RMSAIClient" / "server.json"
 
 
 def load_cached_server(cache_path: Path | None = None) -> dict | None:
@@ -39,7 +39,7 @@ def save_cached_server(info: dict, cache_path: Path | None = None) -> None:
 
 
 def probe_url(url: str, timeout: float = 0.9) -> bool:
-    """Return True if an Agent Umimiy HTTP server responds at url."""
+    """Return True if an RMS AI HTTP server responds at url."""
     target = url.rstrip("/") + "/"
     try:
         req = urllib.request.Request(target, method="GET")
@@ -82,7 +82,7 @@ class DiscoveryResponder:
         ).hexdigest()[:16]
         payload = json.dumps(
             {
-                "service": "agent-umimiy",
+                "service": "rms-ai",
                 "port": self.http_port,
                 "host": socket.gethostname(),
                 "server_id": server_id,
@@ -112,7 +112,7 @@ class DiscoveryResponder:
 
 
 def discover_server(timeout: float = 1.8, discovery_port: int = DISCOVERY_PORT) -> dict | None:
-    """Broadcast a discovery packet and return the first responding Agent Umimiy server."""
+    """Broadcast a discovery packet and return the first responding RMS AI server."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -137,7 +137,7 @@ def discover_server(timeout: float = 1.8, discovery_port: int = DISCOVERY_PORT) 
                 info = json.loads(raw.decode("utf-8"))
             except Exception:
                 continue
-            if isinstance(info, dict) and info.get("service") == "agent-umimiy" and info.get("port"):
+            if isinstance(info, dict) and info.get("service") == "rms-ai" and info.get("port"):
                 ip = addr[0]
                 port = int(info["port"])
                 return {
