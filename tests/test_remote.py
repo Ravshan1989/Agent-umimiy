@@ -5,8 +5,8 @@ import unittest
 import urllib.error
 import urllib.request
 
-from agent_umimiy import remote
-from agent_umimiy.remote_page import PAGE
+from rms_ai import remote
+from rms_ai.remote_page import PAGE
 
 
 def req(srv, path, token="sir", body=None, raw=None):
@@ -138,11 +138,11 @@ class NetworkHelpersTests(unittest.TestCase):
             self.assertEqual(remote.lan_ip(), "127.0.0.1")
 
     def test_firewall_command(self):
-        a = remote.firewall_args(8765, r"C:\Apps\AgentUmimiy.exe")
+        a = remote.firewall_args(8765, r"C:\Apps\RMSAI.exe")
         self.assertIn('name="RMS AI"', a)
         self.assertIn("dir=in action=allow protocol=TCP localport=8765", a)
         self.assertIn("profile=private,domain", a)
-        self.assertTrue(a.endswith('program="C:\\Apps\\AgentUmimiy.exe"'))
+        self.assertTrue(a.endswith('program="C:\\Apps\\RMSAI.exe"'))
         self.assertNotIn("program=", remote.firewall_args(8765))
 
     @unittest.skipIf(sys.platform == "win32", "Windows'da haqiqiy devor qoidasini o'zgartiradi")
@@ -153,7 +153,7 @@ class NetworkHelpersTests(unittest.TestCase):
 
 
 class FirewallScriptTests(unittest.TestCase):
-    EXE = r"C:\Users\User\Downloads\AgentUmimiy-Windows\AgentUmimiy.exe"
+    EXE = r"C:\Users\User\Downloads\RMSAI-Windows\RMSAI.exe"
 
     def test_script_preserves_existing_program_rules(self):
         lines = remote.firewall_script(8765, self.EXE).splitlines()

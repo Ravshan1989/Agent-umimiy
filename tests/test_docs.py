@@ -5,8 +5,8 @@ import zipfile
 from pathlib import Path
 from unittest import mock
 
-from agent_umimiy import attachments, docs
-from agent_umimiy.tools import Context, Toolbox
+from rms_ai import attachments, docs
+from rms_ai.tools import Context, Toolbox
 
 try:
     import openpyxl

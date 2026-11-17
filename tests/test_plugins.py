@@ -7,10 +7,10 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from unittest import mock
 
-from agent_umimiy import config, mcp, skills
-from agent_umimiy.orchestrator import Orchestrator
-from agent_umimiy.providers import build_agent
-from agent_umimiy.tools import Context, Toolbox
+from rms_ai import config, mcp, skills
+from rms_ai.orchestrator import Orchestrator
+from rms_ai.providers import build_agent
+from rms_ai.tools import Context, Toolbox
 
 FAKE = str(Path(__file__).parent / "fixtures" / "fake_mcp.py")
 
@@ -277,7 +277,7 @@ class SkillTests(unittest.TestCase):
         self.make(self.home / "app" / "skills", "tarjima", "Tarjima qilish qoidalari", body="Faqat ravon tarjima qiling.")
         skills._cache.clear()
         ctx = Context()
-        from agent_umimiy.tools import system_prompt
+        from rms_ai.tools import system_prompt
         sp = system_prompt(ctx, "a")
         self.assertIn("tarjima: Tarjima qilish qoidalari", sp)
         tb = Toolbox(ctx, "a")

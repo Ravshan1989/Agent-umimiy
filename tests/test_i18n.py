@@ -1,6 +1,6 @@
 import unittest
 
-from agent_umimiy import i18n
+from rms_ai import i18n
 
 
 class I18nTest(unittest.TestCase):

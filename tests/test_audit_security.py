@@ -11,9 +11,9 @@ import urllib.request
 from pathlib import Path
 from unittest.mock import patch
 
-from agent_umimiy import automation, autostart, config, store, tools
-from agent_umimiy.server import App, create
-from agent_umimiy.telegram_bot import TelegramBridge
+from rms_ai import automation, autostart, config, store, tools
+from rms_ai.server import App, create
+from rms_ai.telegram_bot import TelegramBridge
 
 
 class _FakeMcpManager:

@@ -8,8 +8,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from agent_umimiy import config, server, tools
-from agent_umimiy.store import Store
+from rms_ai import config, server, tools
+from rms_ai.store import Store
 
 
 def _link_dir(link: Path, target: Path) -> bool:

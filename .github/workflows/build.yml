@@ -49,15 +49,15 @@ jobs:
           python -m PyInstaller --noconfirm --clean --windowed
           --hidden-import pypdf --hidden-import qrcode --hidden-import PIL.ImageGrab --hidden-import webview
           ${{ runner.os == 'Windows' && '--hidden-import tkinter --hidden-import _tkinter --runtime-hook packaging/rthook_tkinter.py' || '' }}
-          --add-data "agent_umimiy/static${{ runner.os == 'Windows' && ';' || ':' }}agent_umimiy/static"
-          --add-data "packaging/AgentUmimiy.ico${{ runner.os == 'Windows' && ';' || ':' }}."
-          ${{ runner.os == 'Windows' && '--icon packaging/AgentUmimiy.ico' || '' }}
+          --add-data "rms_ai/static${{ runner.os == 'Windows' && ';' || ':' }}rms_ai/static"
+          --add-data "packaging/RMSAI.ico${{ runner.os == 'Windows' && ';' || ':' }}."
+          ${{ runner.os == 'Windows' && '--icon packaging/RMSAI.ico' || '' }}
           --name RMSAI app.py
       - if: runner.os == 'Windows'
         name: Mijoz dasturini yig'ish (RMSAIClient)
         run: >
           python -m PyInstaller --noconfirm --clean --windowed
-          --hidden-import webview --icon packaging/AgentUmimiy.ico
+          --hidden-import webview --icon packaging/RMSAI.ico
           --name RMSAIClient client_app.py
       - if: runner.os == 'Windows'  # klassik Tk oyna faqat Windows to'plamida tarqatiladi
         name: Yig'ilgan to'plam tekshiruvi (klassik oyna ishlashi uchun kerak bo'lgan fayllar)
@@ -65,19 +65,19 @@ jobs:
           cd dist/RMSAI
           test -d _internal/_tcl_data || test -d _tcl_data
           test -d _internal/_tk_data || test -d _tk_data
-          test -f _internal/AgentUmimiy.ico || test -f AgentUmimiy.ico
+          test -f _internal/RMSAI.ico || test -f RMSAI.ico
           # Quvur ishlatilmaydi: mos kelmagan shablon bilan `ls` 2 qaytaradi va `pipefail` uni qadam xatosiga aylantiradi.
           test -n "$(ls _internal/_tkinter* _tkinter* 2>/dev/null)"
       - name: Yig'ilgan dasturni sinash (veb-server rejimi)
         run: |
           dist/RMSAI/RMSAI --serve --host 127.0.0.1 --port 8123 &
           for i in $(seq 1 30); do
-            if curl -sf http://127.0.0.1:8123/ -o /tmp/agent-umimiy-index.html; then break; fi
+            if curl -sf http://127.0.0.1:8123/ -o /tmp/rms-ai-index.html; then break; fi
             sleep 1
           done
-          test -s /tmp/agent-umimiy-index.html
-          grep -q '/assets/' /tmp/agent-umimiy-index.html
-          asset=$(grep -oE 'src="/assets/[^" ]+\.js"' /tmp/agent-umimiy-index.html | head -1 | cut -d '"' -f2)
+          test -s /tmp/rms-ai-index.html
+          grep -q '/assets/' /tmp/rms-ai-index.html
+          asset=$(grep -oE 'src="/assets/[^" ]+\.js"' /tmp/rms-ai-index.html | head -1 | cut -d '"' -f2)
           test -n "$asset"
           curl -sf "http://127.0.0.1:8123$asset" -o /dev/null
           curl -sf http://127.0.0.1:8123/manifest.webmanifest -o /dev/null

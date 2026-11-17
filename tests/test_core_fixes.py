@@ -5,11 +5,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from agent_umimiy import memory, stream
-from agent_umimiy.agentic import _text_tool_calls
-from agent_umimiy.base import AgentError
-from agent_umimiy.providers import EchoAgent
-from agent_umimiy.tools import Context
+from rms_ai import memory, stream
+from rms_ai.agentic import _text_tool_calls
+from rms_ai.base import AgentError
+from rms_ai.providers import EchoAgent
+from rms_ai.tools import Context
 
 
 class HttpErrorPrefix(unittest.TestCase):

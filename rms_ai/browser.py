@@ -1,7 +1,7 @@
 """Agent boshqaradigan brauzer: Chrome/Edge ni Chrome DevTools Protocol (CDP) orqali boshqaradi.
 
 Qo'shimcha kutubxona yoki yuklab olish kerak emas: Windows'da Edge doim bor. Brauzer alohida profil bilan ochiladi
-(%APPDATA%\\AgentUmimiy\\browser-profile), shuning uchun sizning asosiy brauzeringiz va parollaringizga tegmaydi;
+(%APPDATA%\\RMSAI\\browser-profile), shuning uchun sizning asosiy brauzeringiz va parollaringizga tegmaydi;
 saytlarga bir marta kirsangiz, keyingi safar ham kirgan holda qoladi.
 """
 from __future__ import annotations

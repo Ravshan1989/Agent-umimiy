@@ -4,7 +4,7 @@ React + Vite + TypeScript frontend, mavjud Python server API bilan ishlaydi.
 
 ## Lokal ishlab chiqish
 
-1. Python serverni ishga tushiring: `python -m agent_umimiy --serve --host 127.0.0.1 --port 8123`
+1. Python serverni ishga tushiring: `python -m rms_ai --serve --host 127.0.0.1 --port 8123`
 2. Ikkinchi terminalda:
    ```bash
    cd frontend
@@ -21,7 +21,7 @@ npm install
 npm run build
 ```
 
-Build natijasi `agent_umimiy/static/web` ichiga yoziladi. Python server shu build mavjud bo‘lsa, `/` manzilida yangi React interfeysini beradi; build bo‘lmasa eski ichki sahifa zaxira sifatida qoladi. PyInstaller va Python paket konfiguratsiyasi build fayllarini release tarkibiga qo‘shadi.
+Build natijasi `rms_ai/static/web` ichiga yoziladi. Python server shu build mavjud bo‘lsa, `/` manzilida yangi React interfeysini beradi; build bo‘lmasa eski ichki sahifa zaxira sifatida qoladi. PyInstaller va Python paket konfiguratsiyasi build fayllarini release tarkibiga qo‘shadi.
 
 ## Haqiqiy ishlaydigan imkoniyatlar
 

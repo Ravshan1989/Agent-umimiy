@@ -1,7 +1,7 @@
 ; Inno Setup — ofis xodimlari uchun yengil RMS AI Client o'rnatuvchisi
 [Setup]
 AppName=RMS AI Client
-AppVersion=0.7.2
+AppVersion=0.7.3
 DefaultDirName={autopf}\RMSAIClient
 DefaultGroupName=RMS AI Client
 OutputDir=..\dist
@@ -10,7 +10,7 @@ Compression=lzma2
 SolidCompression=yes
 PrivilegesRequired=lowest
 UninstallDisplayIcon={app}\RMSAIClient.exe
-SetupIconFile=AgentUmimiy.ico
+SetupIconFile=RMSAI.ico
 
 [Files]
 Source: "..\dist\RMSAIClient\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion

@@ -65,31 +65,31 @@
     {
       "name": "fayllar",
       "transport": "stdio",
-      "command": "python -m agent_umimiy.builtin_mcp fayllar",
+      "command": "python -m rms_ai.builtin_mcp fayllar",
       "enabled": true
     },
     {
       "name": "xotira",
       "transport": "stdio",
-      "command": "python -m agent_umimiy.builtin_mcp xotira",
+      "command": "python -m rms_ai.builtin_mcp xotira",
       "enabled": true
     },
     {
       "name": "fikrlash",
       "transport": "stdio",
-      "command": "python -m agent_umimiy.builtin_mcp fikrlash",
+      "command": "python -m rms_ai.builtin_mcp fikrlash",
       "enabled": true
     },
     {
       "name": "hujjatlar",
       "transport": "stdio",
-      "command": "python -m agent_umimiy.builtin_mcp hujjatlar",
+      "command": "python -m rms_ai.builtin_mcp hujjatlar",
       "enabled": true
     },
     {
       "name": "analitika",
       "transport": "stdio",
-      "command": "python -m agent_umimiy.builtin_mcp analitika",
+      "command": "python -m rms_ai.builtin_mcp analitika",
       "enabled": true
     },
     {

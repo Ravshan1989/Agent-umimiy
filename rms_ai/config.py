@@ -17,6 +17,31 @@ DEFAULT = {"judge": "", "routes": {}, "agents": [], "project": "", "mcp": [], "r
            "lang": "uz", "theme": "dark", "accent": "violet"}
 
 
+# Dasturning avvalgi nomidagi papkalar. Eski nom loyihada faqat shu yerda qoladi:
+# yangilangan dastur foydalanuvchining suhbatlari, API kalitlari va fayllarini yo'qotmasligi uchun.
+_OLD_DIR_NAMES = {"RMSAI": "AgentUmimiy", "RMS AI": "Agent Umimiy"}
+_OLD_MODULE = "agent_umimiy"  # agents.json dagi `python -m <modul>.builtin_mcp ...` plagin buyruqlarida uchraydi
+
+
+def migrated(base: Path, name: str) -> Path:
+    """`base/name` ni qaytaradi; u hali yo'q, eski nomdagi papka bor bo'lsa — avval eskisini qayta nomlaydi."""
+    path, old = base / name, base / _OLD_DIR_NAMES[name]
+    try:
+        if path.exists() or not old.is_dir():
+            return path
+        old.rename(path)
+    except OSError:
+        return old  # eski versiya hali ochiq (papka band): bo'sh holatda ochilgandan ko'ra eski papkada ishlaymiz
+    try:  # ko'chirilgan sozlamadagi plagin buyruqlari yangi modul nomi bilan ishlasin
+        agents = path / "agents.json"
+        text = agents.read_text(encoding="utf-8")
+        if _OLD_MODULE in text:
+            agents.write_text(text.replace(_OLD_MODULE, __package__), encoding="utf-8")
+    except (OSError, ValueError):
+        pass
+    return path
+
+
 def user_dir() -> Path:
     if sys.platform == "win32":
         base = Path(os.environ.get("APPDATA", Path.home()))
@@ -24,7 +49,7 @@ def user_dir() -> Path:
         base = Path.home() / "Library" / "Application Support"
     else:
         base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-    path = base / "AgentUmimiy"
+    path = migrated(base, "RMSAI")
     try:
         path.mkdir(parents=True, exist_ok=True)
         if os.name != "nt":

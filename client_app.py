@@ -17,7 +17,7 @@ if sys.platform == "win32":
 
 import webview
 
-from agent_umimiy import config, discovery
+from rms_ai import config, discovery
 
 LOADING_HTML = """<!doctype html>
 <html lang="uz">
@@ -154,6 +154,7 @@ def main() -> None:
     api = ClientApi()
     storage = config.user_dir() / "client-webview"
     storage.mkdir(parents=True, exist_ok=True)
+    webview.settings["ALLOW_DOWNLOADS"] = True  # sukut bo'yicha o'chiq: "Yuklab olish" jimgina hech narsa qilmasdi
     window = webview.create_window(
         "RMS AI — Ofis Mijozi",
         html=LOADING_HTML,

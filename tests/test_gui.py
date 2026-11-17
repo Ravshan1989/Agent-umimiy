@@ -8,12 +8,12 @@ import urllib.request
 from pathlib import Path
 from unittest import mock
 
-from agent_umimiy import config
+from rms_ai import config
 
 try:
     import tkinter as tk
 
-    from agent_umimiy import gui
+    from rms_ai import gui
     _probe = tk.Tk()
     _probe.destroy()
     SKIP = ""

@@ -4,10 +4,10 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest import mock
 
-from agent_umimiy import stream
-from agent_umimiy.base import AgentError
-from agent_umimiy.orchestrator import Orchestrator
-from agent_umimiy.providers import build_agent
+from rms_ai import stream
+from rms_ai.base import AgentError
+from rms_ai.orchestrator import Orchestrator
+from rms_ai.providers import build_agent
 from tests.test_tools import serve
 
 

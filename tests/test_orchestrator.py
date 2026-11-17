@@ -1,9 +1,9 @@
 import sys
 import unittest
 
-from agent_umimiy import config
-from agent_umimiy.orchestrator import Orchestrator
-from agent_umimiy.providers import CLIAgent, EchoAgent, build_agent
+from rms_ai import config
+from rms_ai.orchestrator import Orchestrator
+from rms_ai.providers import CLIAgent, EchoAgent, build_agent
 
 
 class Boom(EchoAgent):

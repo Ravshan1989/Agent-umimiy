@@ -1,6 +1,6 @@
 # Hissa qo'shish / Contributing
 
-Rahmat! **Agent Umimiy** ochiq loyiha — har qanday yordam (kod, hujjat, xato xabari, g'oya)
+Rahmat! **RMS AI** ochiq loyiha — har qanday yordam (kod, hujjat, xato xabari, g'oya)
 mamnuniyat bilan qabul qilinadi.
 
 > 🇬🇧 English note: contributions are welcome. The desktop, phone and web interfaces offer Uzbek, Russian and English selection. Russian and English coverage is partial; dynamic messages and agent-generated content may remain in Uzbek or their original language. Issues and pull requests may be written in Uzbek, Russian or English.
@@ -30,8 +30,8 @@ mamnuniyat bilan qabul qilinadi.
 Python 3.9+ kerak. Ixtiyoriy kutubxonalar: `pypdf` (PDF), `qrcode` (telefon QR), `pillow` (skrinshot qo'yish), `python-docx` va `openpyxl` (Word/Excel yaratish).
 
 ```bash
-git clone https://github.com/Ravshan1989/Agent-umimiy.git
-cd Agent-umimiy
+git clone https://github.com/Ravshan1989/RMS-AI.git
+cd RMS-AI
 pip install pypdf qrcode pillow python-docx openpyxl
 python app.py                              # oyna
 python app.py --cli -m broadcast "salom"   # terminal
@@ -40,9 +40,9 @@ python app.py --cli -m broadcast "salom"   # terminal
 ## Uslub
 
 - Kod Python standartlariga (PEP 8) yaqin bo'lsin; mavjud fayllardagi uslubga ergashing.
-- Foydalanuvchiga ko'rinadigan matnlar uchun `agent_umimiy/i18n.py` dagi `i18n.t()` dan foydalaning.
+- Foydalanuvchiga ko'rinadigan matnlar uchun `rms_ai/i18n.py` dagi `i18n.t()` dan foydalaning.
 - Desktop, telefon va veb interfeyslarida o'zbek, rus va ingliz tillarini tanlash mumkin. Tarjima qisman: lug'atda topilmagan dinamik matnlar o'zbekcha qoladi, agent javoblari esa agent yozgan tilda ko'rinadi.
-- Desktop matnlari uchun `agent_umimiy/i18n.py` dagi `TR` lug'atiga, telefon va veb matnlari uchun tegishli sahifadagi `WEB_TR` lug'atiga ruscha va inglizcha tarjimalarni qo'shing. Interfeys tilini almashtirish testlarini ham yangilang.
+- Desktop matnlari uchun `rms_ai/i18n.py` dagi `TR` lug'atiga, telefon va veb matnlari uchun tegishli sahifadagi `WEB_TR` lug'atiga ruscha va inglizcha tarjimalarni qo'shing. Interfeys tilini almashtirish testlarini ham yangilang.
 - Yangi agent turi: `providers.py` da `Agent` ni meros qilib, `KINDS` ga qo'shing.
 
 ## Litsenziya

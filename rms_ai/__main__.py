@@ -8,7 +8,7 @@ from .orchestrator import MODES
 
 
 def main():
-    ap = argparse.ArgumentParser(prog="agent-umimiy", description="Barcha AI agentlarni birlashtiruvchi ilova")
+    ap = argparse.ArgumentParser(prog="rms-ai", description="Barcha AI agentlarni birlashtiruvchi ilova")
     ap.add_argument("-c", "--config", help="agents.json yo'li")
     ap.add_argument("-m", "--mode", choices=MODES, default="auto")
     ap.add_argument("-a", "--agents", nargs="*", help="faqat shu agentlar")

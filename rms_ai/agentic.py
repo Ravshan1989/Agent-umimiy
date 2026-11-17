@@ -14,7 +14,7 @@ from . import stream
 from .base import AgentError
 from .tools import Cancelled, Toolbox, system_prompt
 
-MAX_STEPS = 30
+MAX_STEPS = 60
 
 
 def _check(tb: Toolbox):
@@ -112,20 +112,56 @@ def anthropic(o: dict, key: str, prompt: str, history: list, tb: Toolbox, files=
     raise AgentError(f"Agent {MAX_STEPS} qadamda tugata olmadi.")
 
 
+def _fallback_model_for(url: str, primary: str, o: dict) -> str:
+    explicit = str(o.get("fallback_model") or "").strip()
+    if explicit and explicit != primary:
+        return explicit
+    if ("127.0.0.1:3001" in url or "localhost:3001" in url) and primary != "mistral-small-3.2-24b":
+        return "mistral-small-3.2-24b"
+    return ""
+
+
+def _is_retryable_error(exc: Exception) -> bool:
+    low = str(exc).lower()
+    return any(tok in low for tok in ("429", "timed out", "timeout", "502", "503", "504", "limit"))
+
+
 def openai(o: dict, key: str, prompt: str, history: list, tb: Toolbox, files=()) -> str:
     tools = [{"type": "function", "function": {"name": t.name, "description": t.description,
                                                "parameters": t.parameters}} for t in tb.tools()]
     messages = [{"role": "system", "content": system_prompt(tb.ctx, tb.agent)}] + history + [
         {"role": "user", "content": att.openai_content(prompt, list(files))}]
+    url = o.get("base_url", "https://api.openai.com/v1") + "/chat/completions"
+    model = att.openai_model_for(o, list(files))
     for _ in range(MAX_STEPS):
         _check(tb)
-        msg = stream.openai(
-            o.get("base_url", "https://api.openai.com/v1") + "/chat/completions",
-            stream.openai_payload(
-                {"model": att.openai_model_for(o, list(files)), "messages": messages, "tools": tools}, o),
-            {"Authorization": "Bearer " + key},
-            _sink(tb),
-        )
+        emitted = False
+
+        def on_delta(text: str):
+            nonlocal emitted
+            emitted = True
+            _check(tb)
+            tb._say("delta", text)
+
+        try:
+            msg = stream.openai(
+                url,
+                stream.openai_payload({"model": model, "messages": messages, "tools": tools}, o),
+                {"Authorization": "Bearer " + key},
+                on_delta,
+            )
+        except AgentError as exc:
+            fb = _fallback_model_for(url, model, o) if not emitted and _is_retryable_error(exc) else ""
+            if not fb:
+                raise
+            tb._say("info", f"↻ {model} band/kechikdi, zaxira modelga o'tildi: {fb}")
+            model = fb
+            msg = stream.openai(
+                url,
+                stream.openai_payload({"model": model, "messages": messages, "tools": tools}, o),
+                {"Authorization": "Bearer " + key},
+                on_delta,
+            )
         messages.append(msg)
         calls = msg.get("tool_calls") or []
         if not calls:

@@ -324,7 +324,13 @@ def system_prompt(ctx: Context, agent: str = "") -> str:
         "Use the real skill-folder path included by use_skill when invoking a bundled script; never guess its location. "
         "CLI agents and MCP plugins are external programs with user-level permissions, not OS sandboxes. "
         "Read the relevant files before changing anything, keep edits "
-        "small and precise, and verify your work (e.g. by running tests) when possible. The user may be a beginner: when "
+        "small and precise, and verify your work (e.g. by running tests) when possible. "
+        "ACTION-FIRST: When the user asks you to create, build, fix, or run something (for example a website, web app, script, or document), "
+        "do NOT respond with a list of clarifying questions or passive instructions—immediately use your tools (write_file, edit_file, run_command) "
+        "to build a working implementation with sensible defaults. "
+        "NO PLACEHOLDERS & VERIFY: Write every file you import or reference completely (never leave TODO stubs or placeholder comments). "
+        "After writing code, verify it using run_command (run tests, build, syntax check, or start & test the app) and fix any errors before finishing. "
+        "The user may be a beginner: when "
         "you finish, explain briefly in plain language what you did. Always answer in the language the user writes in. "
         "Paths are relative to the project folder."
         + HONESTY + PLUGINS_NOTE
@@ -817,20 +823,22 @@ class Toolbox:
                 _check_url(newurl, allow)
                 return super().redirect_request(req, fp, code, msg, headers, newurl)
 
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (AgentUmimiy)", "Accept-Language": "uz,en"})
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (RMSAI)", "Accept-Language": "uz,en"})
         try:
             with urllib.request.build_opener(Guard).open(req, timeout=timeout) as r:
                 if not allow:
                     sock = getattr(getattr(getattr(r, "fp", None), "raw", None), "_sock", None)
-                    if sock is not None:
-                        try:
-                            peer_ip = ipaddress.ip_address(sock.getpeername()[0])
-                            if not _is_public_ip(peer_ip):
-                                raise ToolError(
-                                    "Faqat ochiq internet manzillariga ruxsat bor; ichki yoki maxsus IP manzillar bloklangan."
-                                )
-                        except OSError:
-                            pass
+                    if sock is None:
+                        # Peer IP ni tasdiqlab bo'lmasa DNS-rebinding himoyasi yo'qoladi: xavfsiz tomon — rad etamiz.
+                        raise ToolError("Ulanish manzilini tasdiqlab bo'lmadi; xavfsizlik uchun rad etildi.")
+                    try:
+                        peer_ip = ipaddress.ip_address(sock.getpeername()[0])
+                        if not _is_public_ip(peer_ip):
+                            raise ToolError(
+                                "Faqat ochiq internet manzillariga ruxsat bor; ichki yoki maxsus IP manzillar bloklangan."
+                            )
+                    except OSError:
+                        pass
                 body = r.read(limit)
                 ctype = r.headers.get("Content-Type", "")
                 m = re.search(r"charset=([\w-]+)", ctype)

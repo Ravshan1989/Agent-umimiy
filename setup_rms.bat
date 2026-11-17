@@ -17,15 +17,17 @@ where npm >nul 2>nul && (
 )
 
 echo [3/4] Konfiguratsiya va 150+ skillar nusxalanmoqda...
-if not exist "%APPDATA%\AgentUmimiy" mkdir "%APPDATA%\AgentUmimiy"
-if not exist "%APPDATA%\AgentUmimiy\agents.json" (
-    copy /Y "packaging\agents.example.json" "%APPDATA%\AgentUmimiy\agents.json" >NUL
+REM Avvalgi versiya ma'lumotlari bo'lsa, papka yaratilishidan oldin yangi nomga ko'chiriladi
+".venv\Scripts\python.exe" -c "from rms_ai import config; config.user_dir()"
+if not exist "%APPDATA%\RMSAI" mkdir "%APPDATA%\RMSAI"
+if not exist "%APPDATA%\RMSAI\agents.json" (
+    copy /Y "packaging\agents.example.json" "%APPDATA%\RMSAI\agents.json" >NUL
 )
 if not exist "litellm_config.yaml" (
     copy /Y "packaging\litellm_config.example.yaml" "litellm_config.yaml" >NUL
 )
-if not exist "%APPDATA%\AgentUmimiy\skills" mkdir "%APPDATA%\AgentUmimiy\skills"
-robocopy "skills" "%APPDATA%\AgentUmimiy\skills" /E /XC /XN /XO >NUL
+if not exist "%APPDATA%\RMSAI\skills" mkdir "%APPDATA%\RMSAI\skills"
+robocopy "skills" "%APPDATA%\RMSAI\skills" /E /XC /XN /XO >NUL
 
 echo [4/4] RMS AI ishga tushirilmoqda...
 start "" ".venv\Scripts\pythonw.exe" app.py

@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agent_umimiy import chatstore
+from rms_ai import chatstore
 
 
 class ChatStoreTests(unittest.TestCase):
@@ -15,7 +15,7 @@ class ChatStoreTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.user_dir = Path(self.temp.name)
-        self.patch_user_dir = patch("agent_umimiy.chatstore.config.user_dir", return_value=self.user_dir)
+        self.patch_user_dir = patch("rms_ai.chatstore.config.user_dir", return_value=self.user_dir)
         self.patch_user_dir.start()
         self.addCleanup(self.patch_user_dir.stop)
 

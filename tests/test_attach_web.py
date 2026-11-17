@@ -10,10 +10,10 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from agent_umimiy import attachments as att
-from agent_umimiy.orchestrator import Orchestrator
-from agent_umimiy.providers import build_agent
-from agent_umimiy.tools import Context, Toolbox, _parse_ddg
+from rms_ai import attachments as att
+from rms_ai.orchestrator import Orchestrator
+from rms_ai.providers import build_agent
+from rms_ai.tools import Context, Toolbox, _parse_ddg
 from tests.test_tools import serve
 
 PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
@@ -157,7 +157,7 @@ class WebTests(unittest.TestCase):
         self.assertTrue(tb2.run("web_fetch", {"url": "http://localhost:1/"})[1])
 
     def test_pdf_extraction_stops_after_page_limit(self):
-        from agent_umimiy import attachments
+        from rms_ai import attachments
 
         class Page:
             def extract_text(self):
@@ -174,7 +174,7 @@ class WebTests(unittest.TestCase):
     def test_uploaded_file_size_and_failed_file_cleanup(self):
         import base64
 
-        from agent_umimiy import attachments
+        from rms_ai import attachments
         folder = Path(tempfile.mkdtemp())
         with mock.patch.object(attachments, "MAX_UPLOAD", 3):
             with self.assertRaises(attachments.AttachError):
@@ -188,7 +188,7 @@ class WebTests(unittest.TestCase):
         srv = page_server({})
         tb = Toolbox(Context(allow_private=False), "t")
         # 127.0.0.1 ning o'zi yopiq; redirect tekshiruvini alohida tekshiramiz
-        from agent_umimiy.tools import ToolError, _check_url
+        from rms_ai.tools import ToolError, _check_url
         with self.assertRaises(ToolError):
             _check_url("http://169.254.169.254/latest", False)
         with self.assertRaises(ToolError):

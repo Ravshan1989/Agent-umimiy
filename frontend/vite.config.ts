@@ -12,7 +12,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: "../agent_umimiy/static/web",
+    outDir: "../rms_ai/static/web",
     emptyOutDir: true,
     sourcemap: false,
   },

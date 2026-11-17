@@ -1,7 +1,7 @@
 ; Inno Setup — oddiy "Keyingi > Keyingi > O'rnatish" o'rnatuvchisi
 [Setup]
 AppName=RMS AI
-AppVersion=0.7.2
+AppVersion=0.7.3
 DefaultDirName={autopf}\RMSAI
 DefaultGroupName=RMS AI
 OutputDir=..\dist
@@ -10,7 +10,7 @@ Compression=lzma2
 SolidCompression=yes
 PrivilegesRequired=lowest
 UninstallDisplayIcon={app}\RMSAI.exe
-SetupIconFile=AgentUmimiy.ico
+SetupIconFile=RMSAI.ico
 
 [Files]
 Source: "..\dist\RMSAI\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion

@@ -315,7 +315,7 @@ class Server:
                 self.transport = StdioTransport(c.get("command", ""), _kv_lines(c.get("env", ""), "="), c.get("cwd") or None)
             self.transport.start()
             self.transport.request("initialize", {"protocolVersion": PROTOCOL, "capabilities": {},
-                                                  "clientInfo": {"name": "agent-umimiy", "version": "0.1"}}, timeout=180)
+                                                  "clientInfo": {"name": "rms-ai", "version": "0.1"}}, timeout=180)
             self.transport.notify("notifications/initialized")
             tools, cursor, seen = [], None, set()
             for _ in range(MAX_PAGES):
