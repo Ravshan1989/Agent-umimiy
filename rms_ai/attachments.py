@@ -61,7 +61,10 @@ def pdf_text(data_or_path, limit: int = MAX_TEXT) -> str:
         pages = reader.pages
         out, total = [], 0
         for i, page in enumerate(pages[:MAX_PDF_PAGES], 1):
-            block = f"[{i}-sahifa]\n{page.extract_text() or ''}"
+            body = (page.extract_text() or "").strip()
+            if not body:
+                continue
+            block = f"[{i}-sahifa]\n{body}"
             out.append(block)
             total += len(block)
             if total > limit:
@@ -187,13 +190,40 @@ def anthropic_content(prompt: str, atts: list[Attachment]):
     return blocks + [{"type": "text", "text": text_with_files(prompt, atts, True)}]
 
 
+def pdf_images(data: bytes, max_images: int = 4) -> list[tuple[str, str]]:
+    """Skaner qilingan PDF sahifalaridan ichki rasmlarni (mime, base64) ko'rinishida ajratadi."""
+    try:
+        import io
+        import pypdf
+        reader = pypdf.PdfReader(io.BytesIO(data))
+    except Exception:
+        return []
+    found: list[tuple[str, str]] = []
+    for page in reader.pages[:MAX_PDF_PAGES]:
+        for img in getattr(page, "images", []) or []:
+            raw = getattr(img, "data", b"")
+            name = str(getattr(img, "name", "") or "").lower()
+            if not raw or len(raw) > MAX_IMAGE:
+                continue
+            mime = "image/png" if name.endswith(".png") else "image/jpeg" if name.endswith((".jpg", ".jpeg")) else ""
+            if not mime:
+                continue
+            found.append((mime, base64.b64encode(raw).decode("ascii")))
+            if len(found) >= max_images:
+                return found
+    return found
+
+
 def openai_content(prompt: str, atts: list[Attachment]):
     text = text_with_files(prompt, atts, False)
-    imgs = [a for a in atts if a.kind == "image"]
+    imgs = [(a.mime, a.b64) for a in atts if a.kind == "image"]
+    for a in atts:
+        if a.kind == "pdf" and "(PDF ichida matn topilmadi" in pdf_text(a.data, 500):
+            imgs.extend(pdf_images(a.data))
     if not imgs:
         return text
     return [{"type": "text", "text": text}] + [
-        {"type": "image_url", "image_url": {"url": f"data:{a.mime};base64,{a.b64}"}} for a in imgs]
+        {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}} for mime, b64 in imgs]
 
 
 def openai_model_for(options: dict, atts: list[Attachment]) -> str:

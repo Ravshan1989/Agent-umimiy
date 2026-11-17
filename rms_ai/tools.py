@@ -265,8 +265,11 @@ def project_notes(root: str | None) -> str:
 
 
 FILES_NOTE = (" When the user asks for a document, report, table, PDF, or translated file, create it with create_document "
-              "(use .pdf for PDF files or .docx for Word) or create_spreadsheet instead of only printing its contents; "
-              "attached PDFs already have their text extracted in the prompt so you can translate them directly into a new .pdf file. "
+              "(use .pdf for PDF files or .docx for Word) or create_spreadsheet instead of only printing its contents. "
+              "Attached PDFs already have their text extracted (or page images attached for scanned PDFs) in the prompt: "
+              "if the user asks to translate, rewrite, or 'modify' an attached PDF, NEVER refuse or tell them to use Google Translate "
+              "or Adobe Acrobat—immediately translate/edit the text and call create_document(name='...pdf', content=...) to save "
+              "the new PDF file. Always reply in the exact language the user wrote in (e.g. Uzbek). "
               "For a chart, diagram or interactive page, create a self-contained .html file: it is shown live.")
 
 
