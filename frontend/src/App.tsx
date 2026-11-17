@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
   Activity, BarChart3, Bell, Bookmark, Bot, Boxes, CalendarClock, Camera, Check, CheckCircle2, ChevronDown, ChevronRight,
-  Clock3, Copy, Database, Download, FileSpreadsheet, FileText, Folder, FolderKanban, Globe2, Home, Languages, Layers,
+  Clock3, Copy, Database, Download, Eye, FileSpreadsheet, FileText, Folder, FolderKanban, Globe2, Home, Languages, Layers,
   LayoutGrid, Loader2, LogOut, Menu, MessageSquare, Mic, Moon, Paperclip, Pencil, Plus, Puzzle, QrCode, RefreshCw, Search, Send,
   Settings, ShieldCheck, SlidersHorizontal, Sparkles, Square, Sun, Trash2, TriangleAlert, Volume2, X, Zap,
 } from "lucide-react";
@@ -96,6 +96,18 @@ const I18N: Record<"ru" | "en", Record<string, string>> = {
     "Rad etish": "Отклонить", "Bu ish davomida doim": "Разрешить для задачи", "Ruxsat berish": "Разрешить",
     "Bekor qilish": "Отмена", "Yopish": "Закрыть", "Qulfni ochish": "Разблокировать",
     "Ekran qulflangan": "Экран заблокирован", "Davom etish uchun PIN-kodni kiriting": "Введите PIN-код для продолжения",
+    "Barcha agentlar (Broadcast)": "Все агенты (Broadcast)",
+    "Zanjir rejimi (Pipeline)": "Цепочка агентов (Pipeline)",
+    "Konsensus (Hakam xulosasi)": "Консенсус (итог судьи)",
+    "Umumiy yordamchi": "Общий помощник",
+    "Yurist / Shartnoma": "Юрист / Договоры",
+    "Buxgalter / Moliya": "Бухгалтер / Финансы",
+    "Senior Dasturchi": "Senior Разработчик",
+    "Rasmiy muharrir": "Официальный редактор",
+    "Standart javob": "Стандартный ответ",
+    "Qisqa va londa": "Кратко и по делу",
+    "Jadval ko‘rinishida": "В виде таблицы",
+    "Batafsil tahlil": "Подробный разбор",
   },
   en: {
     "Bosh sahifa": "Dashboard", "Suhbat": "Chat", "Agentlar": "Agents", "Fayllar": "Files", "Loyihalar": "Projects",
@@ -127,6 +139,18 @@ const I18N: Record<"ru" | "en", Record<string, string>> = {
     "Tezkor amallar": "Quick actions", "Blankalar": "Templates", "Excel jadval": "Excel sheet",
     "PDF tahlil": "PDF analysis", "Veb-qidiruv": "Web search",
     "Saqlangan javoblar": "Saved answers", "Rejalashtirilgan vazifalar": "Scheduled tasks",
+    "Barcha agentlar (Broadcast)": "All agents (Broadcast)",
+    "Zanjir rejimi (Pipeline)": "Agent pipeline",
+    "Konsensus (Hakam xulosasi)": "Consensus (Judge summary)",
+    "Umumiy yordamchi": "General assistant",
+    "Yurist / Shartnoma": "Lawyer / Contracts",
+    "Buxgalter / Moliya": "Accountant / Finance",
+    "Senior Dasturchi": "Senior Developer",
+    "Rasmiy muharrir": "Official editor",
+    "Standart javob": "Standard answer",
+    "Qisqa va londa": "Short & concise",
+    "Jadval ko‘rinishida": "As a table",
+    "Batafsil tahlil": "Detailed analysis",
     "Bildirishnomalar": "Notifications", "Amalga ruxsat kerak": "Approval required",
     "Rad etish": "Deny", "Bu ish davomida doim": "Always for this task", "Ruxsat berish": "Allow",
     "Bekor qilish": "Cancel", "Yopish": "Close", "Qulfni ochish": "Unlock",
@@ -252,6 +276,7 @@ function App() {
   const [memoryFact, setMemoryFact] = useState("");
   const [autoSpeak, setAutoSpeak] = useState(false);
   const [qrModal, setQrModal] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<string | null>(null);
   const [searchIds, setSearchIds] = useState<number[] | null>(null);
   const [customPrompts, setCustomPrompts] = useState<CustomPrompt[]>([]);
   const [persona, setPersona] = useState("default");
@@ -940,6 +965,9 @@ function App() {
     { label: t("Fayllar"), value: generatedFiles.length, icon: Folder, color: "amber", hint: "joriy suhbat" },
   ];
   const fileHref = (name?: string) => chatId ? `/api/file?chat=${chatId}&name=${encodeURIComponent(name || "")}` : "#";
+  // Server shu turlarni qum qutisidagi sahifa qilib ko'rsata oladi (rms_ai/preview.py KINDS)
+  const canPreview = (name?: string) => /\.(html|csv|xlsx|txt|md|json)$/i.test(name || "");
+  const previewButton = (name?: string) => canPreview(name) && <button type="button" className="link-btn" onClick={() => setPreviewFile(name || "")}><Eye size={12} /> Ko‘rish</button>;
   const agentIcons = [FileText, BarChart3, Globe2, FileSpreadsheet];
   const agentTones = ["blue", "", "cyan", "amber"];
 
@@ -959,7 +987,7 @@ function App() {
       </div>
     </> : <div className="messages" style={arenaMode ? { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "12px", alignItems: "start" } : undefined} onScroll={(e) => { const box = e.currentTarget; stickToBottom.current = box.scrollHeight - box.scrollTop - box.clientHeight < 80; }}>
       {records.map((record, index) => record.k === "act"
-        ? <div className="activity-line" style={arenaMode ? { gridColumn: "1 / -1" } : undefined} key={index}>{record.agent}: {record.text}{record.kind === "file" && <><a href={fileHref(record.text)} download><Download size={12} /> Yuklab olish</a>{/\.(png|jpe?g|gif|webp|bmp)$/i.test(record.text || "") && <a className="chat-image-link" href={`${fileHref(record.text)}&inline=1`} target="_blank" rel="noreferrer"><img className="chat-image" src={`${fileHref(record.text)}&inline=1`} alt={record.text || "Rasm"} loading="lazy" /></a>}</>}</div>
+        ? <div className="activity-line" style={arenaMode ? { gridColumn: "1 / -1" } : undefined} key={index}>{record.agent}: {record.text}{record.kind === "file" && <>{previewButton(record.text)}<a href={fileHref(record.text)} download><Download size={12} /> Yuklab olish</a>{/\.(png|jpe?g|gif|webp|bmp)$/i.test(record.text || "") && <a className="chat-image-link" href={`${fileHref(record.text)}&inline=1`} target="_blank" rel="noreferrer"><img className="chat-image" src={`${fileHref(record.text)}&inline=1`} alt={record.text || "Rasm"} loading="lazy" /></a>}</>}</div>
         : <div className={record.k === "user" ? "message-row user-message" : "message-row"} style={arenaMode && record.k === "user" ? { gridColumn: "1 / -1" } : undefined} key={index}><div className="message-avatar">{record.k === "user" ? user.slice(0, 1).toUpperCase() : <Bot size={17} />}</div><div className="message-body"><b>{record.k === "user" ? user : record.name || record.agent || "Agent"}</b><div className={record.err ? "message-bubble error" : record.k === "agent" ? "message-bubble md-bubble" : "message-bubble"}>{record.k === "agent" && !record.err ? <Markdown text={record.text || ""} onRunCode={desktop ? runPythonSnippet : undefined} /> : record.text}{record.files?.length ? <small className="attached">{record.files.map((file, i) => {
                   const shown = typeof file === "string" ? file : (file.name || file.file || "fayl");
                   const stored = typeof file === "string" ? "" : file.file;  // eski yozuvlarda diskdagi nom saqlanmagan
@@ -1008,22 +1036,22 @@ function App() {
       <header className="topbar"><button className="icon-btn menu-btn" title="Menyu" onClick={() => { if (window.innerWidth <= 900) setMobileNav(true); else setNavHidden(!navHidden); }}><Menu /></button><div className="search"><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Qidirish (suhbat, fayl, agent)..." /><Search size={17} /></div>
         <label className="agent-select"><Bot size={16} /><select value={selectedAgent} onChange={(e) => setSelectedAgent(e.target.value)} aria-label="Agent tanlash">
           {agents.map((a) => <option key={a.name} value={a.name} title={a.description || undefined}>{a.name === "auto" ? t("Avtomatik agent") : a.name}</option>)}
-          <option value="broadcast">⚡ Barcha agentlar (Broadcast)</option>
-          <option value="pipeline">🔗 Zanjir rejimi (Pipeline)</option>
-          <option value="consensus">⚖️ Konsensus (Hakam xulosasi)</option>
+          <option value="broadcast">⚡ {t("Barcha agentlar (Broadcast)")}</option>
+          <option value="pipeline">🔗 {t("Zanjir rejimi (Pipeline)")}</option>
+          <option value="consensus">⚖️ {t("Konsensus (Hakam xulosasi)")}</option>
         </select><ChevronDown size={14} /></label>
         <label className="agent-select" title="Mutaxassis roli (Persona)"><Sparkles size={15} /><select value={persona} onChange={(e) => setPersona(e.target.value)} aria-label="Mutaxassis roli">
-          <option value="default">🎯 Umumiy yordamchi</option>
-          <option value="lawyer">👨‍⚖️ Yurist / Shartnoma</option>
-          <option value="accountant">📊 Buxgalter / Moliya</option>
-          <option value="developer">💻 Senior Dasturchi</option>
-          <option value="editor">✍️ Rasmiy muharrir</option>
+          <option value="default">🎯 {t("Umumiy yordamchi")}</option>
+          <option value="lawyer">👨‍⚖️ {t("Yurist / Shartnoma")}</option>
+          <option value="accountant">📊 {t("Buxgalter / Moliya")}</option>
+          <option value="developer">💻 {t("Senior Dasturchi")}</option>
+          <option value="editor">✍️ {t("Rasmiy muharrir")}</option>
         </select><ChevronDown size={14} /></label>
         <label className="agent-select" title="Javob uslubi va uzunligi"><Zap size={14} /><select value={answerStyle} onChange={(e) => setAnswerStyle(e.target.value)} aria-label="Javob uslubi">
-          <option value="default">📝 Standart javob</option>
-          <option value="short">⚡ Qisqa va londa</option>
-          <option value="table">📊 Jadval ko‘rinishida</option>
-          <option value="detailed">📖 Batafsil tahlil</option>
+          <option value="default">📝 {t("Standart javob")}</option>
+          <option value="short">⚡ {t("Qisqa va londa")}</option>
+          <option value="table">📊 {t("Jadval ko‘rinishida")}</option>
+          <option value="detailed">📖 {t("Batafsil tahlil")}</option>
         </select><ChevronDown size={14} /></label>
         <div className="server-pill"><i /> {t("Server: Ulangan")}</div>
         <div className="topbar-right">
@@ -1202,7 +1230,7 @@ function App() {
         </section>}
         {activeView === "Fayllar" && <section className="panel settings-page">
           <div className="panel-heading"><h2><Folder /> Fayllar</h2><span className="text-link">Tanlangan suhbat</span></div>
-          {generatedFiles.length ? generatedFiles.slice().reverse().map((file, i) => <div className="file-row" key={i}><div className="file-icon blue"><FileText /></div><b>{file.text}</b><a href={chatId ? `/api/file?chat=${chatId}&name=${encodeURIComponent(file.text || "")}` : "#"} download><Download size={14} /> Yuklab olish</a></div>) : <div className="empty-state"><FileText /><span>Agent yaratgan fayllar hozircha yo‘q. Chatda fayl yaratishni so‘rang.</span></div>}
+          {generatedFiles.length ? generatedFiles.slice().reverse().map((file, i) => <div className="file-row" key={i}><div className="file-icon blue"><FileText /></div><b>{file.text}</b>{previewButton(file.text)}<a href={chatId ? `/api/file?chat=${chatId}&name=${encodeURIComponent(file.text || "")}` : "#"} download><Download size={14} /> Yuklab olish</a></div>) : <div className="empty-state"><FileText /><span>Agent yaratgan fayllar hozircha yo‘q. Chatda fayl yaratishni so‘rang.</span></div>}
         </section>}
         {activeView === "Hisobotlar" && <section className="panel settings-page">
           <div className="panel-heading"><h2><Activity /> {t("Hisobotlar")}</h2><span className="text-link">Jonli analitika va agentlar tezligi</span></div>
@@ -1326,6 +1354,17 @@ function App() {
           <input autoFocus type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN-kod..." style={{ padding: "10px", borderRadius: "8px", textAlign: "center", fontSize: "18px", letterSpacing: "4px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.16)", color: "inherit" }} />
           <button type="submit" className="primary-btn" style={{ justifyContent: "center" }}>{t("Qulfni ochish")}</button>
         </form>
+      </section>
+    </div>}
+    {previewFile !== null && <div className="approval-backdrop" onClick={() => setPreviewFile(null)}>
+      <section className="approval-dialog panel preview-dialog" role="dialog" aria-modal="true" aria-label={previewFile} onClick={(e) => e.stopPropagation()}>
+        <div className="approval-heading"><Eye /><div><h2>{previewFile}</h2><span>Xavfsiz ko‘rinish: sahifa dastur va internetdan ajratilgan</span></div></div>
+        {/* Izolyatsiyani server beradi: view=1 javobidagi CSP `sandbox allow-scripts` (rms_ai/preview.py) */}
+        <iframe className="preview-frame" title={previewFile} src={`${fileHref(previewFile)}&view=1`} />
+        <div className="approval-actions">
+          <a className="secondary-btn" href={fileHref(previewFile)} download><Download size={14} /> Yuklab olish</a>
+          <button className="primary-btn" onClick={() => setPreviewFile(null)}>{t("Yopish")}</button>
+        </div>
       </section>
     </div>}
     {qrModal !== null && <div className="approval-backdrop" onClick={() => setQrModal(null)}>

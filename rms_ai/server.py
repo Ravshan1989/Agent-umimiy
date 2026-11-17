@@ -1974,6 +1974,7 @@ def run_desktop(config_file: str | None = None) -> bool:
                 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("RMSAI.Desktop")
             except Exception:
                 pass
+        webview.settings["ALLOW_DOWNLOADS"] = True  # sukut bo'yicha o'chiq: "Yuklab olish" jimgina hech narsa qilmasdi
         webview.create_window(
             "RMS AI", f"http://127.0.0.1:{port}/api/desktop-login?token={httpd.app.desktop_token}",
             width=width, height=height, min_size=(880, 560), maximized=maximized, background_color="#04061a")
