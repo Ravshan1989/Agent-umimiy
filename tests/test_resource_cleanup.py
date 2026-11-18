@@ -1,5 +1,6 @@
 """Resurslar (fayl, SQLite ulanishi, fon xizmatlari) to'g'ri yopilishini tekshiruvchi testlar."""
 import json
+import os
 import sqlite3
 import tempfile
 import threading
@@ -99,8 +100,11 @@ class SqliteConnectionTests(unittest.TestCase):
             setup.execute("INSERT INTO settings VALUES ('unified_api_key', 'kalit-1')")
         setup.close()
         opened, connect = self._tracking_connect()
-        env = {"RMS_AI_LLM_DIR": str(self.d)}
-        with mock.patch.dict("os.environ", env, clear=True), mock.patch("sqlite3.connect", side_effect=connect):
+        # Muhitni to'liq tozalamaymiz: Windows'da Path.home() USERPROFILE ga tayanadi.
+        with mock.patch.dict("os.environ", {"RMS_AI_LLM_DIR": str(self.d)}), \
+                mock.patch("sqlite3.connect", side_effect=connect):
+            for name in ("FREELLMAPI_API_KEY", "FREELLMAPI_KEY"):
+                os.environ.pop(name, None)
             key = detect.freellmapi_key()
         self.assertEqual(key, "kalit-1")
         self.assertTrue(opened and all(self._is_closed(c) for c in opened))
