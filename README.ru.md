@@ -9,7 +9,7 @@
 
 ![Платформа](https://img.shields.io/badge/платформа-Windows-0078D6?logo=windows&logoColor=white)
 ![Версия](https://img.shields.io/badge/версия-0.7.3-orange)
-![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Лицензия](https://img.shields.io/badge/лицензия-MIT-green)
 ![Интерфейс](https://img.shields.io/badge/интерфейс-узбекский-1EB53A)
 [![Тесты](https://github.com/Ravshan1989/RMS-AI/actions/workflows/tests.yml/badge.svg)](https://github.com/Ravshan1989/RMS-AI/actions/workflows/tests.yml)
@@ -350,7 +350,7 @@ python -m unittest discover -s tests -t .  # тесты
 ### Сборка .exe
 
 - **GitHub Actions:** Actions → «Dastur yig'ish / Build» → Run workflow. Результат: `RMSAI-Setup.exe`, `RMSAIClient-Setup.exe` (Windows) и `RMSAI-Linux-x86_64.tar.gz` (Linux).
-- **Вручную (Windows):** `packaging\build_windows.bat` (нужен Python и, по желанию, Inno Setup).
+- **Вручную (Windows):** `packaging\build_windows.bat` (нужны Python 3.11+ с работающим Tkinter, Node.js и Inno Setup).
 
 ## ❓ Часто задаваемые вопросы
 

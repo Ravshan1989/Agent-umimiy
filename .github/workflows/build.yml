@@ -8,7 +8,7 @@ on:
         required: false
         default: ""
   push:
-    branches: ["main", "design/maket-dashboard", "feature/ultra-modern-full-integration", "fix/**"]
+    branches: ["main", "design/maket-dashboard", "feature/ultra-modern-full-integration", "audit/**", "fix/**"]
     tags: ["v*"]
 
 permissions:
@@ -89,6 +89,37 @@ jobs:
           choco install innosetup -y --no-progress
           iscc packaging\installer.iss
           iscc packaging\client_installer.iss
+      - if: runner.os == 'Windows'
+        name: O'rnatilgan server va mijoz paketlarini tekshirish
+        shell: pwsh
+        run: |
+          $serverDir = Join-Path $env:RUNNER_TEMP 'RMSAI-Install'
+          $install = Start-Process -FilePath '.\dist\RMSAI-Setup.exe' -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=$serverDir") -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "RMS AI o'rnatuvchisi xato qaytardi: $($install.ExitCode)" }
+          if (-not (Test-Path (Join-Path $serverDir 'RMSAI.exe'))) { throw 'RMSAI.exe o''rnatilmadi.' }
+          $server = Start-Process -FilePath (Join-Path $serverDir 'RMSAI.exe') -ArgumentList @('--serve', '--host', '127.0.0.1', '--port', '18123') -PassThru -WindowStyle Hidden
+          try {
+            $ready = $false
+            for ($i = 0; $i -lt 30; $i++) {
+              if ($server.HasExited) { throw "O'rnatilgan RMS AI serveri muddatidan oldin yopildi: $($server.ExitCode)" }
+              try {
+                $response = Invoke-WebRequest -Uri 'http://127.0.0.1:18123/' -TimeoutSec 2
+                if ($response.StatusCode -eq 200) { $ready = $true; break }
+              } catch { }
+              Start-Sleep -Seconds 1
+            }
+            if (-not $ready) { throw 'O''rnatilgan RMS AI serveri HTTP javob bermadi.' }
+          } finally {
+            if (-not $server.HasExited) { Stop-Process -Id $server.Id -Force }
+          }
+          $uninstall = Start-Process -FilePath (Join-Path $serverDir 'unins000.exe') -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0) { throw "RMS AI server uninstall xato qaytardi: $($uninstall.ExitCode)" }
+          $clientDir = Join-Path $env:RUNNER_TEMP 'RMSAIClient-Install'
+          $install = Start-Process -FilePath '.\dist\RMSAIClient-Setup.exe' -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=$clientDir") -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "RMS AI Client o'rnatuvchisi xato qaytardi: $($install.ExitCode)" }
+          if (-not (Test-Path (Join-Path $clientDir 'RMSAIClient.exe'))) { throw 'RMSAIClient.exe o''rnatilmadi.' }
+          $uninstall = Start-Process -FilePath (Join-Path $clientDir 'unins000.exe') -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0) { throw "RMS AI Client uninstall xato qaytardi: $($uninstall.ExitCode)" }
       - if: runner.os == 'Linux'
         name: Arxiv (tar.gz)
         run: tar -czf dist/RMSAI-Linux-x86_64.tar.gz -C dist RMSAI
@@ -101,3 +132,4 @@ jobs:
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
           files: ${{ matrix.asset }}
+

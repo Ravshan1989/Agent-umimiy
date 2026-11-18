@@ -9,7 +9,7 @@ the agents read and edit your files, control the browser, and help each other.
 
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
 ![Version](https://img.shields.io/badge/version-0.7.3-orange)
-![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![UI](https://img.shields.io/badge/interface-Uzbek-1EB53A)
 [![Tests](https://github.com/Ravshan1989/RMS-AI/actions/workflows/tests.yml/badge.svg)](https://github.com/Ravshan1989/RMS-AI/actions/workflows/tests.yml)
@@ -346,7 +346,7 @@ New agent type: subclass `Agent` in `providers.py` and add it to `KINDS`.
 ### Building the .exe
 
 - **GitHub Actions:** Actions → "Dastur yig'ish / Build" → Run workflow. Result: `RMSAI-Setup.exe`, `RMSAIClient-Setup.exe` (Windows) and `RMSAI-Linux-x86_64.tar.gz` (Linux).
-- **Manually (Windows):** `packaging\build_windows.bat` (needs Python and, optionally, Inno Setup).
+- **Manually (Windows):** `packaging\build_windows.bat` (requires Python 3.11+ with working Tkinter, Node.js and Inno Setup).
 
 ## ❓ Frequently asked questions
 

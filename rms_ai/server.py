@@ -43,9 +43,7 @@ from . import (
     translit,
     updater,
 )
-from . import (
-    mcp as mcplib,
-)
+from . import mcp as mcplib
 from .monitor_page import MONITOR_PAGE
 from .server_page import PAGE
 from .store import SESSION_DAYS, Store, StoreError
