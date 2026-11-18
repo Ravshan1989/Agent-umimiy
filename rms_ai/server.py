@@ -35,7 +35,6 @@ from . import (
     config,
     discovery,
     memory,
-    mcp as mcplib,
     preview,
     rag,
     remote,
@@ -43,6 +42,9 @@ from . import (
     telegram_bot,
     translit,
     updater,
+)
+from . import (
+    mcp as mcplib,
 )
 from .monitor_page import MONITOR_PAGE
 from .server_page import PAGE

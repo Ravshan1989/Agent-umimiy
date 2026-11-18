@@ -129,7 +129,7 @@ def discover_server(timeout: float = 1.8, discovery_port: int = DISCOVERY_PORT) 
             sock.settimeout(min(0.4, remaining))
             try:
                 raw, addr = sock.recvfrom(2048)
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except OSError:
                 break

@@ -6,8 +6,8 @@ import json
 import os
 import threading
 import time
-from pathlib import Path
 from collections.abc import Callable
+from pathlib import Path
 
 from . import config
 
