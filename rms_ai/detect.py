@@ -1,6 +1,7 @@
 """Kompyuterda mavjud agentlarni avtomatik topish (foydalanuvchi hech narsa yozmasligi uchun)."""
 from __future__ import annotations
 
+import contextlib
 import json
 import shutil
 import urllib.request
@@ -44,7 +45,7 @@ def freellmapi_key() -> str:
     for db_path in candidates:
         try:
             if db_path.is_file():
-                with sqlite3.connect(str(db_path)) as conn:
+                with contextlib.closing(sqlite3.connect(str(db_path))) as conn:
                     row = conn.execute("SELECT value FROM settings WHERE key='unified_api_key'").fetchone()
                     if row and row[0]:
                         return str(row[0])

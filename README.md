@@ -279,7 +279,7 @@ Kalit faqat sizning kompyuteringizdagi sozlama faylida saqlanadi. Model fayl asb
 
 ### Manba koddan ishga tushirish
 
-Python 3.9+ kerak. Qo'shimcha kutubxonalar ixtiyoriy: `pypdf` (PDF o'qish), `qrcode` (telefon uchun QR-kod) `pillow` (skrinshotni Ctrl+V bilan qo'yish), `python-docx` va `openpyxl` (Word va Excel fayl yaratish).
+Python 3.11+ kerak. Qo'shimcha kutubxonalar ixtiyoriy: `pypdf` (PDF o'qish), `qrcode` (telefon uchun QR-kod) `pillow` (skrinshotni Ctrl+V bilan qo'yish), `python-docx` va `openpyxl` (Word va Excel fayl yaratish).
 
 ```bash
 git clone https://github.com/Ravshan1989/RMS-AI.git

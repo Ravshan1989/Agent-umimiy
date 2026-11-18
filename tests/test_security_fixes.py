@@ -127,6 +127,7 @@ class PostBodyLimitTests(unittest.TestCase):
         self.addCleanup(self.store.close)
         self.addCleanup(self.httpd.server_close)
         self.addCleanup(self.httpd.shutdown)
+        self.addCleanup(self.httpd.app.shutdown, 0)  # log fayli va fon xizmatlari ham yopilsin
 
     def post(self, path, length, body=b""):
         c = http.client.HTTPConnection("127.0.0.1", self.httpd.server_port, timeout=5)

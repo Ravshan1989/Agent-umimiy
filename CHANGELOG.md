@@ -6,6 +6,15 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 
 ## [Nashr qilinmagan] / [Unreleased]
 
+### Tuzatishlar / Fixed
+- Klassik oynada veb-server o'chirilganda (`server.stop`) endi `App.shutdown()` ham chaqiriladi: ishlayotgan agentlar, MCP jarayonlari, rejalashtiruvchi, Telegram ko'prigi va `requests.log` fayli ochiq qolmaydi; oynaning o'z brauzeri esa yopilmaydi.
+- `discovery.DiscoveryResponder`: `stop()` va fon oqimi o'rtasidagi poyga (`'NoneType' object has no attribute 'sendto'`) tuzatildi.
+- `rag` va `detect.freellmapi_key`: SQLite ulanishlari endi har doim yopiladi (`with conn` faqat commit qilardi); indekslash xatosida o'zgarishlar bekor qilinadi.
+- `ruff check` xatolari tuzatildi (CI'dagi lint qadami yiqilardi); CI matritsasi `requires-python >=3.11` ga moslandi (3.9 o'rniga 3.12), hujjatlarda "Python 3.11+".
+
+### Testlar / Tests
+- `tests/test_resource_cleanup.py`: yuqoridagi tuzatishlar uchun regressiya testlari; server testlari endi fon xizmatlarini ham yopadi (ResourceWarning'larsiz).
+
 ## [0.7.2] — 2026-11-15
 
 ### Xavfsizlik va Tuzatishlar / Security & Fixed

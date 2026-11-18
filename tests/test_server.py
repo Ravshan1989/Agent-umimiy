@@ -63,6 +63,7 @@ class ServerTests(unittest.TestCase):
         self.addCleanup(self.store.close)
         self.addCleanup(self.httpd.server_close)
         self.addCleanup(self.httpd.shutdown)
+        self.addCleanup(self.httpd.app.shutdown, 0)  # log fayli va fon xizmatlari ham yopilsin
         self.base = f"http://127.0.0.1:{self.httpd.server_port}"
 
     def user(self, name: str) -> Client:
@@ -203,6 +204,7 @@ class ServerTests(unittest.TestCase):
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
         self.addCleanup(httpd.server_close)
         self.addCleanup(httpd.shutdown)
+        self.addCleanup(httpd.app.shutdown, 0)
         client = Client(f"http://127.0.0.1:{httpd.server_port}")
         self.assertEqual(client.call("/api/workspace")[0], 401)
         self.assertEqual(client.call("/api/register", {"name": "TestUser", "password": PASSWORD,
@@ -410,6 +412,7 @@ class ServerTests(unittest.TestCase):
 class StoreTests(unittest.TestCase):
     def test_passwords_sessions_and_cascade(self):
         s = Store(":memory:")
+        self.addCleanup(s.close)
         with self.assertRaises(StoreError):
             s.add_user("Ali", "qisqa")
         uid = s.add_user("Ali", PASSWORD)

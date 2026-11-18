@@ -27,7 +27,7 @@ mamnuniyat bilan qabul qilinadi.
 
 ## Manba koddan ishga tushirish
 
-Python 3.9+ kerak. Ixtiyoriy kutubxonalar: `pypdf` (PDF), `qrcode` (telefon QR), `pillow` (skrinshot qo'yish), `python-docx` va `openpyxl` (Word/Excel yaratish).
+Python 3.11+ kerak. Ixtiyoriy kutubxonalar: `pypdf` (PDF), `qrcode` (telefon QR), `pillow` (skrinshot qo'yish), `python-docx` va `openpyxl` (Word/Excel yaratish).
 
 ```bash
 git clone https://github.com/Ravshan1989/RMS-AI.git

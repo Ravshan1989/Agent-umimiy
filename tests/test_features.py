@@ -252,6 +252,7 @@ class MemoryApprovalTests(unittest.TestCase):
         self.assertTrue((tmp_dir / fname).is_file())
 
         st = store.Store(tmp_dir / "test.sqlite3")
+        self.addCleanup(st.close)
         uid = st.local_user("Tester")
         cid = st.new_chat(uid)
         st.set_title(cid, "Asl suhbat")

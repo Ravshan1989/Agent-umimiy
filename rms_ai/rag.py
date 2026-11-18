@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import sqlite3
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from . import config, docs
@@ -19,14 +21,20 @@ def _db_path() -> Path:
     return config.user_dir() / "rag_index.db"
 
 
-def _connect() -> sqlite3.Connection:
+@contextmanager
+def _connect() -> Iterator[sqlite3.Connection]:
+    """Ulanish: muvaffaqiyatda commit, xatoda rollback va har doim yopiladi (fayl ochiq qolmaydi)."""
     conn = sqlite3.connect(str(_db_path()), timeout=10)
-    conn.execute("PRAGMA journal_mode = WAL")
-    conn.execute("PRAGMA synchronous = NORMAL")
-    conn.execute(
-        "CREATE VIRTUAL TABLE IF NOT EXISTS docs_fts USING fts5(path, name, content, updated UNINDEXED)"
-    )
-    return conn
+    try:
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA synchronous = NORMAL")
+        conn.execute(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS docs_fts USING fts5(path, name, content, updated UNINDEXED)"
+        )
+        with conn:
+            yield conn
+    finally:
+        conn.close()
 
 
 def _extract_text(path: Path) -> str:

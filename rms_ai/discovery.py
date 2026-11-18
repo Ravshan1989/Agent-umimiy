@@ -88,16 +88,18 @@ class DiscoveryResponder:
                 "server_id": server_id,
             }
         ).encode("utf-8")
-        while not self._stop.is_set() and self._sock:
+        # stop() boshqa oqimdan self._sock ni None qiladi: soket bir marta olinadi, yopilgach recvfrom OSError beradi.
+        sock = self._sock
+        while sock is not None and not self._stop.is_set():
             try:
-                data, addr = self._sock.recvfrom(1024)
-            except socket.timeout:
+                data, addr = sock.recvfrom(1024)
+            except TimeoutError:
                 continue
             except OSError:
                 break
-            if data.strip() == DISCOVERY_MAGIC:
+            if data.strip() == DISCOVERY_MAGIC and not self._stop.is_set():
                 try:
-                    self._sock.sendto(payload, addr)
+                    sock.sendto(payload, addr)
                 except OSError:
                     pass
 
@@ -129,7 +131,7 @@ def discover_server(timeout: float = 1.8, discovery_port: int = DISCOVERY_PORT) 
             sock.settimeout(min(0.4, remaining))
             try:
                 raw, addr = sock.recvfrom(2048)
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except OSError:
                 break

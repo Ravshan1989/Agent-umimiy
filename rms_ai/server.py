@@ -29,7 +29,20 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import attachments, automation, config, discovery, memory, preview, rag, remote, skills, telegram_bot, translit, updater
+from . import (
+    attachments,
+    automation,
+    config,
+    discovery,
+    memory,
+    preview,
+    rag,
+    remote,
+    skills,
+    telegram_bot,
+    translit,
+    updater,
+)
 from . import mcp as mcplib
 from .monitor_page import MONITOR_PAGE
 from .server_page import PAGE
@@ -535,8 +548,12 @@ class App:
             if ch and ch.cancel:
                 ch.cancel.set()
 
-    def shutdown(self, timeout: float = 6.0) -> None:
-        """Dastur yopilayotganda: ishlayotgan agentlarni to'xtatadi va javoblar bazaga yozilishini kutadi."""
+    def shutdown(self, timeout: float = 6.0, close_browsers: bool = True) -> None:
+        """Dastur yopilayotganda: ishlayotgan agentlarni to'xtatadi va javoblar bazaga yozilishini kutadi.
+
+        Takror chaqirish xavfsiz. `close_browsers=False` — klassik oyna ochiq qolganda (faqat veb-server
+        o'chirilganda) oynaning o'z brauzeri yopilib qolmasligi uchun.
+        """
         self._cancel_approvals()
         with self.metrics_lock:
             if self.request_log is not None:
@@ -567,8 +584,9 @@ class App:
         if network_server:
             network_server.shutdown()
             network_server.server_close()
-        from . import browser
-        browser.shutdown()
+        if close_browsers:
+            from . import browser
+            browser.shutdown()
 
     def delete_chat(self, chat_id: int) -> None:
         with self.lock:
@@ -1838,7 +1856,9 @@ def start(host: str, port: int, config_file: str | None = None) -> Server:
     return httpd
 
 
-def stop(httpd: Server) -> None:
+def stop(httpd: Server, close_browsers: bool = False) -> None:
+    """Fon serverini to'xtatadi: agentlar, MCP jarayonlari, rejalashtiruvchi va log fayli ham yopiladi."""
+    httpd.app.shutdown(close_browsers=close_browsers)
     httpd.shutdown()
     httpd.server_close()
     httpd.store.close()
@@ -1983,6 +2003,5 @@ def run_desktop(config_file: str | None = None) -> bool:
         if not shown.is_set():
             return False
     finally:
-        httpd.app.shutdown()  # ishlayotgan agent javobi bazaga yozilib ulgursin
-        stop(httpd)
+        stop(httpd, close_browsers=True)  # ishlayotgan agent javobi bazaga yozilib ulgursin
     return shown.is_set()
