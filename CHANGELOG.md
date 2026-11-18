@@ -6,6 +6,15 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 
 ## [Nashr qilinmagan] / [Unreleased]
 
+## [0.7.3] — 2026-11-18
+
+### CI va tuzatishlar / CI & Fixed
+- Windows o'rnatuvchi buildi tizimdagi Tcl/Tk joylashuvini tekshiradi; o'rnatish skriptlari xatoda to'xtaydi.
+- Windows buyruq timeouti child process guruhini ham to'xtatadi; CI Python 3.11–3.13 uchun lint/test/buildni tekshiradi.
+- O'rnatilgan Windows server va mijoz paketlari CI'da o'rnatish, server HTTP smoke va olib tashlash bosqichlaridan o'tadi.
+- Frontend build toolchain yangilandi, ishlatilmaydigan shadcn dev dependency olib tashlandi.
+
+
 ## [0.7.2] — 2026-11-15
 
 ### Xavfsizlik va Tuzatishlar / Security & Fixed
