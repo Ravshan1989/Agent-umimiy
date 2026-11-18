@@ -8,8 +8,7 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
-from collections.abc import Iterator
-from typing import Callable
+from collections.abc import Callable, Iterator
 from urllib.parse import urlparse
 
 from .base import AgentError
