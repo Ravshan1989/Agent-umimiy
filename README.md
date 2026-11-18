@@ -8,7 +8,7 @@ Claude, ChatGPT, Gemini, Ollama va boshqa modellar bilan bitta oynada ishlang:
 agentlar fayllaringizni o'qiydi, tahrirlaydi, brauzerni boshqaradi va bir-biriga yordam beradi.
 
 ![Platforma](https://img.shields.io/badge/platforma-Windows-0078D6?logo=windows&logoColor=white)
-![Versiya](https://img.shields.io/badge/versiya-0.7.2-orange)
+![Versiya](https://img.shields.io/badge/versiya-0.7.3-orange)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Litsenziya](https://img.shields.io/badge/litsenziya-MIT-green)
 ![Til](https://img.shields.io/badge/interfeys-UZ%20(Lotin%2FKirill)%20%7C%20RU%20%7C%20EN-1EB53A)
@@ -279,7 +279,7 @@ Kalit faqat sizning kompyuteringizdagi sozlama faylida saqlanadi. Model fayl asb
 
 ### Manba koddan ishga tushirish
 
-Python 3.9+ kerak. Qo'shimcha kutubxonalar ixtiyoriy: `pypdf` (PDF o'qish), `qrcode` (telefon uchun QR-kod) `pillow` (skrinshotni Ctrl+V bilan qo'yish), `python-docx` va `openpyxl` (Word va Excel fayl yaratish).
+Python 3.11+ kerak. Qo'shimcha kutubxonalar ixtiyoriy: `pypdf` (PDF o'qish), `qrcode` (telefon uchun QR-kod) `pillow` (skrinshotni Ctrl+V bilan qo'yish), `python-docx` va `openpyxl` (Word va Excel fayl yaratish).
 
 ```bash
 git clone https://github.com/Ravshan1989/RMS-AI.git
@@ -313,7 +313,7 @@ Yangi agent turi: `providers.py` da `Agent` ni meros qilib, `KINDS` ga qo'shing.
 ### .exe ni yig'ish
 
 - **GitHub Actions:** Actions → "Dastur yig'ish / Build" → Run workflow. Natija: `RMSAI-Setup.exe`, `RMSAIClient-Setup.exe` (Windows) va `RMSAI-Linux-x86_64.tar.gz` (Linux).
-- **Qo'lda (Windows):** `packaging\build_windows.bat` (Python va ixtiyoriy ravishda Inno Setup kerak).
+- **Qo'lda (Windows):** `packaging\build_windows.bat` (Python 3.11+, ishlaydigan Tkinter, Node.js va Inno Setup kerak).
 
 ## ❓ Ko'p beriladigan savollar
 

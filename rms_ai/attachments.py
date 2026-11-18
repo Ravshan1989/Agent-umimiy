@@ -194,6 +194,7 @@ def pdf_images(data: bytes, max_images: int = 4) -> list[tuple[str, str]]:
     """Skaner qilingan PDF sahifalaridan ichki rasmlarni (mime, base64) ko'rinishida ajratadi."""
     try:
         import io
+
         import pypdf
         reader = pypdf.PdfReader(io.BytesIO(data))
     except Exception:

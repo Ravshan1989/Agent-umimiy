@@ -8,7 +8,7 @@ Work with Claude, ChatGPT, Gemini, Ollama and other models in a single window:
 the agents read and edit your files, control the browser, and help each other.
 
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
-![Version](https://img.shields.io/badge/version-0.7.2-orange)
+![Version](https://img.shields.io/badge/version-0.7.3-orange)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![UI](https://img.shields.io/badge/interface-Uzbek-1EB53A)
@@ -312,7 +312,7 @@ The key is stored only in the settings file on your computer. If a model doesn't
 
 ### Running from source
 
-Python 3.9+ required. Optional libraries: `pypdf` (reading PDFs), `qrcode` (QR code for phone) `pillow` (pasting screenshots with Ctrl+V), `python-docx` and `openpyxl` (creating Word and Excel files).
+Python 3.11+ required. Optional libraries: `pypdf` (reading PDFs), `qrcode` (QR code for phone) `pillow` (pasting screenshots with Ctrl+V), `python-docx` and `openpyxl` (creating Word and Excel files).
 
 ```bash
 git clone https://github.com/Ravshan1989/RMS-AI.git
@@ -346,7 +346,7 @@ New agent type: subclass `Agent` in `providers.py` and add it to `KINDS`.
 ### Building the .exe
 
 - **GitHub Actions:** Actions → "Dastur yig'ish / Build" → Run workflow. Result: `RMSAI-Setup.exe`, `RMSAIClient-Setup.exe` (Windows) and `RMSAI-Linux-x86_64.tar.gz` (Linux).
-- **Manually (Windows):** `packaging\build_windows.bat` (needs Python and, optionally, Inno Setup).
+- **Manually (Windows):** `packaging\build_windows.bat` (requires Python 3.11+ with working Tkinter, Node.js and Inno Setup).
 
 ## ❓ Frequently asked questions
 

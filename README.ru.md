@@ -8,7 +8,7 @@
 агенты читают и редактируют ваши файлы, управляют браузером и помогают друг другу.
 
 ![Платформа](https://img.shields.io/badge/платформа-Windows-0078D6?logo=windows&logoColor=white)
-![Версия](https://img.shields.io/badge/версия-0.7.2-orange)
+![Версия](https://img.shields.io/badge/версия-0.7.3-orange)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Лицензия](https://img.shields.io/badge/лицензия-MIT-green)
 ![Интерфейс](https://img.shields.io/badge/интерфейс-узбекский-1EB53A)
@@ -315,7 +315,7 @@ Claude и `.claude/skills` в проекте. Агент сам загружае
 
 ### Запуск из исходного кода
 
-Нужен Python 3.9+. Дополнительные библиотеки по желанию: `pypdf` (чтение PDF), `qrcode` (QR-код для
+Нужен Python 3.11+. Дополнительные библиотеки по желанию: `pypdf` (чтение PDF), `qrcode` (QR-код для
 телефона) `pillow` (вставка скриншотов через Ctrl+V), `python-docx` и `openpyxl` (создание файлов Word и Excel).
 
 ```bash
@@ -350,7 +350,7 @@ python -m unittest discover -s tests -t .  # тесты
 ### Сборка .exe
 
 - **GitHub Actions:** Actions → «Dastur yig'ish / Build» → Run workflow. Результат: `RMSAI-Setup.exe`, `RMSAIClient-Setup.exe` (Windows) и `RMSAI-Linux-x86_64.tar.gz` (Linux).
-- **Вручную (Windows):** `packaging\build_windows.bat` (нужен Python и, по желанию, Inno Setup).
+- **Вручную (Windows):** `packaging\build_windows.bat` (нужны Python 3.11+ с работающим Tkinter, Node.js и Inno Setup).
 
 ## ❓ Часто задаваемые вопросы
 

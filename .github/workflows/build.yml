@@ -8,7 +8,7 @@ on:
         required: false
         default: ""
   push:
-    branches: ["main", "design/maket-dashboard", "feature/ultra-modern-full-integration"]
+    branches: ["main", "design/maket-dashboard", "feature/ultra-modern-full-integration", "audit/**"]
     tags: ["v*"]
 
 permissions:

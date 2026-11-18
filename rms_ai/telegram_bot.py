@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import threading
 import urllib.request
-from typing import Callable
+from collections.abc import Callable
 
 
 class TelegramBridge:

@@ -29,7 +29,20 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
-from . import attachments, automation, config, discovery, memory, preview, rag, remote, skills, telegram_bot, translit, updater
+from . import (
+    attachments,
+    automation,
+    config,
+    discovery,
+    memory,
+    preview,
+    rag,
+    remote,
+    skills,
+    telegram_bot,
+    translit,
+    updater,
+)
 from . import mcp as mcplib
 from .monitor_page import MONITOR_PAGE
 from .server_page import PAGE
