@@ -16,9 +16,9 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import webbrowser
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
-from collections.abc import Callable
 from pathlib import Path
 
 from . import docs, memory, proc, writer
