@@ -19,7 +19,7 @@ import webbrowser
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
 
 from . import docs, memory, proc, writer
 

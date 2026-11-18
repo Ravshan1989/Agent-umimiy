@@ -8,8 +8,8 @@ Work with Claude, ChatGPT, Gemini, Ollama and other models in a single window:
 the agents read and edit your files, control the browser, and help each other.
 
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
-![Version](https://img.shields.io/badge/version-0.7.2-orange)
-![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![Version](https://img.shields.io/badge/version-0.7.3-orange)
+![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![UI](https://img.shields.io/badge/interface-Uzbek-1EB53A)
 [![Tests](https://github.com/Ravshan1989/RMS-AI/actions/workflows/tests.yml/badge.svg)](https://github.com/Ravshan1989/RMS-AI/actions/workflows/tests.yml)
@@ -312,7 +312,7 @@ The key is stored only in the settings file on your computer. If a model doesn't
 
 ### Running from source
 
-Python 3.9+ required. Optional libraries: `pypdf` (reading PDFs), `qrcode` (QR code for phone) `pillow` (pasting screenshots with Ctrl+V), `python-docx` and `openpyxl` (creating Word and Excel files).
+Python 3.11+ required. Optional libraries: `pypdf` (reading PDFs), `qrcode` (QR code for phone) `pillow` (pasting screenshots with Ctrl+V), `python-docx` and `openpyxl` (creating Word and Excel files).
 
 ```bash
 git clone https://github.com/Ravshan1989/RMS-AI.git

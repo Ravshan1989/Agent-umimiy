@@ -91,7 +91,7 @@ class DiscoveryResponder:
         while not self._stop.is_set() and self._sock:
             try:
                 data, addr = self._sock.recvfrom(1024)
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except OSError:
                 break

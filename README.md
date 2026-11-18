@@ -8,8 +8,8 @@ Claude, ChatGPT, Gemini, Ollama va boshqa modellar bilan bitta oynada ishlang:
 agentlar fayllaringizni o'qiydi, tahrirlaydi, brauzerni boshqaradi va bir-biriga yordam beradi.
 
 ![Platforma](https://img.shields.io/badge/platforma-Windows-0078D6?logo=windows&logoColor=white)
-![Versiya](https://img.shields.io/badge/versiya-0.7.2-orange)
-![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![Versiya](https://img.shields.io/badge/versiya-0.7.3-orange)
+![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
 ![Litsenziya](https://img.shields.io/badge/litsenziya-MIT-green)
 ![Til](https://img.shields.io/badge/interfeys-UZ%20(Lotin%2FKirill)%20%7C%20RU%20%7C%20EN-1EB53A)
 [![Testlar](https://github.com/Ravshan1989/RMS-AI/actions/workflows/tests.yml/badge.svg)](https://github.com/Ravshan1989/RMS-AI/actions/workflows/tests.yml)
@@ -279,7 +279,7 @@ Kalit faqat sizning kompyuteringizdagi sozlama faylida saqlanadi. Model fayl asb
 
 ### Manba koddan ishga tushirish
 
-Python 3.9+ kerak. Qo'shimcha kutubxonalar ixtiyoriy: `pypdf` (PDF o'qish), `qrcode` (telefon uchun QR-kod) `pillow` (skrinshotni Ctrl+V bilan qo'yish), `python-docx` va `openpyxl` (Word va Excel fayl yaratish).
+Python 3.11+ kerak. Qo'shimcha kutubxonalar ixtiyoriy: `pypdf` (PDF o'qish), `qrcode` (telefon uchun QR-kod) `pillow` (skrinshotni Ctrl+V bilan qo'yish), `python-docx` va `openpyxl` (Word va Excel fayl yaratish).
 
 ```bash
 git clone https://github.com/Ravshan1989/RMS-AI.git

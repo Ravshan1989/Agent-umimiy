@@ -7,7 +7,7 @@ import os
 import threading
 import time
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
 
 from . import config
 
