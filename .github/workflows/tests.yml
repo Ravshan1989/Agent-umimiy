@@ -1,5 +1,6 @@
 name: Testlar / Tests
 # Python support follows pyproject.toml (>=3.11).
+# Lint is a blocking check; keep the formatter and imports clean before merging.
 
 on:
   push:
