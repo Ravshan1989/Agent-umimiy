@@ -1,4 +1,5 @@
 name: Testlar / Tests
+# Python support follows pyproject.toml (>=3.11).
 
 on:
   push:
