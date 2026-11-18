@@ -46,7 +46,8 @@ def probe_url(url: str, timeout: float = 0.9) -> bool:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return 200 <= resp.status < 500
     except urllib.error.HTTPError as exc:
-        return 200 <= exc.code < 500
+        with exc:  # javob tanasini yopadi (aks holda ResourceWarning)
+            return 200 <= exc.code < 500
     except Exception:
         return False
 

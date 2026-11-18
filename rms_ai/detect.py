@@ -63,8 +63,9 @@ def freellmapi(base: str = "http://localhost:3001") -> list[dict]:
         ids = list_models(url, timeout=1.5)
         model = ids[0] if ids else model
     except urllib.error.HTTPError as exc:
-        if exc.code not in (401, 403):  # kalit so'raydi — demak shlyuz bor
-            return []
+        with exc:  # javob tanasini yopadi (aks holda ResourceWarning)
+            if exc.code not in (401, 403):  # kalit so'raydi — demak shlyuz bor
+                return []
     except Exception:
         return []
     spec = {"name": "freellmapi", "type": "openai", "base_url": url, "model": model,

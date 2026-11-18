@@ -145,7 +145,7 @@ def _handle_call(mode: str, name: str, args: dict) -> str:
     if name == "quick_ref":
         topic = str(args.get("topic", "")).lower()
         refs = {
-            "python": "Python 3.12: pathlib.Path, unittest, sqlite3, urllib.request, dataclasses, typing.",
+            "python": "Python 3.11+: pathlib.Path, unittest, sqlite3, urllib.request, dataclasses, typing.",
             "git": "Git: git status, git diff, git log --oneline, git add, git commit, git push.",
             "sql": "SQLite: SELECT, INSERT, UPDATE, DELETE, PRAGMA journal_mode=WAL, PRAGMA synchronous=NORMAL.",
         }

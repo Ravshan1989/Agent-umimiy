@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
     steps:
       - uses: actions/checkout@v7
       - name: Python ${{ matrix.python-version }} o'rnatish
@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.13", "3.15"]
     steps:
       - uses: actions/checkout@v7
       - name: Python ${{ matrix.python-version }} o'rnatish
@@ -56,7 +56,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.13"
+          python-version: "3.15"
       - name: ruff o'rnatish
         run: pip install ruff
       - name: Lint (ruff)
@@ -68,7 +68,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.13"
+          python-version: "3.15"
       - name: Kutubxonalarni o'rnatish
         run: python -m pip install --upgrade pip pypdf qrcode pillow python-docx openpyxl python-pptx pip-audit
       - name: Zaif kutubxonalarni tekshirish
@@ -92,7 +92,7 @@ jobs:
       - name: Python server integratsiya sinovlari
         uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.15"
       - name: Server test kutubxonalarini o'rnatish
         run: python -m pip install pypdf qrcode pillow python-docx openpyxl python-pptx
       - name: React build va Python API integratsiyasini tekshirish

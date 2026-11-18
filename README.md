@@ -9,7 +9,7 @@ agentlar fayllaringizni o'qiydi, tahrirlaydi, brauzerni boshqaradi va bir-biriga
 
 ![Platforma](https://img.shields.io/badge/platforma-Windows-0078D6?logo=windows&logoColor=white)
 ![Versiya](https://img.shields.io/badge/versiya-0.7.2-orange)
-![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.15-3776AB?logo=python&logoColor=white)
 ![Litsenziya](https://img.shields.io/badge/litsenziya-MIT-green)
 ![Til](https://img.shields.io/badge/interfeys-UZ%20(Lotin%2FKirill)%20%7C%20RU%20%7C%20EN-1EB53A)
 [![Testlar](https://github.com/Ravshan1989/RMS-AI/actions/workflows/tests.yml/badge.svg)](https://github.com/Ravshan1989/RMS-AI/actions/workflows/tests.yml)

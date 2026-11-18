@@ -43,7 +43,8 @@ class MonitorTests(unittest.TestCase):
                     self.cookie = r.headers["Set-Cookie"].split(";")[0]
                 return r.status, r.read()
         except urllib.error.HTTPError as exc:
-            return exc.code, exc.read()
+            with exc:  # javob tanasini yopadi (aks holda ResourceWarning)
+                return exc.code, exc.read()
 
     def register(self):
         code, _ = self.call("/api/register", {"name": "ali", "password": PASSWORD, "invite": self.store.invite().lower()})

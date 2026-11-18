@@ -57,8 +57,9 @@ class GatewayTests(unittest.TestCase):
         srv, _ = gateway()
         base = f"http://127.0.0.1:{srv.server_port}/v1"
         self.assertEqual(detect.list_models(base, "freellmapi-test"), ["llama-free", "qwen-free"])
-        with self.assertRaises(Exception):
+        with self.assertRaises(Exception) as caught:
             detect.list_models(base, "xato-kalit")
+        caught.exception.close()
 
     def test_detect_gateway_asks_for_key(self):
         srv, _ = gateway()

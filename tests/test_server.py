@@ -34,7 +34,8 @@ class Client:
                     self.cookie = r.headers["Set-Cookie"].split(";")[0]
                 return r.status, json.loads(r.read())
         except urllib.error.HTTPError as exc:
-            return exc.code, json.loads(exc.read())
+            with exc:  # javob tanasini yopadi (aks holda ResourceWarning)
+                return exc.code, json.loads(exc.read())
 
     def records(self, chat: int) -> list[dict]:
         """Agent ishini tugatguncha kutib, suhbatdagi barcha xabarlarni qaytaradi."""
@@ -93,6 +94,7 @@ class ServerTests(unittest.TestCase):
 
         with self.assertRaises(urllib.error.HTTPError) as caught:
             urllib.request.build_opener(NoRedirect).open(self.base + "/api/desktop-login?token=kalit-123", timeout=10)
+        caught.exception.close()
         self.assertEqual(caught.exception.code, 302)
         self.assertEqual(caught.exception.headers["Location"], "/")
         c.cookie = caught.exception.headers["Set-Cookie"].split(";")[0]
@@ -127,6 +129,7 @@ class ServerTests(unittest.TestCase):
         req = urllib.request.Request(self.base + "/", headers={"Host": "zararli.example"})
         with self.assertRaises(urllib.error.HTTPError) as caught:
             urllib.request.urlopen(req, timeout=10)
+        caught.exception.close()
         self.assertEqual(caught.exception.code, 404)
         with urllib.request.urlopen(urllib.request.Request(self.base + "/"), timeout=10) as r:
             self.assertEqual(r.status, 200)

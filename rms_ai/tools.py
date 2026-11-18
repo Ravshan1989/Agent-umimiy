@@ -852,7 +852,8 @@ class Toolbox:
                 m = re.search(r"charset=([\w-]+)", ctype)
                 return body.decode(m.group(1) if m else "utf-8", errors="replace"), ctype
         except urllib.error.HTTPError as exc:
-            raise ToolError(f"Sahifa xato qaytardi: HTTP {exc.code}")
+            with exc:  # javob tanasini yopadi (aks holda ResourceWarning)
+                raise ToolError(f"Sahifa xato qaytardi: HTTP {exc.code}")
         except (urllib.error.URLError, OSError) as exc:
             raise ToolError(f"Sahifaga ulanib bo'lmadi: {getattr(exc, 'reason', exc)}")
 

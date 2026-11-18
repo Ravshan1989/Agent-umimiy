@@ -20,7 +20,8 @@ def req(srv, path, token="sir", body=None, raw=None):
         with urllib.request.urlopen(r, timeout=10) as resp:
             return resp.status, dict(resp.headers), resp.read()
     except urllib.error.HTTPError as e:
-        return e.code, dict(e.headers), e.read()
+        with e:  # javob tanasini yopadi (aks holda ResourceWarning)
+            return e.code, dict(e.headers), e.read()
 
 
 class RemoteServerTests(unittest.TestCase):
@@ -79,8 +80,10 @@ class RemoteServerTests(unittest.TestCase):
     def test_oversize_body_rejected(self):
         r = urllib.request.Request(f"http://127.0.0.1:{self.srv.port}/api/send", data=b"{}", method="POST",
                                    headers={"X-Token": "sir", "Content-Length": str(remote.MAX_BODY + 1)})
-        with self.assertRaises((urllib.error.HTTPError, urllib.error.URLError, ConnectionError)):
+        with self.assertRaises((urllib.error.HTTPError, urllib.error.URLError, ConnectionError)) as caught:
             urllib.request.urlopen(r, timeout=5)
+        if isinstance(caught.exception, urllib.error.HTTPError):
+            caught.exception.close()
 
     def test_body_parser_rejects_negative_missing_and_truncated_lengths(self):
         with self.assertRaises(remote.RequestBodyError):

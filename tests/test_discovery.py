@@ -47,6 +47,7 @@ class TestDiscovery(unittest.TestCase):
                 base = f"http://127.0.0.1:{httpd.server_port}"
                 with self.assertRaises(urllib.error.HTTPError) as ctx:
                     urllib.request.urlopen(base + "/", timeout=3)
+                ctx.exception.close()
                 self.assertEqual(ctx.exception.code, 403)
 
                 cj = http.cookiejar.CookieJar()

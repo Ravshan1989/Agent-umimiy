@@ -1884,7 +1884,8 @@ def run(host: str, port: int, config_file: str | None = None) -> None:
     for url in urls(httpd):
         print("  " + url)
     print(f"Ro'yxatdan o'tish uchun taklif kodi: {httpd.store.invite()}")
-    print("To'xtatish: Ctrl+C")
+    # flush: chiqish faylga yoki xizmat jurnaliga yo'naltirilganda ham taklif kodi darhol ko'rinsin
+    print("To'xtatish: Ctrl+C", flush=True)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

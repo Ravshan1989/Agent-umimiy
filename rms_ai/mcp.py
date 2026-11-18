@@ -272,10 +272,11 @@ class HttpTransport:
                     raise McpError("MCP HTTP javobi 8 MB chegarasidan oshdi.")
                 return json.loads(raw)
         except urllib.error.HTTPError as exc:
-            detail = exc.read().decode(errors="replace")[:200]
-            if exc.code in (401, 403):
-                raise McpError(f"Ruxsat yo'q (HTTP {exc.code}): kalitni tekshiring. Server OAuth talab qilsa, hozircha qo'llanmaydi.")
-            raise McpError(f"HTTP {exc.code}: {detail}")
+            with exc:  # javob tanasini yopadi (aks holda ResourceWarning)
+                detail = exc.read().decode(errors="replace")[:200]
+                if exc.code in (401, 403):
+                    raise McpError(f"Ruxsat yo'q (HTTP {exc.code}): kalitni tekshiring. Server OAuth talab qilsa, hozircha qo'llanmaydi.")
+                raise McpError(f"HTTP {exc.code}: {detail}")
         except urllib.error.URLError as exc:
             raise McpError(f"Ulanib bo'lmadi: {exc.reason}")
 

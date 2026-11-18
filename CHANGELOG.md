@@ -12,6 +12,12 @@ Format [Keep a Changelog](https://keepachangelog.com/) asosida, loyiha
 - `rag` va `detect.freellmapi_key`: SQLite ulanishlari endi har doim yopiladi (`with conn` faqat commit qilardi); indekslash xatosida o'zgarishlar bekor qilinadi.
 - `ruff check` xatolari tuzatildi (CI'dagi lint qadami yiqilardi); CI matritsasi `requires-python >=3.11` ga moslandi (3.9 o'rniga 3.12), hujjatlarda "Python 3.11+".
 
+### O'zgartirildi / Changed
+- Dastur endi **Python 3.15** bilan yig'iladi (avval 3.12). Barcha testlar 3.11–3.15 da o'tadi; CI Linux'da 3.11–3.15, Windows'da 3.11/3.13/3.15 da sinaydi.
+- `packaging/build_windows.bat` endi Python versiyasiga (`Python313` yo'li) va Tcl/Tk versiyasiga (8.6 yoki 9.0) bog'lanmagan.
+- `--serve` rejimida taklif kodi chiqish faylga yoki xizmat jurnaliga yo'naltirilganda ham darhol ko'rinadi.
+- `HTTPError` javoblari endi yopiladi (Python 3.14+ dagi `ResourceWarning`).
+
 ### Testlar / Tests
 - `tests/test_resource_cleanup.py`: yuqoridagi tuzatishlar uchun regressiya testlari; server testlari endi fon xizmatlarini ham yopadi (ResourceWarning'larsiz).
 

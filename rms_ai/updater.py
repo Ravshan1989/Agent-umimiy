@@ -68,11 +68,12 @@ def check_update(url: str | None = None, timeout: float = 5.0) -> dict:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        if exc.code == 404:
-            base["error"] = "Hali GitHub Releases da nashr (release) joylanmagan."
-        else:
-            base["error"] = f"Server xatosi: HTTP {exc.code}"
-        return base
+        with exc:  # javob tanasini yopadi (aks holda ResourceWarning)
+            if exc.code == 404:
+                base["error"] = "Hali GitHub Releases da nashr (release) joylanmagan."
+            else:
+                base["error"] = f"Server xatosi: HTTP {exc.code}"
+            return base
     except Exception as exc:
         base["error"] = f"Internetga ulanib bo'lmadi: {exc}"
         return base
