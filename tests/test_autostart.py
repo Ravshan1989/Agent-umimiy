@@ -33,6 +33,14 @@ class TestAutostart(unittest.TestCase):
                         self.assertIn("litellm", started)
                         self.assertGreaterEqual(sp.call_count, 3)
 
+    def test_find_llm_root_env_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "litellm_config.yaml").write_text("model_list: []\n")
+            with mock.patch.dict("os.environ", {"RMS_AI_LLM_DIR": str(root)}):
+                self.assertEqual(autostart.find_llm_root(r"D:\nonexistent-project"), root)
+                self.assertEqual(autostart.find_llm_root(None), root)
+
 
 if __name__ == "__main__":
     unittest.main()

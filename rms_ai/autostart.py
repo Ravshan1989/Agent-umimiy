@@ -40,12 +40,56 @@ def _spawn_background(cmd: list[str], cwd: str | None = None) -> bool:
         return False
 
 
+def _looks_like_llm_root(path: Path) -> bool:
+    """Return True if path looks like the local LLM gateways workspace."""
+    return (
+        (path / "freellm" / "server" / "dist" / "index.js").is_file()
+        or (path / "litellm_config.yaml").is_file()
+        or (path / ".venv" / "Scripts" / "litellm.exe").is_file()
+    )
+
+
+def find_llm_root(llm_root: str | Path | None = None) -> Path | None:
+    """Locate the local LLM gateways directory from explicit arg, env, or standard paths."""
+    candidates: list[Path] = []
+    if llm_root:
+        candidates.append(Path(llm_root))
+    env_root = os.environ.get("RMS_AI_LLM_DIR", "").strip()
+    if env_root:
+        candidates.append(Path(env_root))
+    if sys.platform == "win32":
+        candidates.extend([Path("D:/llm"), Path("C:/llm")])
+    candidates.extend([
+        Path.home() / "llm",
+        Path(__file__).resolve().parent.parent.parent / "llm",
+    ])
+    for candidate in candidates:
+        try:
+            if candidate.is_dir() and _looks_like_llm_root(candidate):
+                return candidate
+        except OSError:
+            continue
+    return None
+
+
+def _find_node() -> str | None:
+    """Locate the Node.js executable."""
+    node_bin = shutil.which("node")
+    if node_bin:
+        return node_bin
+    if sys.platform == "win32":
+        for base in (os.environ.get("ProgramFiles", r"C:\Program Files"), os.environ.get("LOCALAPPDATA", "")):
+            if not base:
+                continue
+            for sub in (Path("nodejs") / "node.exe", Path("Programs") / "nodejs" / "node.exe"):
+                candidate = Path(base) / sub
+                if candidate.is_file():
+                    return str(candidate)
+    return None
+
+
 def ensure_local_services(llm_root: str | Path | None = None) -> list[str]:
     """Start local AI gateways (Ollama, FreeLLMAPI, g4f, LiteLLM) if installed and not running."""
-    raw_root = llm_root or os.environ.get("RMS_AI_LLM_DIR", "").strip()
-    if not raw_root:
-        return []
-    root = Path(raw_root)
     started: list[str] = []
 
     if not _is_port_open("127.0.0.1", 11434):
@@ -54,10 +98,14 @@ def ensure_local_services(llm_root: str | Path | None = None) -> list[str]:
         if ollama_bin and _spawn_background([ollama_bin, "serve"]):
             started.append("ollama")
 
+    root = find_llm_root(llm_root)
+    if root is None:
+        return started
+
     freellm_dir = root / "freellm"
     freellm_entry = freellm_dir / "server" / "dist" / "index.js"
     if not _is_port_open("127.0.0.1", 3001) and freellm_entry.is_file():
-        node_bin = shutil.which("node")
+        node_bin = _find_node()
         if node_bin and _spawn_background([node_bin, str(Path("server") / "dist" / "index.js")], cwd=str(freellm_dir)):
             started.append("freellmapi")
 
